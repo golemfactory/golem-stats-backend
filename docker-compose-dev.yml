@@ -1,0 +1,39 @@
+version: '3'
+volumes:
+    db_data: {}
+services:
+    nginx-proxy:
+        image: jwilder/nginx-proxy
+        container_name: nginx-proxy
+        ports:
+            - '80:80'
+        volumes:
+            - '/var/run/docker.sock:/tmp/docker.sock:ro'
+            - './stats-backend:/stats-backend/'
+            - './config/nginx/default_location:/etc/nginx/vhost.d/default_location'
+        depends_on:
+             - webserver
+    webserver:
+        build:
+            context: .
+            dockerfile: compose/django/Dockerfile
+        container_name: webserver
+        environment:
+            VIRTUAL_HOST: localhost
+        depends_on:
+            - postgres
+        volumes:
+            - './stats-backend:/stats-backend/'
+        expose:
+            - '8002'
+        env_file:
+            - ./.envs/.django
+    postgres:
+        build:
+            context: .
+            dockerfile: compose/postgres/Dockerfile
+        container_name: postgres
+        env_file:
+            - ./.envs/.db
+        volumes:
+            - 'db_data:/var/lib/postgresql/data'

@@ -1,0 +1,8 @@
+billiard
+psycopg2
+requests
+gunicorn
+django
+djangorestframework
+markdown
+django-filter
