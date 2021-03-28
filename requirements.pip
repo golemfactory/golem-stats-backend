@@ -1,8 +1,13 @@
 billiard
 psycopg2
 requests
+celery
+django_celery_beat
+celery[redis]
+redis
 gunicorn
 django
 djangorestframework
 markdown
 django-filter
+yapapi

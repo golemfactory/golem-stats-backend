@@ -28,6 +28,35 @@ services:
             - '8002'
         env_file:
             - ./.envs/.django
+    redis:
+        image: 'redis:alpine'
+        expose:
+            - '6379'
+    celery:
+        build:
+            context: .
+            dockerfile: compose/celery/Dockerfile
+        volumes:
+            - './stats-backend:/stats-backend/'
+        env_file:
+            - ./.envs/.django
+        depends_on:
+            - redis
+            - postgres
+            - webserver
+    celery_beat:
+        build:
+            context: .
+            dockerfile: compose/celery/Dockerfile
+        command: celery -A core beat -l INFO
+        volumes:
+            - './stats-backend:/stats-backend/'
+        env_file:
+            - ./.envs/.django
+        depends_on:
+            - redis
+            - postgres
+            - webserver
     postgres:
         build:
             context: .
