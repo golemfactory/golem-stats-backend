@@ -24,9 +24,21 @@ async def list_offers(conf: Configuration, subnet_tag: str):
 
         async with market_api.subscribe(dbuild.properties, dbuild.constraints) as subscription:
             async for event in subscription.events():
-                #data.append(f"{json.dumps(event.props)}")
-                with open('data.json', 'a') as f:
-                    f.write(json.dumps(event.props) + "\n")
+                with open('data.json', 'r+') as f:
+                    if event.issuer in f.read():
+                        continue
+                    else:
+                        data = event.props
+                        # oldkeys = list(data.keys())
+                        # # Change "item" to "object"
+                        # newkeys = [s.replace('.', '_').replace('-', '_') for s in oldkeys]
+                        # # Get values
+                        # vals = list(data.values())
+                        # # Create new dictionary by iterating over both newkeys and vals
+                        # newdictionary = {k: v for k, v in zip(newkeys, vals)}
+                        # newdictionary['id'] = event.issuer
+                        data['id'] = event.issuer
+                        f.write(json.dumps(data) + "\n")
 
 async def list_offers_testnet(conf: Configuration, subnet_tag: str):
     async with conf.market() as client:
@@ -37,9 +49,21 @@ async def list_offers_testnet(conf: Configuration, subnet_tag: str):
 
         async with market_api.subscribe(dbuild.properties, dbuild.constraints) as subscription:
             async for event in subscription.events():
-                #data.append(f"{json.dumps(event.props)}")
-                with open('data.json', 'a') as f:
-                    f.write(json.dumps(event.props) + "\n")
+                with open('data.json', 'r+') as f:
+                    if event.issuer in f.read():
+                        continue
+                    else:
+                        data = event.props
+                        # oldkeys = list(data.keys())
+                        # # Change "item" to "object"
+                        # newkeys = [s.replace('.', '_').replace('-', '_') for s in oldkeys]
+                        # # Get values
+                        # vals = list(data.values())
+                        # # Create new dictionary by iterating over both newkeys and vals
+                        # newdictionary = {k: v for k, v in zip(newkeys, vals)}
+                        # newdictionary['id'] = event.issuer
+                        data['id'] = event.issuer
+                        f.write(json.dumps(data) + "\n")
 def main():
     try:
         asyncio.get_event_loop().run_until_complete(

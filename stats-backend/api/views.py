@@ -4,6 +4,22 @@ from rest_framework.response import Response
 from .utils import get_stats_data
 import os
 import time
+from collector.models import Node
+from .serializers import NodeSerializer
+from django.shortcuts import render
+
+
+@api_view(['GET', ])
+def online_nodes(request):
+    """
+    List all online nodes.
+    """
+    if request.method == 'GET':
+        data = Node.objects.filter(online=True)
+        serializer = NodeSerializer(data, many=True)
+        return Response(serializer.data)
+    else:
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
@@ -54,3 +70,8 @@ def network_earnings(request, hours):
         content = {'total_earnings': data['data']
                    ['result'][0]['values'][-1][1][0:4]}
         return Response(content, status=status.HTTP_200_OK)
+
+
+def index(request):
+    online = Node.objects.filter(online=True)
+    return render(request, 'index.html', {"online": online})

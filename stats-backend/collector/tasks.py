@@ -4,6 +4,7 @@ import json
 import subprocess
 import os
 from django.db import transaction
+from .models import Node
 
 
 @app.task
@@ -12,8 +13,27 @@ def offer_scraper():
     with open('data.config') as f:
         for line in f:
             command = line
-    proc = subprocess.call(command, shell=True)
+    proc = subprocess.Popen(command, shell=True)
+    proc.wait()
     with open('data.json') as f:
         for line in f:
-            print(line)
+            if not line.strip(): continue
+            data = json.loads(line)
+            provider = data['id']
+            obj, created = Node.objects.get_or_create(node_id=provider)
+            if created:
+                obj.data = data
+                obj.online = True
+                obj.save()
+            else:
+                obj.data = data
+                obj.online = True
+                obj.save()
+    # Find offline providers
+    with open('data.json') as f:
+        online_nodes = Node.objects.filter(online=True)
+        for node in online_nodes:
+            if not node.node_id in f.read():
+                node.online = False
     os.remove("data.json")
+    open("data.json", 'a').close()
