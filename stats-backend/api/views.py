@@ -7,6 +7,7 @@ import time
 from collector.models import Node
 from .serializers import NodeSerializer
 from django.shortcuts import render
+from django.db.models import Count
 
 
 @api_view(['GET', ])
@@ -18,6 +19,29 @@ def online_nodes(request):
         data = Node.objects.filter(online=True)
         serializer = NodeSerializer(data, many=True)
         return Response(serializer.data)
+    else:
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', ])
+def general_stats(request):
+    """
+    List network stats.
+    """
+    if request.method == 'GET':
+        cores = []
+        threads = []
+        memory = []
+        disk = []
+        query = Node.objects.filter(online=True)
+        for obj in query:
+            cores.append(obj.data['golem.inf.cpu.cores'])
+            threads.append(obj.data['golem.inf.cpu.threads'])
+            memory.append(obj.data['golem.inf.mem.gib'])
+            disk.append(obj.data['golem.inf.storage.gib'])
+        content = {'online': len(query), 'cores': sum(
+            cores), 'threads': sum(threads), 'memory': sum(memory), 'disk': sum(disk)}
+        return Response(content, status=status.HTTP_200_OK)
     else:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -52,7 +76,25 @@ def providers_computing_currently(request):
         domain = os.environ.get(
             'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%22%7D)&start={start}&end={end}&step=1"
         data = get_stats_data(domain)
+        print(data)
         content = {'computing_now': data['data']['result'][0]['values'][-1][1]}
+        return Response(content, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def providers_average_earnings(request):
+    """
+    Returns providers average earnings per task.
+    """
+    if request.method == 'GET':
+        end = round(time.time())
+        start = round(time.time()) - int(10)
+        domain = os.environ.get(
+            'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=avg(payment_amount_received%7Bjob%3D~%22community.1%22%7D%2F10%5E9)&start={start}&end={end}&step=1"
+        data = get_stats_data(domain)
+        print(data)
+        content = {'average_earnings': data['data']
+                   ['result'][0]['values'][-1][1][0:5]}
         return Response(content, status=status.HTTP_200_OK)
 
 
@@ -68,10 +110,5 @@ def network_earnings(request, hours):
             'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(increase(payment_amount_received%7Bjob%3D~%22community.1%22%7D%5B{hours}h%5D)%2F10%5E9)&start={start}&end={end}&step=1"
         data = get_stats_data(domain)
         content = {'total_earnings': data['data']
-                   ['result'][0]['values'][-1][1][0:4]}
+                   ['result'][0]['values'][-1][1][0:6]}
         return Response(content, status=status.HTTP_200_OK)
-
-
-def index(request):
-    online = Node.objects.filter(online=True)
-    return render(request, 'index.html', {"online": online})

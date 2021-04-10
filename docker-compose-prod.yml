@@ -1,11 +1,11 @@
 version: '3'
 volumes:
-  db_data: {}
-  pgadmin:
+  local_gntmigration_db_data: {}
+  local_gntmigration_db_backup: {}
+  certs:
 services:
   nginx-proxy:
     image: jwilder/nginx-proxy
-    container_name: nginx-proxy
     ports:
       - '80:80'
     volumes:
@@ -14,11 +14,22 @@ services:
       - './config/nginx/default_location:/etc/nginx/vhost.d/default_location'
     depends_on:
       - webserver
+  letsencrypt-nginx-proxy-companion:
+    restart: always
+    image: jrcs/letsencrypt-nginx-proxy-companion:latest
+    depends_on:
+      - nginx-proxy
+    volumes_from:
+      - nginx-proxy
+    env_file:
+      - ./.envs/.proxy
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock:ro'
+      - 'certs:/etc/nginx/certs:rw'
   webserver:
     build:
       context: .
       dockerfile: compose/django/Dockerfile
-    container_name: webserver
     environment:
       VIRTUAL_HOST: localhost
     depends_on:
@@ -62,24 +73,10 @@ services:
     build:
       context: .
       dockerfile: compose/postgres/Dockerfile
-    container_name: postgres
     env_file:
       - ./.envs/.db
     volumes:
       - 'db_data:/var/lib/postgresql/data'
-  pgadmin:
-    image: dpage/pgadmin4
-    links:
-      - postgres
-    depends_on:
-      - postgres
-    environment:
-      PGADMIN_DEFAULT_EMAIL: 123@123.com
-      PGADMIN_DEFAULT_PASSWORD: 123
-    volumes:
-      - pgadmin:/var/lib/pgadmin
-    ports:
-      - '5050:80'
   frontend:
     build:
       context: .
@@ -87,5 +84,9 @@ services:
     volumes:
       - './golemstats-frontend:/app'
       - '/app/node_modules'
-    ports:
-      - '8081:80'
+    expose:
+      - '8081'
+    env_file:
+      - ./.envs/.frontend
+    environment:
+      - NGINX_PORT=8081

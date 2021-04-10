@@ -4,6 +4,6 @@ from django.db import models
 
 
 class Node(models.Model):
-    node_id = models.CharField(max_length=42)
+    node_id = models.CharField(max_length=42, unique=True)
     data = models.JSONField(null=True)
     online = models.BooleanField(default=False)

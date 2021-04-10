@@ -11,3 +11,4 @@ djangorestframework
 markdown
 django-filter
 yapapi
+django-cors-headers

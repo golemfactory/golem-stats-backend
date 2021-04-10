@@ -9,7 +9,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
-import os, sys
+import os
+import sys
+from corsheaders.defaults import default_headers
 
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -25,14 +27,12 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['localhost', ]
+ALLOWED_HOSTS = ['api.golemstats.com', ]
 
 
 USE_TZ = True
 
-TIME_ZONE='Europe/Copenhagen'
-
-
+TIME_ZONE = 'Europe/Copenhagen'
 
 
 # Application definition
@@ -48,27 +48,21 @@ INSTALLED_APPS = [
     'api',
     'django_celery_beat',
     'celery',
+    'corsheaders',
     'collector',
 ]
-
-
-
 
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-
-
-
-
-
 
 
 ROOT_URLCONF = 'core.urls'
@@ -89,6 +83,12 @@ TEMPLATES = [
     },
 ]
 
+CORS_ALLOW_HEADERS = default_headers + (
+    'contenttype',
+)
+
+CORS_ORIGIN_ALLOW_ALL = True
+
 WSGI_APPLICATION = 'core.wsgi.application'
 
 
@@ -106,8 +106,8 @@ DATABASES = {
     }
 }
 
-#Unit tests
-if 'test' in sys.argv or 'test_coverage' in sys.argv: #Covers regular testing and django-coverage
+# Unit tests
+if 'test' in sys.argv or 'test_coverage' in sys.argv:  # Covers regular testing and django-coverage
     DATABASES['default']['ENGINE'] = 'django.db.backends.sqlite3'
     DATABASES['default']['NAME'] = ':memory:'
 
@@ -129,8 +129,6 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
-
 
 
 LOGGING = {

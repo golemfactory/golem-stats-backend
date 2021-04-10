@@ -17,7 +17,8 @@ def offer_scraper():
     proc.wait()
     with open('data.json') as f:
         for line in f:
-            if not line.strip(): continue
+            if not line.strip():
+                continue
             data = json.loads(line)
             provider = data['id']
             obj, created = Node.objects.get_or_create(node_id=provider)
@@ -30,10 +31,10 @@ def offer_scraper():
                 obj.online = True
                 obj.save()
     # Find offline providers
-    with open('data.json') as f:
-        online_nodes = Node.objects.filter(online=True)
-        for node in online_nodes:
-            if not node.node_id in f.read():
-                node.online = False
+    online_nodes = Node.objects.filter(online=True)
+    for node in online_nodes:
+        if not node.node_id in open('data.json').read():
+            node.online = False
+            node.save()
     os.remove("data.json")
     open("data.json", 'a').close()
