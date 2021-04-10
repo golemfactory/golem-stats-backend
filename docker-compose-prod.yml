@@ -97,7 +97,7 @@ services:
     volumes:
       - './golemstats-frontend:/app'
       - '/app/node_modules'
-    expose:
-      - '8081'
+    ports:
+      - '8081:80'
     env_file:
       - ./.envs/.frontend
