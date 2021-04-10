@@ -24,7 +24,8 @@ services:
       - './config/nginx/default_location:/etc/nginx/vhost.d/default_location'
     depends_on:
       - webserver
-  letsencrypt-nginx-proxy-companion:
+  acme-companion:
+    container_name: nginx-proxy-acme
     restart: always
     image: nginxproxy/acme-companion:latest
     depends_on:
