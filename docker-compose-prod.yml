@@ -11,9 +11,9 @@ services:
       - '/var/run/docker.sock:/tmp/docker.sock:ro'
       - './stats-backend:/stats-backend/'
       - '/etc/nginx/vhost.d'
-      - 'certs:/etc/nginx/certs:ro'
+      - './certs:/etc/nginx/certs:ro'
       - './config/nginx/default_location:/etc/nginx/vhost.d/default_location'
-      - './nginx-html:/usr/share/nginx/html'
+      - './golemstats-frontend/dist:/usr/share/nginx/html'
     depends_on:
       - webserver
   letsencrypt-nginx-proxy-companion:
@@ -86,7 +86,6 @@ services:
     volumes:
       - './golemstats-frontend:/app'
       - '/app/node_modules'
-      - './nginx-html:/usr/share/nginx/html'
     expose:
       - '8081'
     env_file:
