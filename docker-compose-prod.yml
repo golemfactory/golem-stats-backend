@@ -24,6 +24,8 @@ services:
       - './config/nginx/default_location:/etc/nginx/vhost.d/default_location'
     depends_on:
       - webserver
+    labels:
+      - 'com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy=true'
   acme-companion:
     container_name: nginx-proxy-acme
     restart: always
