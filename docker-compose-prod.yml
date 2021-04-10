@@ -5,6 +5,7 @@ volumes:
 services:
   nginx-proxy:
     image: jwilder/nginx-proxy
+    container_name: nginx-proxy
     ports:
       - '80:80'
     volumes:
@@ -13,7 +14,7 @@ services:
       - '/etc/nginx/vhost.d'
       - './certs:/etc/nginx/certs:ro'
       - './config/nginx/default_location:/etc/nginx/vhost.d/default_location'
-      - './golemstats-frontend/dist:/usr/share/nginx/html'
+      - '/usr/share/nginx/html'
     depends_on:
       - webserver
   letsencrypt-nginx-proxy-companion:
