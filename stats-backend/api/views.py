@@ -26,7 +26,7 @@ def online_nodes(request):
 @api_view(['GET', ])
 def general_stats(request):
     """
-    List network stats.
+    List network stats for online nodes.
     """
     if request.method == 'GET':
         cores = []
@@ -84,7 +84,7 @@ def providers_computing_currently(request):
 @api_view(['GET'])
 def providers_average_earnings(request):
     """
-    Returns providers average earnings per task.
+    Returns providers average earnings per task in the last hour.
     """
     if request.method == 'GET':
         end = round(time.time())
