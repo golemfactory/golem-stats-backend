@@ -12,7 +12,6 @@ services:
       - '/var/run/docker.sock:/tmp/docker.sock:ro'
       - './stats-backend:/stats-backend/'
       - '/etc/nginx/vhost.d'
-      - '/etc/acme.sh'
       - './certs:/etc/nginx/certs:ro'
       - './config/nginx/default_location:/etc/nginx/vhost.d/default_location'
       - '/usr/share/nginx/html'
@@ -28,6 +27,7 @@ services:
     env_file:
       - ./.envs/.proxy
     volumes:
+      - '/etc/acme.sh'
       - '/var/run/docker.sock:/var/run/docker.sock:ro'
       - 'certs:/etc/nginx/certs:rw'
   webserver:
