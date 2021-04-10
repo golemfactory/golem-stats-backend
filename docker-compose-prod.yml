@@ -45,8 +45,6 @@ services:
     build:
       context: .
       dockerfile: compose/django/Dockerfile
-    environment:
-      VIRTUAL_HOST: localhost
     depends_on:
       - postgres
     volumes:
@@ -103,5 +101,3 @@ services:
       - '8081'
     env_file:
       - ./.envs/.frontend
-    environment:
-      - NGINX_PORT=8081
