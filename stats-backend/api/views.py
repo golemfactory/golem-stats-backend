@@ -24,13 +24,13 @@ def online_nodes(request):
 
 
 @api_view(['GET', ])
-def node(request, node_id):
+def node(request, yagna_id):
     """
     Retrieves data about a specific node.
     """
     if request.method == 'GET':
-        data = Node.objects.filter(node_id=node_id)
-        serializer = NodeSerializer(data)
+        data = Node.objects.filter(node_id=yagna_id)
+        serializer = NodeSerializer(data, many=True)
         return Response(serializer.data)
     else:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
