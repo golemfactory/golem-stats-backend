@@ -89,7 +89,6 @@ def providers_computing_currently(request):
         domain = os.environ.get(
             'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%22%7D)&start={start}&end={end}&step=1"
         data = get_stats_data(domain)
-        print(data)
         content = {'computing_now': data['data']['result'][0]['values'][-1][1]}
         return Response(content, status=status.HTTP_200_OK)
 
@@ -105,7 +104,6 @@ def providers_average_earnings(request):
         domain = os.environ.get(
             'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=avg(payment_amount_received%7Bjob%3D~%22community.1%22%7D%2F10%5E9)&start={start}&end={end}&step=1"
         data = get_stats_data(domain)
-        print(data)
         content = {'average_earnings': data['data']
                    ['result'][0]['values'][-1][1][0:5]}
         return Response(content, status=status.HTTP_200_OK)
