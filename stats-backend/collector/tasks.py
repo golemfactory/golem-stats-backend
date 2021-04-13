@@ -3,8 +3,107 @@ from celery import Celery
 import json
 import subprocess
 import os
+from api.utils import get_stats_data
+import time
+import redis
 from django.db import transaction
 from .models import Node
+from api.serializers import NodeSerializer
+from django.core import serializers
+
+
+# jsonmsg = {"user_id": elem, "path": "/src/data/user_avatars/" + elem + ".png"}
+# r.lpush("image_classifier", json.dumps(jsonmsg))
+
+r = redis.Redis(host='redis', port=6379, db=0)
+
+
+@app.task
+def network_online_to_redis():
+    data = Node.objects.filter(online=True)
+    serializer = NodeSerializer(data, many=True)
+    test = json.dumps(serializer.data)
+    r.set("online", test)
+
+
+@app.task
+def network_stats_to_redis():
+    cores = []
+    threads = []
+    memory = []
+    disk = []
+    query = Node.objects.filter(online=True)
+    for obj in query:
+        cores.append(obj.data['golem.inf.cpu.cores'])
+        threads.append(obj.data['golem.inf.cpu.threads'])
+        memory.append(obj.data['golem.inf.mem.gib'])
+        disk.append(obj.data['golem.inf.storage.gib'])
+    content = {'online': len(query), 'cores': sum(
+        cores), 'threads': sum(threads), 'memory': sum(memory), 'disk': sum(disk)}
+    serialized = json.dumps(content)
+    r.set("online_stats", serialized)
+
+
+@app.task
+def network_utilization_to_redis():
+    end = round(time.time())
+    start = end - 21600
+    domain = os.environ.get(
+        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%22%7D)&start={start}&end={end}&step=30"
+    content = get_stats_data(domain)
+    serialized = json.dumps(content)
+    r.set("network_utilization", serialized)
+
+
+@app.task
+def network_earnings_6h_to_redis():
+    end = round(time.time())
+    start = round(time.time()) - int(10)
+    domain = os.environ.get(
+        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(increase(payment_amount_received%7Bjob%3D~%22community.1%22%7D%5B6h%5D)%2F10%5E9)&start={start}&end={end}&step=1"
+    data = get_stats_data(domain)
+    content = {'total_earnings': data['data']
+               ['result'][0]['values'][-1][1][0:6]}
+    serialized = json.dumps(content)
+    r.set("network_earnings_6h", serialized)
+
+
+@app.task
+def network_earnings_24h_to_redis():
+    end = round(time.time())
+    start = round(time.time()) - int(10)
+    domain = os.environ.get(
+        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(increase(payment_amount_received%7Bjob%3D~%22community.1%22%7D%5B24h%5D)%2F10%5E9)&start={start}&end={end}&step=1"
+    data = get_stats_data(domain)
+    content = {'total_earnings': data['data']
+               ['result'][0]['values'][-1][1][0:6]}
+    serialized = json.dumps(content)
+    r.set("network_earnings_24h", serialized)
+
+
+@app.task
+def computing_now_to_redis():
+    end = round(time.time())
+    start = round(time.time()) - int(10)
+    domain = os.environ.get(
+        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%22%7D)&start={start}&end={end}&step=1"
+    data = get_stats_data(domain)
+    content = {'computing_now': data['data']['result'][0]['values'][-1][1]}
+    serialized = json.dumps(content)
+    r.set("computing_now", serialized)
+
+
+@app.task
+def providers_average_earnings_to_redis():
+    end = round(time.time())
+    start = round(time.time()) - int(10)
+    domain = os.environ.get(
+        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=avg(payment_amount_received%7Bjob%3D~%22community.1%22%7D%2F10%5E9)&start={start}&end={end}&step=1"
+    data = get_stats_data(domain)
+    content = {'average_earnings': data['data']
+               ['result'][0]['values'][-1][1][0:5]}
+    serialized = json.dumps(content)
+    r.set("provider_average_earnings", serialized)
 
 
 @app.task
