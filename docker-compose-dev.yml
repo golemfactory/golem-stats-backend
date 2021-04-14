@@ -1,91 +1,155 @@
-version: '3'
+version: '3.8'
 volumes:
   db_data: {}
   pgadmin:
 services:
-  nginx-proxy:
-    image: jwilder/nginx-proxy
-    container_name: nginx-proxy
+  traefik:
+    image: traefik:latest
     ports:
       - '80:80'
+      - '443:443'
+    command:
+      - '--providers.docker=true'
+      - '--entryPoints.web.address=:80'
+      - '--entrypoints.websecure.address=:443'
+      - '--providers.providersThrottleDuration=2s'
+      - '--providers.docker.watch=true'
+      - '--providers.docker.exposedByDefault=false'
+      - '--providers.docker.useBindPortIP=true'
+      - '--providers.docker.swarmMode=true'
+      - '--providers.docker.network=swarm-example'
+      - '--providers.docker.swarmModeRefreshSeconds=15s'
+      - '--providers.docker.exposedbydefault=false'
+      - '--accessLog.bufferingSize=0'
     volumes:
-      - '/var/run/docker.sock:/tmp/docker.sock:ro'
-      - './stats-backend:/stats-backend/'
-      - './config/nginx/default_location:/etc/nginx/vhost.d/default_location'
-    depends_on:
-      - webserver
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=swarm-example
+        - traefik.http.routers.webserver.entrypoints=web
+      placement:
+        constraints:
+          - node.role == manager
+    networks:
+      - swarm-example
   webserver:
     build:
       context: .
       dockerfile: compose/django/Dockerfile
-    container_name: webserver
-    environment:
-      VIRTUAL_HOST: localhost
+    image: webserver:latest
     depends_on:
       - postgres
     volumes:
       - './stats-backend:/stats-backend/'
-    expose:
-      - '8002'
     env_file:
       - ./.envs/.django
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.webserver.rule=Host(`localhost`)
+        - traefik.http.services.webserver.loadbalancer.server.port=8002
+
+      replicas: 3
+      update_config:
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+    networks:
+      - swarm-example
   redis:
     image: 'redis:alpine'
     expose:
       - '6379'
-  celery:
-    build:
-      context: .
-      dockerfile: compose/celery/Dockerfile
-    volumes:
-      - './stats-backend:/stats-backend/'
-    env_file:
-      - ./.envs/.django
-    depends_on:
-      - redis
-      - postgres
-      - webserver
-  celery_beat:
-    build:
-      context: .
-      dockerfile: compose/celery/Dockerfile
-    command: celery -A core beat -l INFO
-    volumes:
-      - './stats-backend:/stats-backend/'
-    env_file:
-      - ./.envs/.django
-    depends_on:
-      - redis
-      - postgres
-      - webserver
+    deploy:
+      replicas: 1
+      update_config:
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+    networks:
+      - swarm-example
+  # celery:
+  #   build:
+  #     context: .
+  #     dockerfile: compose/celery/Dockerfile
+  #   image: celery_wtf:latest
+  #   volumes:
+  #     - './stats-backend:/stats-backend/'
+  #   env_file:
+  #     - ./.envs/.django
+  #   depends_on:
+  #     - redis
+  #     - postgres
+  #     - webserver
+  #   deploy:
+  #     replicas: 1
+  #     update_config:
+  #       failure_action: rollback
+  #       order: start-first
+  #     restart_policy:
+  #       condition: on-failure
+  #   networks:
+  #     - swarm-example
+  # celery_beat:
+  #   build:
+  #     context: .
+  #     dockerfile: compose/celery/Dockerfile
+  #   image: celery_beat:latest
+  #   command: celery -A core beat -l INFO
+  #   volumes:
+  #     - './stats-backend:/stats-backend/'
+  #   env_file:
+  #     - ./.envs/.django
+  #   depends_on:
+  #     - redis
+  #     - postgres
+  #     - webserver
+  #   deploy:
+  #     replicas: 1
+  #     update_config:
+  #       failure_action: rollback
+  #       order: start-first
+  #     restart_policy:
+  #       condition: on-failure
+  #   networks:
+  #     - swarm-example
   postgres:
+    image: postgres
     build:
       context: .
       dockerfile: compose/postgres/Dockerfile
-    container_name: postgres
     env_file:
       - ./.envs/.db
     volumes:
       - 'db_data:/var/lib/postgresql/data'
-  pgadmin:
-    image: dpage/pgadmin4
-    links:
-      - postgres
-    depends_on:
-      - postgres
-    environment:
-      PGADMIN_DEFAULT_EMAIL: 123@123.com
-      PGADMIN_DEFAULT_PASSWORD: 123
-    volumes:
-      - pgadmin:/var/lib/pgadmin
-    ports:
-      - '5050:80'
-  frontend:
-    build:
-      context: .
-      dockerfile: compose/frontend/Dockerfile
-    volumes:
-      - './golemstats-frontend:/app'
-      - '/app/node_modules'
-    ports:
-      - '8081:80'
+    networks:
+      - swarm-example
+  # pgadmin:
+  #   image: dpage/pgadmin4
+  #   links:
+  #     - postgres
+  #   depends_on:
+  #     - postgres
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: 123@123.com
+  #     PGADMIN_DEFAULT_PASSWORD: 123
+  #   volumes:
+  #     - pgadmin:/var/lib/pgadmin
+  #   ports:
+  #     - '5050:80'
+
+  # frontend:
+  #   build:
+  #     context: .
+  #     dockerfile: compose/frontend/Dockerfile
+  #   volumes:
+  #     - './golemstats-frontend:/app'
+  #     - '/app/node_modules'
+  #   ports:
+  #     - '8081:80'
+networks:
+  swarm-example:
+    driver: overlay
