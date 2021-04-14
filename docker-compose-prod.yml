@@ -1,66 +1,88 @@
-version: '2'
+version: '3.8'
 volumes:
   db_data: {}
-  conf:
-  vhost:
-  html:
-  dhparam:
-  certs:
-  acme:
+  pgadmin:
+  letsencrypt:
 services:
-  nginx-proxy:
-    image: nginxproxy/nginx-proxy
-    container_name: nginx-proxy
+  traefik:
+    image: traefik:latest
     ports:
       - '80:80'
       - '443:443'
+    command:
+      - '--providers.docker=true'
+      - '--entryPoints.web.address=:80'
+      - '--entrypoints.websecure.address=:443'
+      - '--providers.providersThrottleDuration=2s'
+      - '--providers.docker.watch=true'
+      - '--providers.docker.exposedByDefault=false'
+      - '--providers.docker.useBindPortIP=true'
+      - '--providers.docker.swarmMode=true'
+      - '--providers.docker.network=swarm-example'
+      - '--providers.docker.swarmModeRefreshSeconds=15s'
+      - '--providers.docker.exposedbydefault=false'
+      - '--accessLog.bufferingSize=0'
+      - '--certificatesresolvers.letsencryptresolver.acme.httpchallenge=true'
+      - '--certificatesresolvers.letsencryptresolver.acme.httpchallenge.entrypoint=web'
+      - '--certificatesresolvers.letsencryptresolver.acme.email=phillip@golem.network'
+      - '--certificatesresolvers.letsencryptresolver.acme.storage=/letsencrypt/acme.json'
     volumes:
-      - conf:/etc/nginx/conf.d
-      - vhost:/etc/nginx/vhost.d
-      - ./golemstats-frontend/dist:/usr/share/nginx/html
-      - dhparam:/etc/nginx/dhparam
-      - certs:/etc/nginx/certs:ro
-      - './stats-backend:/stats-backend/'
-      - /var/run/docker.sock:/tmp/docker.sock:ro
-      - './config/nginx/default_location:/etc/nginx/vhost.d/default_location'
-    depends_on:
-      - webserver
-    labels:
-      - 'com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy=true'
-  acme-companion:
-    container_name: nginx-proxy-acme
-    restart: always
-    image: nginxproxy/acme-companion:latest
-    depends_on:
-      - nginx-proxy
-    volumes_from:
-      - nginx-proxy
-    env_file:
-      - ./.envs/.proxy
-    volumes:
-      - certs:/etc/nginx/certs:rw
-      - acme:/etc/acme.sh
+      - letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=swarm-example
+        - traefik.http.routers.webserver.entrypoints=websecure
+      placement:
+        constraints:
+          - node.role == manager
+    networks:
+      - swarm-example
   webserver:
     build:
       context: .
       dockerfile: compose/django/Dockerfile
+    image: webserver:latest
     depends_on:
       - postgres
     volumes:
       - './stats-backend:/stats-backend/'
-    expose:
-      - '8002'
     env_file:
       - ./.envs/.django
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.webserver.rule=Host(`golemstats.com`)
+        - traefik.http.services.webserver.loadbalancer.server.port=8002
+        - traefik.http.routers.webserver.tls.certresolver=letsencryptresolver
+
+      replicas: 3
+      update_config:
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+    networks:
+      - swarm-example
   redis:
     image: 'redis:alpine'
     expose:
       - '6379'
+    deploy:
+      replicas: 1
+      update_config:
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+    networks:
+      - swarm-example
   celery:
     build:
       context: .
       dockerfile: compose/celery/Dockerfile
+    image: celery_swarm:latest
     volumes:
       - './stats-backend:/stats-backend/'
     env_file:
@@ -69,10 +91,20 @@ services:
       - redis
       - postgres
       - webserver
+    deploy:
+      replicas: 1
+      update_config:
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+    networks:
+      - swarm-example
   celery_beat:
     build:
       context: .
       dockerfile: compose/celery/Dockerfile
+    image: celery_beat:latest
     command: celery -A core beat -l INFO
     volumes:
       - './stats-backend:/stats-backend/'
@@ -82,7 +114,17 @@ services:
       - redis
       - postgres
       - webserver
+    deploy:
+      replicas: 1
+      update_config:
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+    networks:
+      - swarm-example
   postgres:
+    image: postgres
     build:
       context: .
       dockerfile: compose/postgres/Dockerfile
@@ -90,6 +132,8 @@ services:
       - ./.envs/.db
     volumes:
       - 'db_data:/var/lib/postgresql/data'
+    networks:
+      - swarm-example
   frontend:
     build:
       context: .
@@ -99,5 +143,6 @@ services:
       - '/app/node_modules'
     ports:
       - '8081:80'
-    env_file:
-      - ./.envs/.frontend
+networks:
+  swarm-example:
+    driver: overlay
