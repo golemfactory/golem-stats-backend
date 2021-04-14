@@ -12,3 +12,5 @@ markdown
 django-filter
 yapapi
 django-cors-headers
+aioredis
+daphne

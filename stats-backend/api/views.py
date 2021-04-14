@@ -9,102 +9,135 @@ from .serializers import NodeSerializer
 from django.shortcuts import render
 from django.db.models import Count
 from django.conf import settings
+import asyncio
 import redis
 import json
+import aioredis
+from asgiref.sync import sync_to_async
 
-r = redis.Redis(host='redis', port=6379, db=0)
+
+from django.http import JsonResponse, HttpResponse
 
 
-@api_view(['GET', ])
-def online_nodes(request):
+@sync_to_async
+def get_node(yagna_id):
+    data = Node.objects.filter(node_id=yagna_id)
+    return data
+
+
+async def online_nodes(request):
     """
     List all online nodes.
     """
     if request.method == 'GET':
-        content = r.get("online")
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
+        content = await r.get("online", encoding='utf-8')
         data = json.loads(content)
-        return Response(data, status=status.HTTP_200_OK)
+        r.close()
+        await r.wait_closed()
+        return JsonResponse(data, safe=False)
     else:
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return HttpResponse(status=400)
 
 
-@api_view(['GET', ])
-def node(request, yagna_id):
+async def node(request, yagna_id):
     """
     Retrieves data about a specific node.
     """
     if request.method == 'GET':
-        data = Node.objects.filter(node_id=yagna_id)
+        data = await get_node(yagna_id)
         serializer = NodeSerializer(data, many=True)
-        return Response(serializer.data)
+        return JsonResponse(serializer.data, safe=False)
     else:
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return HttpResponse(status=400)
 
 
-@api_view(['GET', ])
-def general_stats(request):
+async def general_stats(request):
     """
     List network stats for online nodes.
     """
     if request.method == 'GET':
-        content = r.get("online_stats")
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
+        content = await r.get("online_stats")
         data = json.loads(content)
-        return Response(data, status=status.HTTP_200_OK)
+        r.close()
+        await r.wait_closed()
+        return JsonResponse(data, safe=False)
     else:
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return HttpResponse(status=400)
 
 
-@api_view(['GET'])
-def network_utilization(request, start, end):
+async def network_utilization(request, start, end):
     """
     Queries the networks utilization from a start date to the end date specified, and returns
     timestamps in ms along with providers computing.
     """
     if request.method == 'GET':
-        content = r.get("network_utilization")
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
+        content = await r.get("network_utilization")
         data = json.loads(content)
-        return Response(data, status=status.HTTP_200_OK)
+        r.close()
+        await r.wait_closed()
+        return JsonResponse(data, safe=False)
+    else:
+        return HttpResponse(status=400)
 
 
-@api_view(['GET'])
-def providers_computing_currently(request):
+async def providers_computing_currently(request):
     """
     Returns how many providers are currently computing a task.
     """
     if request.method == 'GET':
-        content = r.get("computing_now")
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
+        content = await r.get("computing_now")
         data = json.loads(content)
-        return Response(data, status=status.HTTP_200_OK)
+        r.close()
+        await r.wait_closed()
+        return JsonResponse(data, safe=False)
+    else:
+        return HttpResponse(status=400)
 
 
-@api_view(['GET'])
-def providers_average_earnings(request):
+async def providers_average_earnings(request):
     """
     Returns providers average earnings per task in the last hour.
     """
     if request.method == 'GET':
-        content = r.get("provider_average_earnings")
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
+        content = await r.get("provider_average_earnings")
         data = json.loads(content)
-        return Response(data, status=status.HTTP_200_OK)
+        r.close()
+        await r.wait_closed()
+        return JsonResponse(data, safe=False)
+    else:
+        return HttpResponse(status=400)
 
 
-@api_view(['GET'])
-def network_earnings_24h(request):
+async def network_earnings_24h(request):
     """
     Returns the earnings for the whole network the last n hours.
     """
     if request.method == 'GET':
-        content = r.get("network_earnings_24h")
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
+        content = await r.get("network_earnings_24h")
         data = json.loads(content)
-        return Response(data, status=status.HTTP_200_OK)
+        r.close()
+        await r.wait_closed()
+        return JsonResponse(data, safe=False)
+    else:
+        return HttpResponse(status=400)
 
 
-@api_view(['GET'])
-def network_earnings_6h(request):
+async def network_earnings_6h(request):
     """
     Returns the earnings for the whole network the last n hours.
     """
     if request.method == 'GET':
-        content = r.get("network_earnings_6h")
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
+        content = await r.get("network_earnings_6h")
         data = json.loads(content)
-        return Response(data, status=status.HTTP_200_OK)
+        r.close()
+        await r.wait_closed()
+        return JsonResponse(data, safe=False)
+    else:
+        return HttpResponse(status=400)

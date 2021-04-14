@@ -26,13 +26,16 @@ RUN apk add --no-cache --virtual build-deps \
     musl-dev \
     postgresql-dev\
     zlib-dev \
+    build-base \
+    cargo \
+    rust \
     jpeg-dev 
 
 # Update pip
-RUN pip install --upgrade pip
 
 # Installing requirements.pip from project
 COPY ./requirements.pip /scripts/
+RUN pip install --upgrade pip && pip install cryptography
 RUN pip install --no-cache-dir -r /scripts/requirements.pip
 
 # removing temporary packages from docker and removing cache 
@@ -41,4 +44,4 @@ RUN apk del build-deps && \
     rm -rf ~/.cache/pip
 
 # CMD will run when this dockerfile is running
-CMD ["sh", "-c", "python manage.py makemigrations; python manage.py migrate; python manage.py collectstatic --no-input; gunicorn core.wsgi -b 0.0.0.0:8002"]
+CMD ["sh", "-c", "python manage.py makemigrations; python manage.py migrate; python manage.py collectstatic --no-input; daphne -u /tmp/daphne.sock -b 0.0.0.0 -p 8002 core.asgi:application"]
