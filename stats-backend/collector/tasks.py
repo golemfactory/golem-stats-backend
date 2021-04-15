@@ -10,6 +10,7 @@ from django.db import transaction
 from .models import Node
 from api.serializers import NodeSerializer
 from django.core import serializers
+import tempfile
 
 
 # jsonmsg = {"user_id": elem, "path": "/src/data/user_avatars/" + elem + ".png"}
@@ -114,26 +115,32 @@ def offer_scraper():
             command = line
     proc = subprocess.Popen(command, shell=True)
     proc.wait()
-    with open('data.json') as f:
-        for line in f:
-            if not line.strip():
-                continue
-            data = json.loads(line)
-            provider = data['id']
-            obj, created = Node.objects.get_or_create(node_id=provider)
-            if created:
-                obj.data = data
-                obj.online = True
-                obj.save()
-            else:
-                obj.data = data
-                obj.online = True
-                obj.save()
+    content = r.get("offers")
+    serialized = json.loads(content)
+    for line in serialized:
+        data = json.loads(line)
+        provider = data['id']
+        obj, created = Node.objects.get_or_create(node_id=provider)
+        if created:
+            obj.data = data
+            obj.online = True
+            obj.save()
+        else:
+            obj.data = data
+            obj.online = True
+            obj.save()
     # Find offline providers
-    online_nodes = Node.objects.filter(online=True)
-    for node in online_nodes:
-        if not node.node_id in open('data.json').read():
-            node.online = False
-            node.save()
-    os.remove("data.json")
-    open("data.json", 'a').close()
+    str1 = ''.join(serialized)
+    fd, path = tempfile.mkstemp()
+    try:
+        with os.fdopen(fd, 'w') as tmp:
+            # do stuff with temp file
+            tmp.write(str1)
+            online_nodes = Node.objects.filter(online=True)
+            for node in online_nodes:
+                if not node.node_id in str1:
+                    print("not found", node.node_id)
+                    node.online = False
+                    node.save()
+    finally:
+        os.remove(path)
