@@ -149,12 +149,12 @@ services:
       - './golemstats-frontend:/app'
       - '/app/node_modules'
     ports:
-      - '8080:80'
+      - '8081:80'
     deploy:
       labels:
         - traefik.enable=true
         - traefik.http.routers.frontend.rule=Host(`golemstats.com`)
-        - traefik.http.services.frontend.loadbalancer.server.port=8080
+        - traefik.http.services.frontend.loadbalancer.server.port=8081
       replicas: 1
       update_config:
         failure_action: rollback
