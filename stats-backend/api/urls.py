@@ -8,6 +8,7 @@ urlpatterns = [
     path('network/<int:start>/<int:end>', views.network_utilization),
     path('provider/computing', views.providers_computing_currently),
     path('provider/node/<yagna_id>', views.node),
+    path('provider/node/<yagna_id>/activity', views.activity_graph_provider),
     path('provider/average/earnings', views.providers_average_earnings),
     path('network/earnings/6', views.network_earnings_6h),
     path('network/earnings/24', views.network_earnings_24h),

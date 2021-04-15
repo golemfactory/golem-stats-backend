@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .utils import get_stats_data
+from .utils import get_stats_data, get_yastats_data
 import os
 import time
 from collector.models import Node
@@ -38,6 +38,15 @@ async def online_nodes(request):
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)
+
+
+async def activity_graph_provider(request, yagna_id):
+    end = round(time.time())
+    start = end - 86400
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query_range?query=sum(changes(activity_provider_usage_0%7Bjob%3D~"community.1"%2C%20instance%3D~"{yagna_id}"%7D%5B60s%5D))&start={start}&end={end}&step=120'
+    data = await get_yastats_data(domain)
+    return JsonResponse(data)
 
 
 async def node(request, yagna_id):
