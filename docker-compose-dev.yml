@@ -152,8 +152,8 @@ services:
     deploy:
       labels:
         - traefik.enable=true
-        - traefik.http.routers.webserver.rule=Host(`golemstats.cm`)
-        - traefik.http.services.webserver.loadbalancer.server.port=8081
+        - traefik.http.routers.frontend.rule=Host(`golemstats.cm`)
+        - traefik.http.services.frontend.loadbalancer.server.port=8081
       replicas: 1
       update_config:
         failure_action: rollback
