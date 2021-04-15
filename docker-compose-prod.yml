@@ -138,6 +138,7 @@ services:
     build:
       context: .
       dockerfile: compose/frontend/Dockerfile
+    image: frontend_golemstats:latest
     volumes:
       - './golemstats-frontend:/app'
       - '/app/node_modules'
