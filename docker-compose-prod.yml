@@ -21,6 +21,8 @@ services:
       - '--providers.docker.network=swarm-example'
       - '--providers.docker.swarmModeRefreshSeconds=15s'
       - '--providers.docker.exposedbydefault=false'
+      - '--providers.file.directory=/certs/'
+      - '--providers.file.watch=true'
       - '--accessLog.bufferingSize=0'
       - '--certificatesresolvers.letsencryptresolver.acme.httpchallenge=true'
       - '--certificatesresolvers.letsencryptresolver.acme.httpchallenge.entrypoint=web'
