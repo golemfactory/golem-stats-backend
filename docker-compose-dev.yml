@@ -47,7 +47,7 @@ services:
     deploy:
       labels:
         - traefik.enable=true
-        - traefik.http.routers.webserver.rule=Host(`localhost`)
+        - traefik.http.routers.webserver.rule=Host(`api.golemstats.com`)
         - traefik.http.services.webserver.loadbalancer.server.port=8002
       replicas: 3
       update_config:
@@ -152,7 +152,7 @@ services:
     deploy:
       labels:
         - traefik.enable=true
-        - traefik.http.routers.frontend.rule=Host(`golemstats.cm`)
+        - traefik.http.routers.frontend.rule=Host(`golemstats.com`)
         - traefik.http.services.frontend.loadbalancer.server.port=8081
       replicas: 1
       update_config:
