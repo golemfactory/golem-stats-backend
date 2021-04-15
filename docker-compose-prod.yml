@@ -24,10 +24,6 @@ services:
       - '--providers.file.directory=/certs/'
       - '--providers.file.watch=true'
       - '--accessLog.bufferingSize=0'
-      - '--certificatesresolvers.letsencryptresolver.acme.httpchallenge=true'
-      - '--certificatesresolvers.letsencryptresolver.acme.httpchallenge.entrypoint=web'
-      - '--certificatesresolvers.letsencryptresolver.acme.email=phillip@golem.network'
-      - '--certificatesresolvers.letsencryptresolver.acme.storage=/letsencrypt/acme.json'
     volumes:
       - letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -56,9 +52,9 @@ services:
     deploy:
       labels:
         - traefik.enable=true
-        - traefik.http.routers.webserver.rule=Host(`golemstats.com`)
+        - traefik.http.routers.webserver.rule=Host(`api.golemstats.com`)
         - traefik.http.services.webserver.loadbalancer.server.port=8002
-        - traefik.http.routers.webserver.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.webserver.tls=true
 
       replicas: 3
       update_config:
