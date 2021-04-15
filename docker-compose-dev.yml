@@ -28,6 +28,7 @@ services:
         - traefik.enable=true
         - traefik.docker.network=swarm-example
         - traefik.http.routers.webserver.entrypoints=web
+        - traefik.http.routers.frontend.entrypoints=web
       placement:
         constraints:
           - node.role == manager
