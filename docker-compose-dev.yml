@@ -49,7 +49,6 @@ services:
         - traefik.enable=true
         - traefik.http.routers.webserver.rule=Host(`localhost`)
         - traefik.http.services.webserver.loadbalancer.server.port=8002
-
       replicas: 3
       update_config:
         failure_action: rollback
@@ -71,51 +70,51 @@ services:
         condition: on-failure
     networks:
       - swarm-example
-  # celery:
-  #   build:
-  #     context: .
-  #     dockerfile: compose/celery/Dockerfile
-  #   image: celery_wtf:latest
-  #   volumes:
-  #     - './stats-backend:/stats-backend/'
-  #   env_file:
-  #     - ./.envs/.django
-  #   depends_on:
-  #     - redis
-  #     - postgres
-  #     - webserver
-  #   deploy:
-  #     replicas: 1
-  #     update_config:
-  #       failure_action: rollback
-  #       order: start-first
-  #     restart_policy:
-  #       condition: on-failure
-  #   networks:
-  #     - swarm-example
-  # celery_beat:
-  #   build:
-  #     context: .
-  #     dockerfile: compose/celery/Dockerfile
-  #   image: celery_beat:latest
-  #   command: celery -A core beat -l INFO
-  #   volumes:
-  #     - './stats-backend:/stats-backend/'
-  #   env_file:
-  #     - ./.envs/.django
-  #   depends_on:
-  #     - redis
-  #     - postgres
-  #     - webserver
-  #   deploy:
-  #     replicas: 1
-  #     update_config:
-  #       failure_action: rollback
-  #       order: start-first
-  #     restart_policy:
-  #       condition: on-failure
-  #   networks:
-  #     - swarm-example
+  celery:
+    build:
+      context: .
+      dockerfile: compose/celery/Dockerfile
+    image: celery_wtf:latest
+    volumes:
+      - './stats-backend:/stats-backend/'
+    env_file:
+      - ./.envs/.django
+    depends_on:
+      - redis
+      - postgres
+      - webserver
+    deploy:
+      replicas: 1
+      update_config:
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+    networks:
+      - swarm-example
+  celery_beat:
+    build:
+      context: .
+      dockerfile: compose/celery/Dockerfile
+    image: celery_beat:latest
+    command: celery -A core beat -l INFO
+    volumes:
+      - './stats-backend:/stats-backend/'
+    env_file:
+      - ./.envs/.django
+    depends_on:
+      - redis
+      - postgres
+      - webserver
+    deploy:
+      replicas: 1
+      update_config:
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+    networks:
+      - swarm-example
   postgres:
     image: postgres
     build:
@@ -140,16 +139,28 @@ services:
   #     - pgadmin:/var/lib/pgadmin
   #   ports:
   #     - '5050:80'
-
-  # frontend:
-  #   build:
-  #     context: .
-  #     dockerfile: compose/frontend/Dockerfile
-  #   volumes:
-  #     - './golemstats-frontend:/app'
-  #     - '/app/node_modules'
-  #   ports:
-  #     - '8081:80'
+  frontend:
+    build:
+      context: .
+      dockerfile: compose/frontend/Dockerfile
+    volumes:
+      - './golemstats-frontend:/app'
+      - '/app/node_modules'
+    ports:
+      - '8081:80'
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.webserver.rule=Host(`golemstats.cm`)
+        - traefik.http.services.webserver.loadbalancer.server.port=8081
+      replicas: 1
+      update_config:
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+    networks:
+      - swarm-example
 networks:
   swarm-example:
     driver: overlay
