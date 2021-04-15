@@ -52,9 +52,14 @@ services:
     deploy:
       labels:
         - traefik.enable=true
-        - traefik.http.routers.webserver.rule=Host(`api.golemstats.com`)
-        - traefik.http.services.webserver.loadbalancer.server.port=8002
-        - traefik.http.routers.webserver.tls=true
+        - traefik.http.middlewares.redirect-middleware.redirectscheme.scheme=https
+        - traefik.http.routers.web-router.entrypoints=web
+        - traefik.http.routers.web-router.rule=Host(`api.golemstats.com`)
+        - traefik.http.routers.web-router.middlewares=redirect-middleware
+        - traefik.http.services.web-router.loadbalancer.server.port=8002
+        - traefik.http.routers.websecure-router.tls=true
+        - traefik.http.routers.websecure-router.rule=Host(`api.golemstats.com`)
+        - traefik.http.routers.websecure-router.entrypoints=websecure
 
       replicas: 3
       update_config:
