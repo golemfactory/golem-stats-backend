@@ -30,7 +30,7 @@ services:
       - letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik.yml:/etc/traefik/dynamic_conf/conf.yml:ro
-      - ./certs:certs
+      - ./certs:/certs
     deploy:
       labels:
         - traefik.enable=true
