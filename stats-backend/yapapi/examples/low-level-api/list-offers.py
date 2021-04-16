@@ -13,9 +13,6 @@ import redis
 
 
 data = []
-jsonlist = {
-    "offers": []
-}
 
 test = []
 

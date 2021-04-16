@@ -57,6 +57,17 @@ def network_utilization_to_redis():
 
 
 @app.task
+def network_versions_to_redis():
+    end = round(time.time())
+    start = end - 86400
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query_range?query=count_values("version"%2C%201000%2Byagna_version_major%7Bjob%3D"community.1"%7D*100%2Byagna_version_minor%7Bjob%3D"community.1"%7D*10%2Byagna_version_patch%7Bjob%3D"community.1"%7D)&start={start}&end={end}&step=300'
+    content = get_stats_data(domain)
+    serialized = json.dumps(content)
+    r.set("network_versions", serialized)
+
+
+@app.task
 def network_earnings_6h_to_redis():
     end = round(time.time())
     start = round(time.time()) - int(10)

@@ -14,4 +14,5 @@ urlpatterns = [
     path('network/earnings/24', views.network_earnings_24h),
     path('network/online', views.online_nodes),
     path('network/online/stats', views.general_stats),
+    path('network/versions', views.network_versions),
 ]
