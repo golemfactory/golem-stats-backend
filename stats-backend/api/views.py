@@ -59,6 +59,17 @@ async def payments_last_n_hours_provider(request, yagna_id, hours):
     return JsonResponse(content)
 
 
+async def provider_computing(request, yagna_id):
+    now = round(time.time())
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=activity_provider_created%7Bhostname%3D~"0xe2462fa49d20324b799b2894bb03fd021489df3a"%2C%20job%3D~"community.1"%7D%20-%20activity_provider_destroyed%7Bhostname%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D&time={now}'
+    data = await get_yastats_data(domain)
+    print(data)
+    content = {'computing': data['data']
+               ['result'][0]['value'][1]}
+    return JsonResponse(content)
+
+
 async def node(request, yagna_id):
     """
     Retrieves data about a specific node.
