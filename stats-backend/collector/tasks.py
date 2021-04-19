@@ -131,13 +131,16 @@ def offer_scraper():
     for line in serialized:
         data = json.loads(line)
         provider = data['id']
+        wallet = data['wallet']
         obj, created = Node.objects.get_or_create(node_id=provider)
         if created:
             obj.data = data
+            obj.wallet = wallet
             obj.online = True
             obj.save()
         else:
             obj.data = data
+            obj.wallet = wallet
             obj.online = True
             obj.save()
     # Find offline providers

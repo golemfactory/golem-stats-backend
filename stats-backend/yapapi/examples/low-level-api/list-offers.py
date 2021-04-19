@@ -31,14 +31,10 @@ async def list_offers(conf: Configuration, subnet_tag: str):
                     continue
                 else:
                     data = event.props
-                    # oldkeys = list(data.keys())
-                    # # Change "item" to "object"
-                    # newkeys = [s.replace('.', '_').replace('-', '_') for s in oldkeys]
-                    # # Get values
-                    # vals = list(data.values())
-                    # # Create new dictionary by iterating over both newkeys and vals
-                    # newdictionary = {k: v for k, v in zip(newkeys, vals)}
-                    # newdictionary['id'] = event.issuer
+                    try:
+                        data['wallet'] = event.props['golem.com.payment.platform.zksync-mainnet-glm.address']
+                    except:
+                        data['wallet'] = event.props['golem.com.payment.platform.zksync-rinkeby-tglm.address']
                     data['id'] = event.issuer
                     test.append(json.dumps(data))
 
@@ -57,14 +53,10 @@ async def list_offers_testnet(conf: Configuration, subnet_tag: str):
                     continue
                 else:
                     data = event.props
-                    # oldkeys = list(data.keys())
-                    # # Change "item" to "object"
-                    # newkeys = [s.replace('.', '_').replace('-', '_') for s in oldkeys]
-                    # # Get values
-                    # vals = list(data.values())
-                    # # Create new dictionary by iterating over both newkeys and vals
-                    # newdictionary = {k: v for k, v in zip(newkeys, vals)}
-                    # newdictionary['id'] = event.issuer
+                    try:
+                        data['wallet'] = event.props['golem.com.payment.platform.zksync-rinkeby-tglm.address']
+                    except:
+                        data['wallet'] = event.props['golem.com.payment.platform.zksync-mainnet-glm.address']
                     data['id'] = event.issuer
                     test.append(json.dumps(data))
 

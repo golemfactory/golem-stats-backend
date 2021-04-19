@@ -25,6 +25,15 @@ def get_node(yagna_id):
     return data
 
 
+@sync_to_async
+def get_node_by_wallet(wallet):
+    data = Node.objects.filter(wallet=wallet)
+    if data:
+        return data
+    else:
+        return None
+
+
 async def online_nodes(request):
     """
     List all online nodes.
@@ -78,6 +87,23 @@ async def node(request, yagna_id):
         data = await get_node(yagna_id)
         serializer = NodeSerializer(data, many=True)
         return JsonResponse(serializer.data, safe=False)
+    else:
+        return HttpResponse(status=400)
+
+
+async def node_wallet(request, wallet):
+    """
+    Returns all the nodes with the specified wallet address.
+    """
+    if request.method == 'GET':
+        data = await get_node_by_wallet(wallet)
+        print(data)
+        if data != None:
+            serializer = NodeSerializer(data, many=True)
+            return JsonResponse(serializer.data, safe=False)
+        else:
+            return HttpResponse(status=404)
+
     else:
         return HttpResponse(status=400)
 

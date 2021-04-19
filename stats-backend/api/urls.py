@@ -18,4 +18,5 @@ urlpatterns = [
     path('network/online', views.online_nodes),
     path('network/online/stats', views.general_stats),
     path('network/versions', views.network_versions),
+    path('wallet/<wallet>', views.node_wallet),
 ]
