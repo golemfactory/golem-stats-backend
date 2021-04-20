@@ -1,6 +1,7 @@
 from django.urls import path
 from django.shortcuts import render
 from . import views
+from collector.tasks import node_earnings_total
 
 app_name = 'api'
 
@@ -19,4 +20,5 @@ urlpatterns = [
     path('network/online/stats', views.general_stats),
     path('network/versions', views.network_versions),
     path('wallet/<wallet>', views.node_wallet),
+    path('test', node_earnings_total),
 ]

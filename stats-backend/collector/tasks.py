@@ -119,6 +119,22 @@ def providers_average_earnings_to_redis():
 
 
 @app.task
+def node_earnings_total():
+    providers = Node.objects.all()
+    for user in providers:
+        now = round(time.time())
+        domain = os.environ.get(
+            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{user.node_id}"%2C%20job%3D~"community.1"%7D%5B8760h%5D)%2F10%5E9)&time={now}'
+        data = get_stats_data(domain)
+        try:
+            content = data['data']['result'][0]['value'][1]
+            user.earnings_total = content
+            user.save()
+        except:
+            continue
+
+
+@app.task
 def offer_scraper():
     os.chdir("/stats-backend/yapapi/examples/low-level-api")
     with open('data.config') as f:

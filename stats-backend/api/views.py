@@ -44,7 +44,7 @@ async def online_nodes(request):
         data = json.loads(content)
         r.close()
         await r.wait_closed()
-        return JsonResponse(data, safe=False)
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
