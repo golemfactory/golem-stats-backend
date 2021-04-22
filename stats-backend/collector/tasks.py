@@ -7,7 +7,7 @@ from api.utils import get_stats_data
 import time
 import redis
 from django.db import transaction
-from .models import Node
+from .models import Node, NetworkStats
 from api.serializers import NodeSerializer
 from django.core import serializers
 import tempfile
@@ -42,6 +42,8 @@ def network_stats_to_redis():
     content = {'online': len(query), 'cores': sum(
         cores), 'threads': sum(threads), 'memory': sum(memory), 'disk': sum(disk)}
     serialized = json.dumps(content)
+    NetworkStats.objects.create(online=len(query), cores=sum(
+        threads), memory=sum(memory), disk=sum(disk))
     r.set("online_stats", serialized)
 
 

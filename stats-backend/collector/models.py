@@ -1,4 +1,6 @@
 from django.db import models
+from django.utils import timezone
+
 
 # Create your models here.
 
@@ -9,3 +11,11 @@ class Node(models.Model):
     earnings_total = models.FloatField(null=True, blank=True)
     data = models.JSONField(null=True)
     online = models.BooleanField(default=False)
+
+
+class NetworkStats(models.Model):
+    online = models.IntegerField()
+    cores = models.IntegerField()
+    memory = models.FloatField()
+    disk = models.FloatField()
+    date = models.DateTimeField(auto_now=True)
