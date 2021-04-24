@@ -27,15 +27,14 @@ def stats_snapshot_yesterday():
     start_date = date.today() - timedelta(days=1)
     online = NetworkStats.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
         'day', 'date')}).values('day').annotate(online=Max('online'))
-    cores = NetworkStats.objects.extra(select={'day': connection.ops.date_trunc_sql(
+    cores = NetworkStats.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
         'day', 'date')}).values('day').annotate(cores=Max("cores"))
-    memory = NetworkStats.objects.extra(select={'day': connection.ops.date_trunc_sql(
+    memory = NetworkStats.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
         'day', 'date')}).values('day').annotate(memory=Max("memory"))
-    disk = NetworkStats.objects.extra(select={'day': connection.ops.date_trunc_sql(
+    disk = NetworkStats.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
         'day', 'date')}).values('day').annotate(disk=Max("disk"))
     test2 = NetworkStatsMax.objects.all()
     for obj in online[0:1]:
-        print(obj)
         if obj['day'].date() not in test2:
             online_max = obj['online']
     for obj in cores[0:1]:
@@ -50,15 +49,11 @@ def stats_snapshot_yesterday():
 
     days = []
     for obj in test2:
-        days.append(obj.date.date())
-    print(days)
-    print("START", start_date)
-    if start_date in days:
-        print("DATE IN there")
-    else:
-        print("NOT IN THERE")
+        days.append(obj.date.strftime('%Y-%m-%d'))
+    if not str(start_date) in str(days):
+        print("not in")
         NetworkStatsMax.objects.create(
-            online=online_max, cores=cores_max, memory=memory_max, disk=disk_max, date=start_date)
+            online=online_max, cores=cores_max, memory=memory_max, disk=disk_max, date=date.today())
         NetworkStats.objects.all().delete()
 
 

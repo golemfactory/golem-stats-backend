@@ -20,8 +20,7 @@ def setup_periodic_tasks(sender, **kwargs):
         offer_scraper.s(),
     )
     sender.add_periodic_task(
-        #crontab(minute=0, hour=0),
-        15.0,
+        crontab(minute=0, hour=0),
         stats_snapshot_yesterday.s(),
     )
     sender.add_periodic_task(
