@@ -34,16 +34,16 @@ def stats_snapshot_yesterday():
     disk = NetworkStats.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
         'day', 'date')}).values('day').annotate(disk=Max("disk"))
     test2 = NetworkStatsMax.objects.all()
-    for obj in online[0:1]:
+    for obj in online:
         if obj['day'].date() not in test2:
             online_max = obj['online']
-    for obj in cores[0:1]:
+    for obj in cores:
         if obj['day'].date() not in test2:
             cores_max = obj['cores']
-    for obj in memory[0:1]:
+    for obj in memory:
         if obj['day'].date() not in test2:
             memory_max = obj['memory']
-    for obj in disk[0:1]:
+    for obj in disk:
         if obj['day'].date() not in test2:
             disk_max = obj['disk']
 
@@ -54,7 +54,6 @@ def stats_snapshot_yesterday():
         print("not in")
         NetworkStatsMax.objects.create(
             online=online_max, cores=cores_max, memory=memory_max, disk=disk_max, date=date.today())
-        NetworkStats.objects.all().delete()
 
 
 @app.task
