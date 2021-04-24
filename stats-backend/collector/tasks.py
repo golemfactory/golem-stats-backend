@@ -7,7 +7,10 @@ from api.utils import get_stats_data
 import time
 import redis
 from django.db import transaction
-from .models import Node, NetworkStats
+from datetime import datetime, timedelta, date
+from .models import Node, NetworkStats, NetworkStatsMax
+from django.db import connection
+from django.db.models import Count, Max
 from api.serializers import NodeSerializer
 from django.core import serializers
 import tempfile
@@ -17,6 +20,41 @@ import tempfile
 # r.lpush("image_classifier", json.dumps(jsonmsg))
 
 r = redis.Redis(host='redis', port=6379, db=0)
+
+
+@app.task
+def stats_snapshot_yesterday():
+    start_date = date.today() - timedelta(days=1)
+    online = NetworkStats.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
+        'day', 'date')}).values('day').annotate(online=Max('online'))
+    cores = NetworkStats.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
+        'day', 'date')}).values('day').annotate(cores=Max("cores"))
+    memory = NetworkStats.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
+        'day', 'date')}).values('day').annotate(memory=Max("memory"))
+    disk = NetworkStats.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
+        'day', 'date')}).values('day').annotate(disk=Max("disk"))
+    test2 = NetworkStatsMax.objects.all()
+    for obj in online[0:1]:
+        if obj['day'].date() not in test2:
+            online_max = obj['online']
+    for obj in cores[0:1]:
+        if obj['day'].date() not in test2:
+            cores_max = obj['cores']
+    for obj in memory[0:1]:
+        if obj['day'].date() not in test2:
+            memory_max = obj['memory']
+    for obj in disk[0:1]:
+        if obj['day'].date() not in test2:
+            disk_max = obj['disk']
+
+    days = []
+    for obj in test2:
+        days.append(obj.date.strftime('%Y-%m-%d'))
+    if not str(start_date) in str(days):
+        print("not in")
+        NetworkStatsMax.objects.create(
+            online=online_max, cores=cores_max, memory=memory_max, disk=disk_max, date=date.today())
+        NetworkStats.objects.all().delete()
 
 
 @app.task
