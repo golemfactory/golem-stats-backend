@@ -13,6 +13,14 @@ class Node(models.Model):
     online = models.BooleanField(default=False)
 
 
+class NetworkStatsMax(models.Model):
+    online = models.IntegerField()
+    cores = models.IntegerField()
+    memory = models.FloatField()
+    disk = models.FloatField()
+    date = models.DateTimeField()
+
+
 class NetworkStats(models.Model):
     online = models.IntegerField()
     cores = models.IntegerField()
