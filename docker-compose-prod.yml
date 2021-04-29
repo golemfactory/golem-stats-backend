@@ -2,7 +2,6 @@ version: '3.8'
 volumes:
   db_data: {}
   pgadmin:
-  letsencrypt:
 services:
   traefik:
     image: traefik:latest
@@ -11,29 +10,21 @@ services:
       - '443:443'
     command:
       - '--providers.docker=true'
-      - '--entryPoints.web.address=:80'
-      - '--entrypoints.websecure.address=:443'
-      - '--providers.providersThrottleDuration=2s'
-      - '--providers.docker.watch=true'
-      - '--providers.docker.exposedByDefault=false'
-      - '--providers.docker.useBindPortIP=true'
-      - '--providers.docker.swarmMode=true'
-      - '--providers.docker.network=swarm-example'
-      - '--providers.docker.swarmModeRefreshSeconds=15s'
+      - '--providers.docker.swarmmode=true'
       - '--providers.docker.exposedbydefault=false'
-      - '--providers.file.directory=/certs/'
-      - '--providers.file.watch=true'
-      - '--accessLog.bufferingSize=0'
+      - '--entrypoints.web.address=:80'
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.docker.network=swarm-example'
+      - 'traefik.http.routers.traefik.rule=Host(`traefik.localhost`)'
+      - 'traefik.http.routers.traefik.entrypoints=web'
+      - 'traefik.http.routers.traefik.service=api@internal'
+      - 'traefik.http.routers.traefik.loadbalancer.server.port=8080'
+      - 'traefik.http.routers.traefik.middlewares=traefik-compress'
+      - 'traefik.http.middlewares.traefik-compress.compress=true'
     volumes:
-      - letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./certs:/certs
-      - ./traefik.yml:/etc/traefik/dynamic_conf/conf.yml:ro
     deploy:
-      labels:
-        - traefik.enable=true
-        - traefik.docker.network=swarm-example
-        - traefik.http.routers.webserver.entrypoints=websecure
       placement:
         constraints:
           - node.role == manager
@@ -48,20 +39,19 @@ services:
       - postgres
     volumes:
       - './stats-backend:/stats-backend/'
+      - './wait-for-it.sh:/wait-for-it.sh'
     env_file:
       - ./.envs/.django
     deploy:
       labels:
-        - traefik.enable=true
-        - traefik.http.middlewares.redirect-middleware.redirectscheme.scheme=https
-        - traefik.http.routers.web-router.entrypoints=web
-        - traefik.http.routers.web-router.rule=Host(`api.golemstats.com`)
-        - traefik.http.routers.web-router.middlewares=redirect-middleware
-        - traefik.http.services.web-router.loadbalancer.server.port=8002
-        - traefik.http.routers.websecure-router.tls=true
-        - traefik.http.routers.websecure-router.rule=Host(`api.golemstats.com`)
-        - traefik.http.routers.websecure-router.entrypoints=websecure
-
+        - 'traefik.enable=true'
+        - 'traefik.http.routers.webserver.rule=Host(`api.golemstats.com`)'
+        - 'traefik.http.routers.webserver.entrypoints=web'
+        - 'traefik.http.services.webserver.loadbalancer.server.port=8002'
+        - 'traefik.http.routers.webserver.service=webserver@docker'
+        - 'traefik.docker.network=swarm-example'
+        - 'traefik.http.middlewares.webserver_compress.compress=true'
+        - 'traefik.http.routers.webserver.middlewares=webserver_compress'
       replicas: 3
       update_config:
         failure_action: rollback
@@ -87,9 +77,10 @@ services:
     build:
       context: .
       dockerfile: compose/celery/Dockerfile
-    image: celery_swarm:latest
+    image: celery_wtf:latest
     volumes:
       - './stats-backend:/stats-backend/'
+      - './wait-for-it.sh:/wait-for-it.sh'
     env_file:
       - ./.envs/.django
     depends_on:
@@ -113,6 +104,7 @@ services:
     command: celery -A core beat -l INFO
     volumes:
       - './stats-backend:/stats-backend/'
+      - './wait-for-it.sh:/wait-for-it.sh'
     env_file:
       - ./.envs/.django
     depends_on:
@@ -139,6 +131,19 @@ services:
       - 'db_data:/var/lib/postgresql/data'
     networks:
       - swarm-example
+  # pgadmin:
+  #   image: dpage/pgadmin4
+  #   links:
+  #     - postgres
+  #   depends_on:
+  #     - postgres
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: 123@123.com
+  #     PGADMIN_DEFAULT_PASSWORD: 123
+  #   volumes:
+  #     - pgadmin:/var/lib/pgadmin
+  #   ports:
+  #     - '5050:80'
   frontend:
     build:
       context: .
@@ -147,8 +152,22 @@ services:
     volumes:
       - './golemstats-frontend:/app'
       - '/app/node_modules'
-    ports:
-      - '8081:80'
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.frontend.rule=Host(`golemstats.com`)
+        - traefik.http.services.frontend.loadbalancer.server.port=80
+        - traefik.http.routers.frontend.service=frontend@docker
+        - traefik.http.routers.frontend.entrypoints=web
+        - traefik.docker.network=swarm-example
+      replicas: 1
+      update_config:
+        failure_action: rollback
+        order: start-first
+      restart_policy:
+        condition: on-failure
+    networks:
+      - swarm-example
 networks:
   swarm-example:
     driver: overlay

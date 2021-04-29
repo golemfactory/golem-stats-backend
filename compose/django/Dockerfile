@@ -44,4 +44,4 @@ RUN apk del build-deps && \
     rm -rf ~/.cache/pip
 
 # CMD will run when this dockerfile is running
-CMD ["sh", "-c", "python manage.py makemigrations; python manage.py migrate; python manage.py collectstatic --no-input; daphne -u /tmp/daphne.sock -b 0.0.0.0 -p 8002 core.asgi:application"]
+CMD ["sh", "-c",  "/wait-for-it.sh postgres:5432 -- python manage.py makemigrations; python manage.py migrate; python manage.py collectstatic --no-input; daphne -u /tmp/daphne.sock -b 0.0.0.0 -p 8002 core.asgi:application"]
