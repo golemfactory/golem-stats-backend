@@ -13,17 +13,20 @@ services:
       - '--providers.docker.swarmmode=true'
       - '--providers.docker.exposedbydefault=false'
       - '--entrypoints.web.address=:80'
+      - '--entrypoints.websecure.address=:443'
+      - '--certificatesresolvers.letsencryptresolver.acme.httpchallenge=true'
+      - '--certificatesresolvers.letsencryptresolver.acme.httpchallenge.entrypoint=web'
+      - '--certificatesresolvers.letsencryptresolver.acme.email=phillip@golem.network'
+      - '--certificatesresolvers.letsencryptresolver.acme.storage=/letsencrypt/acme.json'
     labels:
       - 'traefik.enable=true'
       - 'traefik.docker.network=swarm-example'
-      - 'traefik.http.routers.traefik.rule=Host(`traefik.localhost`)'
-      - 'traefik.http.routers.traefik.entrypoints=web'
-      - 'traefik.http.routers.traefik.service=api@internal'
-      - 'traefik.http.routers.traefik.loadbalancer.server.port=8080'
       - 'traefik.http.routers.traefik.middlewares=traefik-compress'
       - 'traefik.http.middlewares.traefik-compress.compress=true'
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
     deploy:
       placement:
         constraints:
@@ -52,6 +55,7 @@ services:
         - 'traefik.docker.network=swarm-example'
         - 'traefik.http.middlewares.webserver_compress.compress=true'
         - 'traefik.http.routers.webserver.middlewares=webserver_compress'
+        - 'traefik.http.routers.webserver.tls.certresolver=letsencryptresolver'
       replicas: 3
       update_config:
         failure_action: rollback
@@ -160,6 +164,7 @@ services:
         - traefik.http.routers.frontend.service=frontend@docker
         - traefik.http.routers.frontend.entrypoints=web
         - traefik.docker.network=swarm-example
+        - 'traefik.http.routers.frontend.tls.certresolver=letsencryptresolver'
       replicas: 1
       update_config:
         failure_action: rollback
