@@ -24,6 +24,7 @@ RUN apt install -y build-essential \
     libffi-dev \ 
     libpq-dev \
     jq \
+    netcat \
     musl-dev 
 
 # Update pip
