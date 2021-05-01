@@ -126,12 +126,6 @@ services:
       - redis
       - postgres
       - webserver
-    healthcheck:
-      test: curl 127.0.0.1:7465/me || exit 1
-      interval: 15s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
     deploy:
       replicas: 1
       update_config:
