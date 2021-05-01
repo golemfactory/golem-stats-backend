@@ -57,7 +57,7 @@ services:
         - 'traefik.http.routers.webserver.middlewares=webserver_compress'
         - 'traefik.http.routers.webserver.tls.certresolver=letsencryptresolver'
         - 'traefik.http.middlewares.webserver-redirect-web-secure.redirectscheme.scheme=https'
-        - 'traefik.http.routers.webserver-web.middlewares=mywebserver-redirect-web-secure'
+        - 'traefik.http.routers.webserver-web.middlewares=webserver-redirect-web-secure'
         - 'traefik.http.routers.webserver-web-secure.rule=Host(`api.golemstats.com`)'
         - 'traefik.http.routers.webserver-web-secure.tls=true'
         - 'traefik.http.routers.webserver-web-secure.entrypoints=web-secure'
@@ -183,7 +183,7 @@ services:
         - traefik.docker.network=swarm-example
         - traefik.http.routers.frontend.tls.certresolver=letsencryptresolver
         - traefik.http.middlewares.frontend-redirect-web-secure.redirectscheme.scheme=https
-        - traefik.http.routers.frontend-web.middlewares=mywebserver-redirect-web-secure
+        - traefik.http.routers.frontend-web.middlewares=frontend-redirect-web-secure
         - traefik.http.routers.frontend-web-secure.rule=Host(`golemstats.com`)
         - traefik.http.routers.frontend-web-secure.tls=true
         - traefik.http.routers.frontend-web-secure.entrypoints=web-secure
