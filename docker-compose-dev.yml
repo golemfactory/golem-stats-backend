@@ -85,6 +85,7 @@ services:
     volumes:
       - './stats-backend:/stats-backend/'
       - './wait-for-it.sh:/wait-for-it.sh'
+      - './check_yagna.sh:/check_yagna.sh'
     env_file:
       - ./.envs/.django
     depends_on:
@@ -92,9 +93,9 @@ services:
       - postgres
       - webserver
     healthcheck:
-      test: curl 127.0.0.1:7465/me || exit 1
+      test: /check_yagna.sh || exit 1
       interval: 15s
-      timeout: 10s
+      timeout: 5s
       retries: 3
       start_period: 15s
     deploy:
