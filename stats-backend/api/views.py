@@ -199,6 +199,21 @@ async def network_earnings_24h(request):
         return HttpResponse(status=400)
 
 
+async def network_earnings_365d(request):
+    """
+    Returns the earnings for the whole network the last n hours.
+    """
+    if request.method == 'GET':
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
+        content = await r.get("network_earnings_365d")
+        data = json.loads(content)
+        r.close()
+        await r.wait_closed()
+        return JsonResponse(data, safe=False)
+    else:
+        return HttpResponse(status=400)
+
+
 async def network_earnings_6h(request):
     """
     Returns the earnings for the whole network the last n hours.

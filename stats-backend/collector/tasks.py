@@ -133,6 +133,19 @@ def network_earnings_24h_to_redis():
 
 
 @app.task
+def network_earnings_365d_to_redis():
+    end = round(time.time())
+    start = round(time.time()) - int(10)
+    domain = os.environ.get(
+        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(increase(payment_amount_received%7Bjob%3D~%22community.1%22%7D%5B365d%5D)%2F10%5E9)&start={start}&end={end}&step=1"
+    data = get_stats_data(domain)
+    content = {'total_earnings': data['data']
+               ['result'][0]['values'][-1][1][0:6]}
+    serialized = json.dumps(content)
+    r.set("network_earnings_365d", serialized)
+
+
+@app.task
 def computing_now_to_redis():
     end = round(time.time())
     start = round(time.time()) - int(10)
