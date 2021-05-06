@@ -23,10 +23,10 @@ services:
       - 'traefik.docker.network=swarm-example'
       - 'traefik.http.routers.traefik.middlewares=traefik-compress'
       - 'traefik.http.middlewares.traefik-compress.compress=true'
-      traefik.http.routers.http-catchall.rule: hostregexp(`{host:.+}`)
-      traefik.http.routers.http-catchall.entrypoints: web
-      traefik.http.routers.http-catchall.middlewares: redirect-to-https@docker
-      traefik.http.middlewares.redirect-to-https.redirectscheme.scheme: https
+      - 'traefik.http.routers.http-catchall.rule=hostregexp(`{host:.+}`)'
+      - 'traefik.http.routers.http-catchall.entrypoints=web'
+      - 'traefik.http.routers.http-catchall.middlewares=redirect-to-https@docker'
+      - 'traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https'
 
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
