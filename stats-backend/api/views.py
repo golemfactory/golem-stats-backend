@@ -4,8 +4,8 @@ from rest_framework.response import Response
 from .utils import get_stats_data, get_yastats_data
 import os
 import time
-from collector.models import Node
-from .serializers import NodeSerializer
+from collector.models import Node, NetworkStatsMax
+from .serializers import NodeSerializer, NetworkStatsMaxSerializer
 from django.shortcuts import render
 from django.db.models import Count
 from django.conf import settings
@@ -32,6 +32,18 @@ def get_node_by_wallet(wallet):
         return data
     else:
         return None
+
+
+async def statsmax(request):
+    """
+    Retrieves network stats over time.
+    """
+    if request.method == 'GET':
+        data = NetworkStatsMax.objects.all()
+        serializer = NetworkStatsMaxSerializer(data, many=True)
+        return JsonResponse(serializer.data, safe=False)
+    else:
+        return HttpResponse(status=400)
 
 
 async def online_nodes(request):
