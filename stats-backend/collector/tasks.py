@@ -205,11 +205,13 @@ def offer_scraper():
             obj.data = data
             obj.wallet = wallet
             obj.online = True
+            obj.updated_at = datetime.now()
             obj.save()
         else:
             obj.data = data
             obj.wallet = wallet
             obj.online = True
+            obj.updated_at = datetime.now()
             obj.save()
     # Find offline providers
     str1 = ''.join(serialized)
@@ -223,6 +225,7 @@ def offer_scraper():
                 if not node.node_id in str1:
                     print("not found", node.node_id)
                     node.online = False
+                    node.updated_at = datetime.now()
                     node.save()
     finally:
         os.remove(path)

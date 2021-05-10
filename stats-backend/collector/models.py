@@ -11,7 +11,7 @@ class Node(models.Model):
     earnings_total = models.FloatField(null=True, blank=True)
     data = models.JSONField(null=True)
     online = models.BooleanField(default=False)
-    updated_at = models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
 
 
 class NetworkStatsMax(models.Model):
