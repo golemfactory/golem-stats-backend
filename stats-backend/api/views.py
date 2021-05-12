@@ -5,6 +5,7 @@ from .utils import get_stats_data, get_yastats_data
 import os
 import time
 from collector.models import Node, NetworkStatsMax
+from .models import APICounter
 from .serializers import NodeSerializer, NetworkStatsMaxSerializer
 from django.shortcuts import render
 from django.db.models import Count
@@ -26,6 +27,11 @@ def get_node(yagna_id):
 
 
 @sync_to_async
+def LogEndpoint(endpoint):
+    APICounter.objects.create(endpoint=endpoint)
+
+
+@sync_to_async
 def get_node_by_wallet(wallet):
     data = Node.objects.filter(wallet=wallet)
     if data:
@@ -38,6 +44,7 @@ async def statsmax(request):
     """
     Retrieves network stats over time.
     """
+    await LogEndpoint("Network Historical Stats")
     if request.method == 'GET':
         data = NetworkStatsMax.objects.all()
         serializer = NetworkStatsMaxSerializer(data, many=True)
@@ -50,6 +57,7 @@ async def online_nodes(request):
     """
     List all online nodes.
     """
+    await LogEndpoint("Network Online")
     if request.method == 'GET':
         r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("online", encoding='utf-8')
@@ -62,6 +70,7 @@ async def online_nodes(request):
 
 
 async def activity_graph_provider(request, yagna_id):
+    await LogEndpoint("Node Activity")
     end = round(time.time())
     start = end - 86400
     domain = os.environ.get(
@@ -71,6 +80,7 @@ async def activity_graph_provider(request, yagna_id):
 
 
 async def payments_last_n_hours_provider(request, yagna_id, hours):
+    await LogEndpoint("Node Earnings")
     now = round(time.time())
     domain = os.environ.get(
         'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{hours}h%5D)%2F10%5E9)&time={now}'
@@ -81,6 +91,7 @@ async def payments_last_n_hours_provider(request, yagna_id, hours):
 
 
 async def provider_computing(request, yagna_id):
+    await LogEndpoint("Node Computing")
     now = round(time.time())
     domain = os.environ.get(
         'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=activity_provider_created%7Bhostname%3D~"0xe2462fa49d20324b799b2894bb03fd021489df3a"%2C%20job%3D~"community.1"%7D%20-%20activity_provider_destroyed%7Bhostname%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D&time={now}'
@@ -95,6 +106,7 @@ async def node(request, yagna_id):
     """
     Retrieves data about a specific node.
     """
+    await LogEndpoint("Node Detailed")
     if request.method == 'GET':
         data = await get_node(yagna_id)
         serializer = NodeSerializer(data, many=True)
@@ -107,6 +119,7 @@ async def node_wallet(request, wallet):
     """
     Returns all the nodes with the specified wallet address.
     """
+    await LogEndpoint("Node Operator")
     if request.method == 'GET':
         data = await get_node_by_wallet(wallet)
         print(data)
@@ -124,6 +137,7 @@ async def general_stats(request):
     """
     List network stats for online nodes.
     """
+    await LogEndpoint("Network Online Stats")
     if request.method == 'GET':
         r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("online_stats")
@@ -140,6 +154,7 @@ async def network_utilization(request, start, end):
     Queries the networks utilization from a start date to the end date specified, and returns
     timestamps in ms along with providers computing.
     """
+    await LogEndpoint("Network Utilization")
     if request.method == 'GET':
         r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("network_utilization")
@@ -155,6 +170,7 @@ async def network_versions(request):
     """
     Queries the networks nodes for their yagna versions
     """
+    await LogEndpoint("Network Versions")
     if request.method == 'GET':
         r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("network_versions")
@@ -170,6 +186,7 @@ async def providers_computing_currently(request):
     """
     Returns how many providers are currently computing a task.
     """
+    await LogEndpoint("Network Computing")
     if request.method == 'GET':
         r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("computing_now")
@@ -185,6 +202,7 @@ async def providers_average_earnings(request):
     """
     Returns providers average earnings per task in the last hour.
     """
+    await LogEndpoint("Providers Average Earnings")
     if request.method == 'GET':
         r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("provider_average_earnings")
@@ -200,6 +218,7 @@ async def network_earnings_24h(request):
     """
     Returns the earnings for the whole network the last n hours.
     """
+    await LogEndpoint("Network Earnings 24h")
     if request.method == 'GET':
         r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("network_earnings_24h")
@@ -215,6 +234,7 @@ async def network_earnings_365d(request):
     """
     Returns the earnings for the whole network the last n hours.
     """
+    await LogEndpoint("Network Earnings 365d")
     if request.method == 'GET':
         r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("network_earnings_365d")
@@ -230,6 +250,7 @@ async def network_earnings_6h(request):
     """
     Returns the earnings for the whole network the last n hours.
     """
+    await LogEndpoint("Network Earnings 6h")
     if request.method == 'GET':
         r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("network_earnings_6h")
