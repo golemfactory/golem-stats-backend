@@ -28,11 +28,6 @@ def get_node(yagna_id):
 
 
 @sync_to_async
-def LogEndpoint(endpoint):
-    APICounter.objects.create(endpoint=endpoint)
-
-
-@sync_to_async
 def get_node_by_wallet(wallet):
     data = Node.objects.filter(wallet=wallet)
     if data:
@@ -42,11 +37,15 @@ def get_node_by_wallet(wallet):
 
 
 async def total_api_calls(request):
-    count = APICounter.objects.all().count()
-    json = {
-        "count": count
-    }
-    return JsonResponse(json)
+    if request.method == 'GET':
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
+        content = await r.get("api_requests", encoding='utf-8')
+        data = json.loads(content)
+        r.close()
+        await r.wait_closed()
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
+    else:
+        return HttpResponse(status=400)
 
 
 async def median_prices(request):

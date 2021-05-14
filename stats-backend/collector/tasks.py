@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, date
 from .models import Node, NetworkStats, NetworkStatsMax
 from django.db import connection
 from django.db.models import Count, Max
+from api.models import APICounter
 from api.serializers import NodeSerializer
 from django.core import serializers
 import tempfile
@@ -20,6 +21,16 @@ import tempfile
 # r.lpush("image_classifier", json.dumps(jsonmsg))
 
 r = redis.Redis(host='redis', port=6379, db=0)
+
+
+@app.task
+def requests_served():
+    count = APICounter.objects.all().count()
+    json = {
+        "count": count
+    }
+    serialized = json.dumps(json)
+    r.set("api_requests", serialized)
 
 
 @app.task
