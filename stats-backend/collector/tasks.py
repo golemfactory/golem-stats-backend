@@ -26,10 +26,10 @@ r = redis.Redis(host='redis', port=6379, db=0)
 @app.task
 def requests_served():
     count = APICounter.objects.all().count()
-    json = {
+    jsondata = {
         "count": count
     }
-    serialized = json.dumps(json)
+    serialized = json.dumps(jsondata)
     r.set("api_requests", serialized)
 
 
