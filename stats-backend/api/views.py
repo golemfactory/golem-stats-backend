@@ -41,6 +41,14 @@ def get_node_by_wallet(wallet):
         return None
 
 
+async def total_api_calls(request):
+    count = APICounter.objects.all().count()
+    json = {
+        "count": count
+    }
+    return JsonResponse(json)
+
+
 async def median_prices(request):
     if request.method == 'GET':
         perhour = []

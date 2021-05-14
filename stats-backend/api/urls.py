@@ -22,4 +22,5 @@ urlpatterns = [
     path('network/versions', views.network_versions),
     path('network/stats', views.statsmax),
     path('network/pricing/median', views.median_prices),
+    path('api/usage', views.total_api_calls),
 ]
