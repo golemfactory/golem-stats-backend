@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .utils import get_stats_data, get_yastats_data
 import os
+import statistics
 import time
 from collector.models import Node, NetworkStatsMax
 from .models import APICounter
@@ -38,6 +39,39 @@ def get_node_by_wallet(wallet):
         return data
     else:
         return None
+
+
+async def median_prices(request):
+    if request.method == 'GET':
+        perhour = []
+        cpuhour = []
+        start = []
+        data = Node.objects.all()
+        for obj in data:
+            if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][0])) < 5:
+                perhour.append(
+                    obj.data['golem.com.pricing.model.linear.coeffs'][0])
+            else:
+                perhour.append(
+                    obj.data['golem.com.pricing.model.linear.coeffs'][0] * 3600)
+
+            start.append(
+                (obj.data['golem.com.pricing.model.linear.coeffs'][2]))
+            if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][1])) < 5:
+                cpuhour.append(
+                    obj.data['golem.com.pricing.model.linear.coeffs'][1])
+            else:
+                cpuhour.append(
+                    obj.data['golem.com.pricing.model.linear.coeffs'][1] * 3600)
+
+        json = {
+            "cpuhour": statistics.median(cpuhour),
+            "perhour": statistics.median(perhour),
+            "start": statistics.median(start)
+        }
+        return JsonResponse(json)
+    else:
+        return HttpResponse(status=400)
 
 
 async def statsmax(request):
