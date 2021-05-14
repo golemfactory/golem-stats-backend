@@ -28,6 +28,11 @@ def get_node(yagna_id):
 
 
 @sync_to_async
+def LogEndpoint(endpoint):
+    APICounter.objects.create(endpoint=endpoint)
+
+
+@sync_to_async
 def get_node_by_wallet(wallet):
     data = Node.objects.filter(wallet=wallet)
     if data:
