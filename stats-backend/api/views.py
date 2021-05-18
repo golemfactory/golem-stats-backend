@@ -55,66 +55,24 @@ async def total_api_calls(request):
 
 async def median_prices(request):
     if request.method == 'GET':
-        perhour = []
-        cpuhour = []
-        start = []
-        data = Node.objects.filter(online=True)
-        for obj in data:
-            if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][0])) < 5:
-                perhour.append(
-                    obj.data['golem.com.pricing.model.linear.coeffs'][0])
-            else:
-                perhour.append(
-                    obj.data['golem.com.pricing.model.linear.coeffs'][0] * 3600)
-
-            start.append(
-                (obj.data['golem.com.pricing.model.linear.coeffs'][2]))
-            if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][1])) < 5:
-                cpuhour.append(
-                    obj.data['golem.com.pricing.model.linear.coeffs'][1])
-            else:
-                cpuhour.append(
-                    obj.data['golem.com.pricing.model.linear.coeffs'][1] * 3600)
-
-        json = {
-            "cpuhour": statistics.median(cpuhour),
-            "perhour": statistics.median(perhour),
-            "start": statistics.median(start)
-        }
-        return JsonResponse(json)
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
+        content = await r.get("network_median_pricing", encoding='utf-8')
+        data = json.loads(content)
+        r.close()
+        await r.wait_closed()
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
 
 async def average_pricing(request):
     if request.method == 'GET':
-        perhour = []
-        cpuhour = []
-        start = []
-        data = Node.objects.filter(online=True)
-        for obj in data:
-            if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][0])) < 5:
-                perhour.append(
-                    obj.data['golem.com.pricing.model.linear.coeffs'][0])
-            else:
-                perhour.append(
-                    obj.data['golem.com.pricing.model.linear.coeffs'][0] * 3600)
-
-            start.append(
-                (obj.data['golem.com.pricing.model.linear.coeffs'][2]))
-            if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][1])) < 5:
-                cpuhour.append(
-                    obj.data['golem.com.pricing.model.linear.coeffs'][1])
-            else:
-                cpuhour.append(
-                    obj.data['golem.com.pricing.model.linear.coeffs'][1] * 3600)
-
-        json = {
-            "cpuhour": statistics.mean(cpuhour),
-            "perhour": statistics.mean(perhour),
-            "start": statistics.mean(start)
-        }
-        return JsonResponse(json)
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
+        content = await r.get("network_average_pricing", encoding='utf-8')
+        data = json.loads(content)
+        r.close()
+        await r.wait_closed()
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 

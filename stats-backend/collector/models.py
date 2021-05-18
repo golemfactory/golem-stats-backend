@@ -32,3 +32,15 @@ class NetworkStats(models.Model):
 
 class ProvidersComputing(models.Model):
     total = models.IntegerField()
+
+
+class NetworkMedianPricing(models.Model):
+    start = models.FloatField()
+    cpuh = models.FloatField()
+    perh = models.FloatField()
+
+
+class NetworkAveragePricing(models.Model):
+    start = models.FloatField()
+    cpuh = models.FloatField()
+    perh = models.FloatField()

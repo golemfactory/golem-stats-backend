@@ -3,12 +3,13 @@ from celery import Celery
 import json
 import subprocess
 import os
+import statistics
 from api.utils import get_stats_data
 import time
 import redis
 from django.db import transaction
 from datetime import datetime, timedelta, date
-from .models import Node, NetworkStats, NetworkStatsMax, ProvidersComputing
+from .models import Node, NetworkStats, NetworkStatsMax, ProvidersComputing, NetworkAveragePricing, NetworkMedianPricing
 from django.db import connection
 from django.db.models import Count, Max
 from api.models import APICounter
@@ -65,6 +66,74 @@ def stats_snapshot_yesterday():
         print("not in")
         NetworkStatsMax.objects.create(
             online=online_max, cores=cores_max, memory=memory_max, disk=disk_max, date=date.today())
+
+
+@app.task
+def network_average_pricing():
+    perhour = []
+    cpuhour = []
+    start = []
+    data = Node.objects.filter(online=True)
+    for obj in data:
+        if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][0])) < 5:
+            perhour.append(
+                obj.data['golem.com.pricing.model.linear.coeffs'][0])
+        else:
+            perhour.append(
+                obj.data['golem.com.pricing.model.linear.coeffs'][0] * 3600)
+
+            start.append(
+                (obj.data['golem.com.pricing.model.linear.coeffs'][2]))
+        if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][1])) < 5:
+            cpuhour.append(
+                obj.data['golem.com.pricing.model.linear.coeffs'][1])
+        else:
+            cpuhour.append(
+                obj.data['golem.com.pricing.model.linear.coeffs'][1] * 3600)
+
+    content = {
+        "cpuhour": statistics.mean(cpuhour),
+        "perhour": statistics.mean(perhour),
+        "start": statistics.mean(start)
+    }
+    serialized = json.dumps(content)
+    NetworkAveragePricing.objects.create(start=statistics.mean(
+        start), cpuh=statistics.mean(cpuhour), perh=statistics.mean(perhour))
+    r.set("network_average_pricing", serialized)
+
+
+@app.task
+def network_median_pricing():
+    perhour = []
+    cpuhour = []
+    startprice = []
+    data = Node.objects.filter(online=True)
+    for obj in data:
+        if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][0])) < 5:
+            perhour.append(
+                obj.data['golem.com.pricing.model.linear.coeffs'][0])
+        else:
+            perhour.append(
+                obj.data['golem.com.pricing.model.linear.coeffs'][0] * 3600)
+
+            startprice.append(
+                (obj.data['golem.com.pricing.model.linear.coeffs'][2]))
+        if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][1])) < 5:
+            cpuhour.append(
+                obj.data['golem.com.pricing.model.linear.coeffs'][1])
+        else:
+            cpuhour.append(
+                obj.data['golem.com.pricing.model.linear.coeffs'][1] * 3600)
+
+    content = {
+        "cpuhour": statistics.median(cpuhour),
+        "perhour": statistics.median(perhour),
+        "start": statistics.median(startprice)
+    }
+    serialized = json.dumps(content)
+    NetworkMedianPricing.objects.create(start=statistics.median(
+        startprice), cpuh=statistics.median(cpuhour), perh=statistics.median(perhour))
+    r.set("network_median_pricing", serialized)
 
 
 @app.task
