@@ -58,7 +58,7 @@ async def median_prices(request):
         perhour = []
         cpuhour = []
         start = []
-        data = Node.objects.all()
+        data = Node.objects.filter(online=True)
         for obj in data:
             if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][0])) < 5:
                 perhour.append(
@@ -80,6 +80,39 @@ async def median_prices(request):
             "cpuhour": statistics.median(cpuhour),
             "perhour": statistics.median(perhour),
             "start": statistics.median(start)
+        }
+        return JsonResponse(json)
+    else:
+        return HttpResponse(status=400)
+
+
+async def average_pricing(request):
+    if request.method == 'GET':
+        perhour = []
+        cpuhour = []
+        start = []
+        data = Node.objects.filter(online=True)
+        for obj in data:
+            if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][0])) < 5:
+                perhour.append(
+                    obj.data['golem.com.pricing.model.linear.coeffs'][0])
+            else:
+                perhour.append(
+                    obj.data['golem.com.pricing.model.linear.coeffs'][0] * 3600)
+
+            start.append(
+                (obj.data['golem.com.pricing.model.linear.coeffs'][2]))
+            if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][1])) < 5:
+                cpuhour.append(
+                    obj.data['golem.com.pricing.model.linear.coeffs'][1])
+            else:
+                cpuhour.append(
+                    obj.data['golem.com.pricing.model.linear.coeffs'][1] * 3600)
+
+        json = {
+            "cpuhour": statistics.mean(cpuhour),
+            "perhour": statistics.mean(perhour),
+            "start": statistics.mean(start)
         }
         return JsonResponse(json)
     else:
