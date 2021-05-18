@@ -8,7 +8,7 @@ import time
 import redis
 from django.db import transaction
 from datetime import datetime, timedelta, date
-from .models import Node, NetworkStats, NetworkStatsMax
+from .models import Node, NetworkStats, NetworkStatsMax, ProvidersComputing
 from django.db import connection
 from django.db.models import Count, Max
 from api.models import APICounter
@@ -164,6 +164,8 @@ def computing_now_to_redis():
         'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%22%7D)&start={start}&end={end}&step=1"
     data = get_stats_data(domain)
     content = {'computing_now': data['data']['result'][0]['values'][-1][1]}
+    ProvidersComputing.objects.create(
+        total=data['data']['result'][0]['values'][-1][1])
     serialized = json.dumps(content)
     r.set("computing_now", serialized)
 

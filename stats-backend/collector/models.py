@@ -28,3 +28,7 @@ class NetworkStats(models.Model):
     memory = models.FloatField()
     disk = models.FloatField()
     date = models.DateTimeField(auto_now=True)
+
+
+class ProvidersComputing(models.Model):
+    total = models.IntegerField()
