@@ -170,8 +170,8 @@ services:
       - './golemstats-frontend:/app'
       - '/app/node_modules'
       - './nginx.conf:/etc/nginx/conf.d/default.conf'
-      - './golemstatssitemap.xml:/crawler/robots.txt'
-      - './robots.txt:/crawler/sitemap.xml'
+      - './golemstatssitemap.xml:/crawler/sitemap.xml'
+      - './robots.txt:/crawler/robots.txt'
     deploy:
       labels:
         - traefik.enable=true
