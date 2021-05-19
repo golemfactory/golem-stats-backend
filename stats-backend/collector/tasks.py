@@ -13,7 +13,7 @@ from .models import Node, NetworkStats, NetworkStatsMax, ProvidersComputing, Net
 from django.db import connection
 from django.db.models import Count, Max
 from api.models import APICounter
-from api.serializers import NodeSerializer
+from api.serializers import NodeSerializer, NetworkMedianPricingMaxSerializer, NetworkAveragePricingMaxSerializer, ProvidersComputingMaxSerializer, NetworkStatsMaxSerializer
 from django.core import serializers
 import tempfile
 
@@ -212,6 +212,29 @@ def network_online_to_redis():
     serializer = NodeSerializer(data, many=True)
     test = json.dumps(serializer.data)
     r.set("online", test)
+
+
+@app.task
+def max_stats():
+    data = ProvidersComputingMax.objects.all()
+    serializercomputing = ProvidersComputingMaxSerializer(data, many=True)
+    providermax = json.dumps(serializercomputing.data)
+    r.set("providers_computing_max", providermax)
+
+    data2 = NetworkAveragePricingMax.objects.all()
+    serializeravg = NetworkAveragePricingMaxSerializer(data2, many=True)
+    avgmax = json.dumps(serializeravg.data)
+    r.set("pricing_average_max", avgmax)
+
+    data3 = NetworkMedianPricingMax.objects.all()
+    serializermedian = NetworkMedianPricingMaxSerializer(data3, many=True)
+    medianmax = json.dumps(serializermedian.data)
+    r.set("pricing_median_max", medianmax)
+
+    data4 = NetworkStatsMax.objects.all()
+    serializerstats = NetworkStatsMaxSerializer(data4, many=True)
+    statsmax = json.dumps(serializerstats.data)
+    r.set("stats_max", statsmax)
 
 
 @app.task

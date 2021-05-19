@@ -54,6 +54,7 @@ async def total_api_calls(request):
 
 
 async def median_prices(request):
+    await LogEndpoint("Network Median Pricing")
     if request.method == 'GET':
         r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("network_median_pricing", encoding='utf-8')
@@ -66,6 +67,7 @@ async def median_prices(request):
 
 
 async def average_pricing(request):
+    await LogEndpoint("Network Average Pricing")
     if request.method == 'GET':
         r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("network_average_pricing", encoding='utf-8')
@@ -79,13 +81,64 @@ async def average_pricing(request):
 
 async def statsmax(request):
     """
-    Retrieves network stats over time.
+    Retrieves network stats over time. (Providers, Cores, Memory, Disk)
     """
     await LogEndpoint("Network Historical Stats")
     if request.method == 'GET':
-        data = NetworkStatsMax.objects.all()
-        serializer = NetworkStatsMaxSerializer(data, many=True)
-        return JsonResponse(serializer.data, safe=False)
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
+        content = await r.get("stats_max", encoding='utf-8')
+        data = json.loads(content)
+        r.close()
+        await r.wait_closed()
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
+    else:
+        return HttpResponse(status=400)
+
+
+async def providercomputingmax(request):
+    """
+    Retrieves providers computing over time. (Highest amount observed during the day)
+    """
+    await LogEndpoint("Network Historical Computing")
+    if request.method == 'GET':
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
+        content = await r.get("providers_computing_max", encoding='utf-8')
+        data = json.loads(content)
+        r.close()
+        await r.wait_closed()
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
+    else:
+        return HttpResponse(status=400)
+
+
+async def avgpricingmax(request):
+    """
+    Retrieves Average pricing over time. (Start, CPU/h, Per/h)
+    """
+    await LogEndpoint("Network Historical Average Pricing")
+    if request.method == 'GET':
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
+        content = await r.get("pricing_average_max", encoding='utf-8')
+        data = json.loads(content)
+        r.close()
+        await r.wait_closed()
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
+    else:
+        return HttpResponse(status=400)
+
+
+async def medianpricingmax(request):
+    """
+    Retrieves Average pricing over time. (Start, CPU/h, Per/h)
+    """
+    await LogEndpoint("Network Historical Median Pricing")
+    if request.method == 'GET':
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
+        content = await r.get("pricing_median_max", encoding='utf-8')
+        data = json.loads(content)
+        r.close()
+        await r.wait_closed()
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
