@@ -9,7 +9,7 @@ import time
 import redis
 from django.db import transaction
 from datetime import datetime, timedelta, date
-from .models import Node, NetworkStats, NetworkStatsMax, ProvidersComputing, NetworkAveragePricing, NetworkMedianPricing
+from .models import Node, NetworkStats, NetworkStatsMax, ProvidersComputing, NetworkAveragePricing, NetworkMedianPricing, NetworkAveragePricingMax, NetworkMedianPricingMax, ProvidersComputingMax
 from django.db import connection
 from django.db.models import Count, Max
 from api.models import APICounter
@@ -66,6 +66,76 @@ def stats_snapshot_yesterday():
         print("not in")
         NetworkStatsMax.objects.create(
             online=online_max, cores=cores_max, memory=memory_max, disk=disk_max, date=date.today())
+
+
+@app.task
+def computing_snapshot_yesterday():
+    start_date = date.today() - timedelta(days=1)
+    computing = ProvidersComputing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
+        'day', 'date')}).values('day').annotate(total=Max('total'))
+    test2 = ProvidersComputingMax.objects.all()
+    for obj in computing:
+        if obj['day'].date() not in test2:
+            total_max = obj['total']
+
+    days = []
+    for obj in test2:
+        days.append(obj.date.strftime('%Y-%m-%d'))
+    if not str(start_date) in str(days):
+        ProvidersComputingMax.objects.create(
+            total=total_max, date=date.today())
+
+
+@app.task
+def pricing_snapshot_yesterday():
+    start_date = date.today() - timedelta(days=1)
+    averagestart = NetworkAveragePricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
+        'day', 'date')}).values('day').annotate(start=Max('start'))
+    averagecpuh = NetworkAveragePricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
+        'day', 'date')}).values('day').annotate(cpuh=Max('cpuh'))
+    averageperh = NetworkAveragePricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
+        'day', 'date')}).values('day').annotate(perh=Max('perh'))
+    medianstart = NetworkMedianPricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
+        'day', 'date')}).values('day').annotate(start=Max('start'))
+    mediancpuh = NetworkMedianPricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
+        'day', 'date')}).values('day').annotate(cpuh=Max('cpuh'))
+    medianperh = NetworkMedianPricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
+        'day', 'date')}).values('day').annotate(perh=Max('perh'))
+
+    test2 = NetworkAveragePricingMax.objects.all()
+    for obj in averagestart:
+        if obj['day'].date() not in test2:
+            avgstartmax = obj['start']
+    for obj in averagecpuh:
+        if obj['day'].date() not in test2:
+            avgcpuhmax = obj['cpuh']
+    for obj in averageperh:
+        if obj['day'].date() not in test2:
+            avgperhmax = obj['perh']
+
+    test3 = NetworkMedianPricingMax.objects.all()
+    for obj in medianstart:
+        if obj['day'].date() not in test3:
+            medianstartmax = obj['start']
+    for obj in mediancpuh:
+        if obj['day'].date() not in test3:
+            mediancpuhmax = obj['cpuh']
+    for obj in medianperh:
+        if obj['day'].date() not in test3:
+            medianperhmax = obj['perh']
+
+    days = []
+    days2 = []
+    for obj in test2:
+        days.append(obj.date.strftime('%Y-%m-%d'))
+    for obj in test3:
+        days2.append(obj.date.strftime('%Y-%m-%d'))
+    if not str(start_date) in str(days):
+        NetworkAveragePricingMax.objects.create(
+            start=avgstartmax, cpuh=avgcpuhmax, perh=avgperhmax, date=date.today())
+    if not str(start_date) in str(days2):
+        NetworkMedianPricingMax.objects.create(
+            start=medianstartmax, cpuh=mediancpuhmax, perh=medianperhmax, date=date.today())
 
 
 @app.task

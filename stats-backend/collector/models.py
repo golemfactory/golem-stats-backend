@@ -32,15 +32,37 @@ class NetworkStats(models.Model):
 
 class ProvidersComputing(models.Model):
     total = models.IntegerField()
+    date = models.DateTimeField(auto_now=True)
+
+
+class ProvidersComputingMax(models.Model):
+    total = models.IntegerField()
+    date = models.DateTimeField()
 
 
 class NetworkMedianPricing(models.Model):
     start = models.FloatField()
     cpuh = models.FloatField()
     perh = models.FloatField()
+    date = models.DateTimeField(auto_now=True)
 
 
 class NetworkAveragePricing(models.Model):
     start = models.FloatField()
     cpuh = models.FloatField()
     perh = models.FloatField()
+    date = models.DateTimeField(auto_now=True)
+
+
+class NetworkMedianPricingMax(models.Model):
+    start = models.FloatField()
+    cpuh = models.FloatField()
+    perh = models.FloatField()
+    date = models.DateTimeField()
+
+
+class NetworkAveragePricingMax(models.Model):
+    start = models.FloatField()
+    cpuh = models.FloatField()
+    perh = models.FloatField()
+    date = models.DateTimeField()
