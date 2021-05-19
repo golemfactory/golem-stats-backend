@@ -1,5 +1,6 @@
 FROM node:lts-alpine as build
 WORKDIR /app
+RUN mkdir /crawler
 ENV PATH /app/node_modules/.bin:$PATH
 COPY ./golemstats-frontend/package.json /app/package.json
 RUN npm install --silent
