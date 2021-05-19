@@ -105,6 +105,7 @@ services:
       start_period: 15s
     deploy:
       replicas: 6
+
       update_config:
         failure_action: rollback
         order: start-first
@@ -169,6 +170,8 @@ services:
       - './golemstats-frontend:/app'
       - '/app/node_modules'
       - './nginx.conf:/etc/nginx/conf.d/default.conf'
+      - './golemstatssitemap.xml:/crawler/robots.txt'
+      - './robots.txt:/crawler/sitemap.xml'
     deploy:
       labels:
         - traefik.enable=true
