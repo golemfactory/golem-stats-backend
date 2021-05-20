@@ -211,7 +211,7 @@ async def node_wallet(request, wallet):
     """
     await LogEndpoint("Node Operator")
     if request.method == 'GET':
-        data = await get_node_by_wallet(wallet)
+        data = await get_node_by_wallet(wallet.lower())
         print(data)
         if data != None:
             serializer = NodeSerializer(data, many=True)
