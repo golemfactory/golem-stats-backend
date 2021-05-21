@@ -14,10 +14,14 @@ app = Celery('core')
 
 @app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
-    from collector.tasks import offer_scraper, network_online_to_redis, network_stats_to_redis, network_utilization_to_redis, computing_now_to_redis, providers_average_earnings_to_redis, network_earnings_6h_to_redis, network_earnings_24h_to_redis, network_earnings_365d_to_redis, network_versions_to_redis, node_earnings_total, stats_snapshot_yesterday, requests_served, network_median_pricing, network_average_pricing, computing_snapshot_yesterday, pricing_snapshot_yesterday, max_stats
+    from collector.tasks import offer_scraper, network_online_to_redis, network_stats_to_redis, network_utilization_to_redis, computing_now_to_redis, providers_average_earnings_to_redis, network_earnings_6h_to_redis, network_earnings_24h_to_redis, network_earnings_365d_to_redis, network_versions_to_redis, node_earnings_total, stats_snapshot_yesterday, requests_served, network_median_pricing, network_average_pricing, computing_snapshot_yesterday, pricing_snapshot_yesterday, max_stats, networkstats_6h
     sender.add_periodic_task(
         30.0,
         offer_scraper.s(),
+    )
+    sender.add_periodic_task(
+        60,
+        networkstats_6h.s(),
     )
     sender.add_periodic_task(
         10.0,

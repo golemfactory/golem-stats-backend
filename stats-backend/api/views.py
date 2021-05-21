@@ -5,7 +5,7 @@ from .utils import get_stats_data, get_yastats_data
 import os
 import statistics
 import time
-from collector.models import Node, NetworkStatsMax
+from collector.models import Node, NetworkStatsMax, NetworkStats
 from .models import APICounter
 from .serializers import NodeSerializer, NetworkStatsMaxSerializer
 from django.shortcuts import render
@@ -16,6 +16,7 @@ import redis
 import json
 import aioredis
 from asgiref.sync import sync_to_async
+import datetime
 
 
 from django.http import JsonResponse, HttpResponse
@@ -201,6 +202,22 @@ async def node(request, yagna_id):
         data = await get_node(yagna_id)
         serializer = NodeSerializer(data, many=True)
         return JsonResponse(serializer.data, safe=False)
+    else:
+        return HttpResponse(status=400)
+
+
+async def stats_6h(request):
+    """
+    List network stats for online nodes.
+    """
+    await LogEndpoint("Network Online Stats")
+    if request.method == 'GET':
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
+        content = await r.get("stats_6h")
+        data = json.loads(content)
+        r.close()
+        await r.wait_closed()
+        return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)
 

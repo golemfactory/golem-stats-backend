@@ -13,7 +13,7 @@ from .models import Node, NetworkStats, NetworkStatsMax, ProvidersComputing, Net
 from django.db import connection
 from django.db.models import Count, Max
 from api.models import APICounter
-from api.serializers import NodeSerializer, NetworkMedianPricingMaxSerializer, NetworkAveragePricingMaxSerializer, ProvidersComputingMaxSerializer, NetworkStatsMaxSerializer
+from api.serializers import NodeSerializer, NetworkMedianPricingMaxSerializer, NetworkAveragePricingMaxSerializer, ProvidersComputingMaxSerializer, NetworkStatsMaxSerializer, NetworkStatsSerializer
 from django.core import serializers
 import tempfile
 
@@ -255,6 +255,15 @@ def network_stats_to_redis():
     NetworkStats.objects.create(online=len(query), cores=sum(
         threads), memory=sum(memory), disk=sum(disk))
     r.set("online_stats", serialized)
+
+
+@app.task
+def networkstats_6h():
+    now = datetime.now()
+    before = now - timedelta(hours=6)
+    data = NetworkStats.objects.filter(date__range=(before, now))
+    serializer = NetworkStatsSerializer(data, many=True)
+    r.set("stats_6h", json.dumps(serializer.data))
 
 
 @app.task
