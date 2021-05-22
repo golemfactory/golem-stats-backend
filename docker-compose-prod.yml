@@ -104,8 +104,7 @@ services:
       retries: 3
       start_period: 15s
     deploy:
-      replicas: 6
-
+      replicas: 3
       update_config:
         failure_action: rollback
         order: start-first
