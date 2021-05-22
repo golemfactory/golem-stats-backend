@@ -260,7 +260,7 @@ def network_stats_to_redis():
 @app.task
 def networkstats_6h():
     now = datetime.now()
-    before = now - timedelta(hours=6)
+    before = now - timedelta(minutes=30)
     data = NetworkStats.objects.filter(
         date__range=(before, now)).order_by('date')
     serializer = NetworkStatsSerializer(data, many=True)
