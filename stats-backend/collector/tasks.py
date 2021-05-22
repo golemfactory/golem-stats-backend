@@ -261,7 +261,8 @@ def network_stats_to_redis():
 def networkstats_6h():
     now = datetime.now()
     before = now - timedelta(hours=6)
-    data = NetworkStats.objects.filter(date__range=(before, now))
+    data = NetworkStats.objects.filter(
+        date__range=(before, now)).order_by('date')
     serializer = NetworkStatsSerializer(data, many=True)
     r.set("stats_6h", json.dumps(serializer.data))
 
