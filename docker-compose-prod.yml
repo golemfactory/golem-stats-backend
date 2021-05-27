@@ -61,6 +61,7 @@ services:
         - 'traefik.http.routers.webserver-web-secure.entrypoints=web-secure'
         - 'traefik.http.middlewares.webserver_compress.compress=true'
         - 'traefik.http.routers.webserver-web-secure.middlewares=webserver_compress'
+        - 'traefik.http.routers.webserver.middlewares=webserver_compress'
       replicas: 3
       update_config:
         failure_action: rollback
@@ -185,6 +186,7 @@ services:
         - traefik.http.routers.frontend-web-secure.entrypoints=web-secure
         - traefik.http.middlewares.frontend_compress.compress=true
         - traefik.http.routers.frontend.middlewares=frontend_compress
+        - traefik.http.routers.frontend-web-secure.middlewares=frontend_compress
       replicas: 3
       update_config:
         failure_action: rollback
