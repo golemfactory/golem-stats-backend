@@ -55,12 +55,12 @@ services:
         - 'traefik.http.services.webserver.loadbalancer.server.port=8002'
         - 'traefik.http.routers.webserver.service=webserver@docker'
         - 'traefik.docker.network=swarm-example'
-        - 'traefik.http.middlewares.webserver_compress.compress=true'
-        - 'traefik.http.routers.webserver.middlewares=webserver_compress'
         - 'traefik.http.routers.webserver.tls.certresolver=letsencryptresolver'
         - 'traefik.http.routers.webserver-web-secure.rule=Host(`api.golemstats.com`)'
         - 'traefik.http.routers.webserver-web-secure.tls=true'
         - 'traefik.http.routers.webserver-web-secure.entrypoints=web-secure'
+        - 'traefik.http.middlewares.webserver_compress.compress=true'
+        - 'traefik.http.routers.webserver.middlewares=webserver_compress'
       replicas: 3
       update_config:
         failure_action: rollback
