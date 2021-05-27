@@ -21,7 +21,8 @@ import tempfile
 # jsonmsg = {"user_id": elem, "path": "/src/data/user_avatars/" + elem + ".png"}
 # r.lpush("image_classifier", json.dumps(jsonmsg))
 
-r = redis.Redis(host='redis', port=6379, db=0)
+pool = redis.ConnectionPool(host='redis', port=6379, db=0)
+r = redis.Redis(connection_pool=pool)
 
 
 @app.task
@@ -63,7 +64,6 @@ def stats_snapshot_yesterday():
     for obj in test2:
         days.append(obj.date.strftime('%Y-%m-%d'))
     if not str(start_date) in str(days):
-        print("not in")
         NetworkStatsMax.objects.create(
             online=online_max, cores=cores_max, memory=memory_max, disk=disk_max, date=date.today())
 
@@ -408,7 +408,6 @@ def offer_scraper():
             online_nodes = Node.objects.filter(online=True)
             for node in online_nodes:
                 if not node.node_id in str1:
-                    print("not found", node.node_id)
                     node.online = False
                     node.updated_at = datetime.now()
                     node.save()
