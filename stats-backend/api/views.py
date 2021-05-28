@@ -5,9 +5,9 @@ from .utils import get_stats_data, get_yastats_data
 import os
 import statistics
 import time
-from collector.models import Node, NetworkStatsMax, NetworkStats
+from collector.models import Node, NetworkStatsMax, NetworkStats, ProvidersComputing
 from .models import APICounter
-from .serializers import NodeSerializer, NetworkStatsMaxSerializer
+from .serializers import NodeSerializer, NetworkStatsMaxSerializer, ProvidersComputingMaxSerializer
 from django.shortcuts import render
 from django.db.models import Count
 from django.conf import settings
@@ -25,6 +25,12 @@ from django.http import JsonResponse, HttpResponse
 @sync_to_async
 def get_node(yagna_id):
     data = Node.objects.filter(node_id=yagna_id)
+    return data
+
+
+@sync_to_async
+def get_computing():
+    data = ProvidersComputing.objects.all().order_by('-total')
     return data
 
 
@@ -201,6 +207,18 @@ async def node(request, yagna_id):
     if request.method == 'GET':
         data = await get_node(yagna_id)
         serializer = NodeSerializer(data, many=True)
+        return JsonResponse(serializer.data, safe=False)
+    else:
+        return HttpResponse(status=400)
+
+
+async def computing_total(request):
+    """
+    Retrieves data about a specific node.
+    """
+    if request.method == 'GET':
+        data = await get_computing()
+        serializer = ProvidersComputingMaxSerializer(data, many=True)
         return JsonResponse(serializer.data, safe=False)
     else:
         return HttpResponse(status=400)
