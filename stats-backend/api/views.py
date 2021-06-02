@@ -17,7 +17,7 @@ import json
 import aioredis
 from asgiref.sync import sync_to_async
 import datetime
-
+import math
 
 from django.http import JsonResponse, HttpResponse
 
@@ -193,8 +193,8 @@ async def total_tasks_computed(request, yagna_id):
     domain = os.environ.get(
         'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Binstance%3D~"{yagna_id}"%2C%20reason%3D"Success"%7D%5B90d%5D))&time={now}'
     data = await get_yastats_data(domain)
-    content = {'tasks_computed_total': data['data']
-               ['result'][0]['value'][1]}
+    output = int(float(data['data']['result'][0]['value'][1]))
+    content = {'tasks_computed_total': output}
     return JsonResponse(content)
 
 
