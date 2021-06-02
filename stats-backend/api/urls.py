@@ -11,6 +11,7 @@ urlpatterns = [
     path('provider/node/<yagna_id>/earnings/<int:hours>',
          views.payments_last_n_hours_provider),
     path('provider/node/<yagna_id>/activity', views.activity_graph_provider),
+    path('provider/node/<yagna_id>/total/computed', views.total_tasks_computed),
     path('provider/average/earnings', views.providers_average_earnings),
     path('provider/wallet/<wallet>', views.node_wallet),
     path('network/earnings/6', views.network_earnings_6h),

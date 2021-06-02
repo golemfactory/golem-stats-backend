@@ -187,6 +187,17 @@ async def payments_last_n_hours_provider(request, yagna_id, hours):
     return JsonResponse(content)
 
 
+async def total_tasks_computed(request, yagna_id):
+    await LogEndpoint("Node Tasks Computed")
+    now = round(time.time())
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Binstance%3D~"{yagna_id}"%2C%20reason%3D"Success"%7D%5B90d%5D))&time={now}'
+    data = await get_yastats_data(domain)
+    content = {'tasks_computed_total': data['data']
+               ['result'][0]['value'][1]}
+    return JsonResponse(content)
+
+
 async def provider_computing(request, yagna_id):
     await LogEndpoint("Node Computing")
     now = round(time.time())
