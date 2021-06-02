@@ -198,6 +198,17 @@ async def total_tasks_computed(request, yagna_id):
     return JsonResponse(content)
 
 
+async def provider_seconds_computed_total(request, yagna_id):
+    await LogEndpoint("Node Seconds Computed")
+    now = round(time.time())
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(activity_provider_usage_1%7Binstance%3D~"{yagna_id}"%7D%5B90d%5D))&time={now}'
+    data = await get_yastats_data(domain)
+    output = data['data']['result'][0]['value'][1]
+    content = {'seconds_computed': output}
+    return JsonResponse(content)
+
+
 async def provider_computing(request, yagna_id):
     await LogEndpoint("Node Computing")
     now = round(time.time())
