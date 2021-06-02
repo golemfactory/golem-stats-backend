@@ -15,3 +15,4 @@ django-cors-headers
 aioredis
 daphne
 aiohttp
+sentry-sdk
