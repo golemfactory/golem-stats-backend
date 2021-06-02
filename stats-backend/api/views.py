@@ -182,9 +182,14 @@ async def payments_last_n_hours_provider(request, yagna_id, hours):
     domain = os.environ.get(
         'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{hours}h%5D)%2F10%5E9)&time={now}'
     data = await get_yastats_data(domain)
-    content = {'earnings': data['data']
-               ['result'][0]['value'][1]}
-    return JsonResponse(content)
+    if data['data']['result']:
+        content = {'earnings': data['data']
+                   ['result'][0]['value'][1]}
+        return JsonResponse(content)
+    else:
+        content = {'earnings': data['data']
+                   ['result']}
+        return JsonResponse(content)
 
 
 async def total_tasks_computed(request, yagna_id):
@@ -193,9 +198,13 @@ async def total_tasks_computed(request, yagna_id):
     domain = os.environ.get(
         'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Binstance%3D~"{yagna_id}"%2C%20reason%3D"Success"%7D%5B90d%5D))&time={now}'
     data = await get_yastats_data(domain)
-    output = int(float(data['data']['result'][0]['value'][1]))
-    content = {'tasks_computed_total': output}
-    return JsonResponse(content)
+    if data['data']['result']:
+        output = int(float(data['data']['result'][0]['value'][1]))
+        content = {'tasks_computed_total': output}
+        return JsonResponse(content)
+    else:
+        content = {'tasks_computed_total': data['data']['result']}
+        return JsonResponse(content)
 
 
 async def provider_seconds_computed_total(request, yagna_id):
@@ -204,9 +213,13 @@ async def provider_seconds_computed_total(request, yagna_id):
     domain = os.environ.get(
         'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(activity_provider_usage_1%7Binstance%3D~"{yagna_id}"%7D%5B90d%5D))&time={now}'
     data = await get_yastats_data(domain)
-    output = data['data']['result'][0]['value'][1]
-    content = {'seconds_computed': output}
-    return JsonResponse(content)
+    if data['data']['result']:
+        output = data['data']['result'][0]['value'][1]
+        content = {'seconds_computed': output}
+        return JsonResponse(content)
+    else:
+        content = {'seconds_computed': data['data']['result']}
+        return JsonResponse(content)
 
 
 async def provider_computing(request, yagna_id):
@@ -215,10 +228,14 @@ async def provider_computing(request, yagna_id):
     domain = os.environ.get(
         'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=activity_provider_created%7Bhostname%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%20-%20activity_provider_destroyed%7Bhostname%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D&time={now}'
     data = await get_yastats_data(domain)
-    print(data)
-    content = {'computing': data['data']
-               ['result'][0]['value'][1]}
-    return JsonResponse(content)
+    if data['data']['result']:
+        content = {'computing': data['data']
+                   ['result'][0]['value'][1]}
+        return JsonResponse(content)
+    else:
+        content = {'computing': data['data']
+                   ['result']}
+        return JsonResponse(content)
 
 
 async def node(request, yagna_id):
