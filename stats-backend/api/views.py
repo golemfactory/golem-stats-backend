@@ -180,7 +180,7 @@ async def payments_last_n_hours_provider(request, yagna_id, hours):
     await LogEndpoint("Node Earnings")
     now = round(time.time())
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{hours}h%5D)%2F10%5E9)&time={now}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{hours}h%5D)%2F10%5E9)&time={now}'
     data = await get_yastats_data(domain)
     if data['data']['result']:
         content = {'earnings': data['data']
@@ -226,7 +226,7 @@ async def provider_computing(request, yagna_id):
     await LogEndpoint("Node Computing")
     now = round(time.time())
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=activity_provider_created%7Bhostname%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%20-%20activity_provider_destroyed%7Bhostname%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D&time={now}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=activity_provider_created%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%20-%20activity_provider_destroyed%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D&time={now}'
     data = await get_yastats_data(domain)
     if data['data']['result']:
         content = {'computing': data['data']
