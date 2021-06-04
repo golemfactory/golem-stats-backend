@@ -18,4 +18,4 @@ async def get_yastats_data(url):
         async with session.get(url, auth=aiohttp.BasicAuth(user, password)) as r:
             json_body = await r.json()
             f = json.dumps(json_body)
-    return json_body
+    return [json_body, r.status]
