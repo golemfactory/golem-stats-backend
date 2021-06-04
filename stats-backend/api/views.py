@@ -184,9 +184,13 @@ async def payments_last_n_hours_provider(request, yagna_id, hours):
         'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{hours}h%5D)%2F10%5E9)&time={now}'
     data = await get_yastats_data(domain)
     if data[1] == 200:
-        content = {'earnings': data[0]['data']
-                   ['result'][0]['value'][1]}
-        return JsonResponse(content)
+        if data[0]['data']['result']:
+            content = {'earnings': data[0]['data']
+                       ['result'][0]['value'][1]}
+            return JsonResponse(content)
+        else:
+            content = {'earnings': []}
+            return JsonResponse(content)
     else:
         content = {'earnings': []}
         return JsonResponse(content)
@@ -199,9 +203,13 @@ async def total_tasks_computed(request, yagna_id):
         'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Binstance%3D~"{yagna_id}"%2C%20reason%3D"Success"%7D%5B90d%5D))&time={now}'
     data = await get_yastats_data(domain)
     if data[1] == 200:
-        output = int(float(data[0]['data']['result'][0]['value'][1]))
-        content = {'tasks_computed_total': output}
-        return JsonResponse(content)
+        if data[0]['data']['result']:
+            output = int(float(data[0]['data']['result'][0]['value'][1]))
+            content = {'tasks_computed_total': output}
+            return JsonResponse(content)
+        else:
+            content = {'tasks_computed_total': []}
+            return JsonResponse(content)
     else:
         content = {'tasks_computed_total': []}
         return JsonResponse(content)
@@ -214,9 +222,13 @@ async def provider_seconds_computed_total(request, yagna_id):
         'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(activity_provider_usage_1%7Binstance%3D~"{yagna_id}"%7D%5B90d%5D))&time={now}'
     data = await get_yastats_data(domain)
     if data[1] == 200:
-        output = data[0]['data']['result'][0]['value'][1]
-        content = {'seconds_computed': output}
-        return JsonResponse(content)
+        if data[0]['data']['result']:
+            output = data[0]['data']['result'][0]['value'][1]
+            content = {'seconds_computed': output}
+            return JsonResponse(content)
+        else:
+            content = {'seconds_computed': []}
+            return JsonResponse(content)
     else:
         content = {'seconds_computed': []}
         return JsonResponse(content)
@@ -229,9 +241,13 @@ async def provider_computing(request, yagna_id):
         'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=activity_provider_created%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%20-%20activity_provider_destroyed%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D&time={now}'
     data = await get_yastats_data(domain)
     if data[1] == 200:
-        content = {'computing': data[0]['data']
-                   ['result'][0]['value'][1]}
-        return JsonResponse(content)
+        if data[0]['data']['result']:
+            content = {'computing': data[0]['data']
+                       ['result'][0]['value'][1]}
+            return JsonResponse(content)
+        else:
+            content = {'computing': []}
+            return JsonResponse(content)
     else:
         content = {'computing': []}
         return JsonResponse(content)
