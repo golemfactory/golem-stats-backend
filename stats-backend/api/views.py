@@ -35,6 +35,12 @@ def get_all_nodes():
 
 
 @sync_to_async
+def get_latest_n_nodes(amount):
+    data = Node.objects.all().order_by('-created_at')[:amount]
+    return data
+
+
+@sync_to_async
 def get_computing():
     data = ProvidersComputing.objects.all().order_by('-total')
     return data
@@ -279,6 +285,19 @@ async def latest_nodes(request):
     await LogEndpoint("Latest Nodes")
     if request.method == 'GET':
         data = await get_all_nodes()
+        serializer = NodeSerializer(data, many=True)
+        return JsonResponse(serializer.data, safe=False)
+    else:
+        return HttpResponse(status=400)
+
+
+async def latest_nodes_n(request, number):
+    """
+    Lists n amount of the latest nodes indexed.
+    """
+    await LogEndpoint("Latest Nodes N")
+    if request.method == 'GET':
+        data = await get_all_nodes(number)
         serializer = NodeSerializer(data, many=True)
         return JsonResponse(serializer.data, safe=False)
     else:
