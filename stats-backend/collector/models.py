@@ -12,6 +12,7 @@ class Node(models.Model):
     data = models.JSONField(null=True)
     online = models.BooleanField(default=False)
     updated_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class NetworkStatsMax(models.Model):
