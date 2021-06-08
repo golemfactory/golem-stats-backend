@@ -291,13 +291,13 @@ async def latest_nodes(request):
         return HttpResponse(status=400)
 
 
-async def latest_nodes_n(request, number):
+async def latest_nodes_by_number(request, number):
     """
     Lists n amount of the latest nodes indexed.
     """
     await LogEndpoint("Latest Nodes N")
     if request.method == 'GET':
-        data = await get_all_nodes(number)
+        data = await get_latest_n_nodes(number)
         serializer = NodeSerializer(data, many=True)
         return JsonResponse(serializer.data, safe=False)
     else:
