@@ -43,7 +43,7 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['api.golemstats.com']
+ALLOWED_HOSTS = ['api.stats.golem.network']
 
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
