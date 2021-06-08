@@ -29,6 +29,7 @@ urlpatterns = [
     path('network/historical/pricing/median', views.medianpricingmax),
     path('network/historical/pricing/average', views.avgpricingmax),
     path('network/historical/provider/computing', views.providercomputingmax),
+    path('network/historical/nodes', views.latest_nodes),
     path('network/pricing/median', views.median_prices),
     path('network/pricing/average', views.average_pricing),
     path('api/usage', views.total_api_calls),

@@ -29,6 +29,12 @@ def get_node(yagna_id):
 
 
 @sync_to_async
+def get_all_nodes():
+    data = Node.objects.all().order_by('-created_at')
+    return data
+
+
+@sync_to_async
 def get_computing():
     data = ProvidersComputing.objects.all().order_by('-total')
     return data
@@ -260,6 +266,19 @@ async def node(request, yagna_id):
     await LogEndpoint("Node Detailed")
     if request.method == 'GET':
         data = await get_node(yagna_id)
+        serializer = NodeSerializer(data, many=True)
+        return JsonResponse(serializer.data, safe=False)
+    else:
+        return HttpResponse(status=400)
+
+
+async def latest_nodes(request):
+    """
+    Lists all index nodes over time and orders it by the latest node discovered.
+    """
+    await LogEndpoint("Latest Nodes")
+    if request.method == 'GET':
+        data = await get_all_nodes()
         serializer = NodeSerializer(data, many=True)
         return JsonResponse(serializer.data, safe=False)
     else:
