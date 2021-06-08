@@ -1,4 +1,0 @@
-tls:
-  certificates:
-    - certFile: /certs/api.golemstats.com.crt
-      keyFile: /certs/api.golemstats.com.key
