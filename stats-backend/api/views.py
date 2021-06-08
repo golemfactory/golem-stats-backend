@@ -35,6 +35,12 @@ def get_all_nodes():
 
 
 @sync_to_async
+def filter_endpoint(endpoint):
+    data = APICounter.objects.filter(endpoint=endpoint).count()
+    return data
+
+
+@sync_to_async
 def get_latest_n_nodes(amount):
     data = Node.objects.all().order_by('-created_at')[:amount]
     return data
@@ -300,6 +306,20 @@ async def latest_nodes_by_number(request, number):
         data = await get_latest_n_nodes(number)
         serializer = NodeSerializer(data, many=True)
         return JsonResponse(serializer.data, safe=False)
+    else:
+        return HttpResponse(status=400)
+
+
+async def show_endpoint_count(request):
+    """
+    Lists the amount of times an endpoint has been requested.
+    """
+    await LogEndpoint("List Endpoint Count")
+    if request.method == 'GET':
+        endpoint = request.GET['endpoint']
+        print(endpoint)
+        data = await filter_endpoint(endpoint)
+        return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)
 
