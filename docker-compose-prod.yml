@@ -50,13 +50,13 @@ services:
     deploy:
       labels:
         - 'traefik.enable=true'
-        - 'traefik.http.routers.webserver.rule=Host(`api.stats.golem.network`)'
+        - 'traefik.http.routers.webserver.rule=Host(`api.stats.golem.network`,`api.golemstats.com`)'
         - 'traefik.http.routers.webserver.entrypoints=web'
         - 'traefik.http.services.webserver.loadbalancer.server.port=8002'
         - 'traefik.http.routers.webserver.service=webserver@docker'
         - 'traefik.docker.network=swarm-example'
         - 'traefik.http.routers.webserver.tls.certresolver=letsencryptresolver'
-        - 'traefik.http.routers.webserver-web-secure.rule=Host(`api.stats.golem.network`)'
+        - 'traefik.http.routers.webserver-web-secure.rule=Host(`api.stats.golem.network`,`api.golemstats.com`)'
         - 'traefik.http.routers.webserver-web-secure.tls=true'
         - 'traefik.http.routers.webserver-web-secure.entrypoints=web-secure'
         - 'traefik.http.middlewares.webserver_compress.compress=true'
@@ -175,13 +175,13 @@ services:
     deploy:
       labels:
         - traefik.enable=true
-        - traefik.http.routers.frontend.rule=Host(`stats.golem.network`)
+        - traefik.http.routers.frontend.rule=Host(`stats.golem.network`,`golemstats.com`,`www.golemstats.com``)
         - traefik.http.services.frontend.loadbalancer.server.port=80
         - traefik.http.routers.frontend.service=frontend@docker
         - traefik.http.routers.frontend.entrypoints=web
         - traefik.docker.network=swarm-example
         - traefik.http.routers.frontend.tls.certresolver=letsencryptresolver
-        - traefik.http.routers.frontend-web-secure.rule=Host(`stats.golem.network`)
+        - traefik.http.routers.frontend-web-secure.rule=Host(`stats.golem.network`,`golemstats.com`,`www.golemstats.com`)
         - traefik.http.routers.frontend-web-secure.tls=true
         - traefik.http.routers.frontend-web-secure.entrypoints=web-secure
         - traefik.http.middlewares.frontend_compress.compress=true
