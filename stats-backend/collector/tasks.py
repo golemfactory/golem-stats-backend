@@ -258,13 +258,13 @@ def network_stats_to_redis():
 
 
 @app.task
-def networkstats_6h():
+def networkstats_30m():
     now = datetime.now()
     before = now - timedelta(minutes=30)
     data = NetworkStats.objects.filter(
         date__range=(before, now)).order_by('date')
     serializer = NetworkStatsSerializer(data, many=True)
-    r.set("stats_6h", json.dumps(serializer.data))
+    r.set("stats_30m", json.dumps(serializer.data))
 
 
 @app.task
@@ -322,18 +322,18 @@ def network_earnings_24h_to_redis():
 
 
 @app.task
-def network_earnings_365d_to_redis():
+def network_earnings_90d_to_redis():
     end = round(time.time())
     start = round(time.time()) - int(10)
     domain = os.environ.get(
-        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(increase(payment_amount_received%7Bjob%3D~%22community.1%22%7D%5B365d%5D)%2F10%5E9)&start={start}&end={end}&step=1"
+        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(increase(payment_amount_received%7Bjob%3D~%22community.1%22%7D%5B90d%5D)%2F10%5E9)&start={start}&end={end}&step=1"
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
             content = {'total_earnings': data[0]['data']
                        ['result'][0]['values'][-1][1]}
             serialized = json.dumps(content)
-            r.set("network_earnings_365d", serialized)
+            r.set("network_earnings_90d", serialized)
 
 
 @app.task

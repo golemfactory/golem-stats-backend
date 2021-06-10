@@ -317,7 +317,6 @@ async def show_endpoint_count(request):
     await LogEndpoint("List Endpoint Count")
     if request.method == 'GET':
         endpoint = request.GET['endpoint']
-        print(endpoint)
         data = await filter_endpoint(endpoint)
         return JsonResponse(data, safe=False)
     else:
@@ -336,14 +335,14 @@ async def computing_total(request):
         return HttpResponse(status=400)
 
 
-async def stats_6h(request):
+async def stats_30m(request):
     """
-    List network stats for online nodes.
+    Network stats past 30 minutes.
     """
-    await LogEndpoint("Network Online Stats")
+    await LogEndpoint("Network Online Stats 30m")
     if request.method == 'GET':
         r = await aioredis.create_redis_pool('redis://redis:6379/0')
-        content = await r.get("stats_6h")
+        content = await r.get("stats_30m")
         data = json.loads(content)
         r.close()
         await r.wait_closed()
@@ -386,7 +385,7 @@ async def general_stats(request):
         return HttpResponse(status=400)
 
 
-async def network_utilization(request, start, end):
+async def network_utilization(request):
     """
     Queries the networks utilization from a start date to the end date specified, and returns
     timestamps in ms along with providers computing.
@@ -467,14 +466,14 @@ async def network_earnings_24h(request):
         return HttpResponse(status=400)
 
 
-async def network_earnings_365d(request):
+async def network_earnings_90d(request):
     """
     Returns the earnings for the whole network the last n hours.
     """
-    await LogEndpoint("Network Earnings 365d")
+    await LogEndpoint("Network Earnings 90d")
     if request.method == 'GET':
         r = await aioredis.create_redis_pool('redis://redis:6379/0')
-        content = await r.get("network_earnings_365d")
+        content = await r.get("network_earnings_90d")
         data = json.loads(content)
         r.close()
         await r.wait_closed()
