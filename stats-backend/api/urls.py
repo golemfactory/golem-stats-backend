@@ -5,7 +5,6 @@ from . import views
 app_name = 'api'
 
 urlpatterns = [
-    path('provider/computing', views.providers_computing_currently),
     path('provider/node/<yagna_id>', views.node),
     path('provider/node/<yagna_id>/computing', views.provider_computing),
     path('provider/node/<yagna_id>/earnings/<int:hours>',
@@ -16,6 +15,7 @@ urlpatterns = [
          views.provider_seconds_computed_total),
     path('provider/average/earnings', views.providers_average_earnings),
     path('provider/wallet/<wallet>', views.node_wallet),
+    path('network/computing', views.providers_computing_currently),
     path('network/earnings/6', views.network_earnings_6h),
     path('network/earnings/24', views.network_earnings_24h),
     path('network/earnings/90d', views.network_earnings_90d),
