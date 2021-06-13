@@ -377,8 +377,7 @@ def node_earnings_total():
             'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{user.node_id}"%7D%5B90d%5D)%2F10%5E9)&time={now}'
         data = get_stats_data(domain)
         try:
-            content = data['data']['result'][0]['value'][1]
-            print(content, user.node_id)
+            content = data[0]['data']['result'][0]['value'][1]
             user.earnings_total = content
             user.save(update_fields=['earnings_total'])
         except:
