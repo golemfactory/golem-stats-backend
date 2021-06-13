@@ -378,8 +378,9 @@ def node_earnings_total():
         data = get_stats_data(domain)
         try:
             content = data['data']['result'][0]['value'][1]
+            print(content, user.node_id)
             user.earnings_total = content
-            user.save()
+            user.save(update_fields=['earnings_total'])
         except:
             continue
 
@@ -404,13 +405,13 @@ def offer_scraper():
             obj.wallet = wallet
             obj.online = True
             obj.updated_at = datetime.now()
-            obj.save()
+            obj.save(update_fields=['data', 'wallet', 'online', 'updated_at'])
         else:
             obj.data = data
             obj.wallet = wallet
             obj.online = True
             obj.updated_at = datetime.now()
-            obj.save()
+            obj.save(update_fields=['data', 'wallet', 'online', 'updated_at'])
     # Find offline providers
     str1 = ''.join(serialized)
     fd, path = tempfile.mkstemp()
@@ -423,6 +424,6 @@ def offer_scraper():
                 if not node.node_id in str1:
                     node.online = False
                     node.updated_at = datetime.now()
-                    node.save()
+                    node.save(update_fields=['online', 'updated_at'])
     finally:
         os.remove(path)
