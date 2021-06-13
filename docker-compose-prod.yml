@@ -87,7 +87,7 @@ services:
     build:
       context: .
       dockerfile: compose/celery/Dockerfile
-    image: celery_wtf:latest
+    image: celery_worker:latest
     volumes:
       - './stats-backend:/stats-backend/'
       - './wait-for-it.sh:/wait-for-it.sh'
