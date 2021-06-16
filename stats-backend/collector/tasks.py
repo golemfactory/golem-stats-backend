@@ -280,6 +280,25 @@ def network_utilization_to_redis():
 
 
 @app.task
+def network_node_versions():
+    now = round(time.time())
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=yagna_version_major%7Bjob%3D"community.1"%7D*100%2Byagna_version_minor%7Bjob%3D"community.1"%7D*10%2Byagna_version_patch%7Bjob%3D"community.1"%7D&time={now}'
+    data = get_stats_data(domain)
+    nodes = data[0]['data']['result']
+    for obj in nodes:
+        node = obj['metric']['instance']
+        try:
+            obj = Node.objects.filter(node_id=node)
+            version = "0" + obj['value'][1]
+            concatinated = version[0] + "." + version[1] + "." + version[2]
+            obj.version = concatinated
+            obj.save()
+        except:
+            continue
+
+
+@app.task
 def network_versions_to_redis():
     end = round(time.time())
     start = end - 86400
