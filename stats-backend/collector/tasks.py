@@ -287,13 +287,11 @@ def network_node_versions():
     data = get_stats_data(domain)
     nodes = data[0]['data']['result']
     for obj in nodes:
-        node = obj['metric']['instance']
         try:
-            obj = Node.objects.filter(node_id=node)
+            node = obj['metric']['instance']
             version = "0" + obj['value'][1]
             concatinated = version[0] + "." + version[1] + "." + version[2]
-            obj.version = concatinated
-            obj.save()
+            Node.objects.filter(node_id=node).update(version=concatinated)
         except:
             continue
 
