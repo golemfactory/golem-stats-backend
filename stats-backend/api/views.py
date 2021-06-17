@@ -68,11 +68,13 @@ def get_node_by_wallet(wallet):
 
 async def total_api_calls(request):
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
-        content = await r.get("api_requests", encoding='utf-8')
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("api_requests")
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
@@ -81,11 +83,13 @@ async def total_api_calls(request):
 async def median_prices(request):
     await LogEndpoint("Network Median Pricing")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
-        content = await r.get("network_median_pricing", encoding='utf-8')
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("network_median_pricing")
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
@@ -94,11 +98,13 @@ async def median_prices(request):
 async def average_pricing(request):
     await LogEndpoint("Network Average Pricing")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
-        content = await r.get("network_average_pricing", encoding='utf-8')
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("network_average_pricing")
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
@@ -110,11 +116,13 @@ async def statsmax(request):
     """
     await LogEndpoint("Network Historical Stats")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
-        content = await r.get("stats_max", encoding='utf-8')
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("stats_max",)
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
@@ -126,11 +134,13 @@ async def providercomputingmax(request):
     """
     await LogEndpoint("Network Historical Computing")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
-        content = await r.get("providers_computing_max", encoding='utf-8')
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("providers_computing_max")
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
@@ -142,11 +152,13 @@ async def avgpricingmax(request):
     """
     await LogEndpoint("Network Historical Average Pricing")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
-        content = await r.get("pricing_average_max", encoding='utf-8')
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("pricing_average_max")
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
@@ -158,11 +170,13 @@ async def medianpricingmax(request):
     """
     await LogEndpoint("Network Historical Median Pricing")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
-        content = await r.get("pricing_median_max", encoding='utf-8')
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("pricing_median_max")
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
@@ -174,11 +188,13 @@ async def online_nodes(request):
     """
     await LogEndpoint("Network Online")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
-        content = await r.get("online", encoding='utf-8')
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("online")
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
@@ -341,11 +357,13 @@ async def stats_30m(request):
     """
     await LogEndpoint("Network Online Stats 30m")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
         content = await r.get("stats_30m")
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)
@@ -358,7 +376,6 @@ async def node_wallet(request, wallet):
     await LogEndpoint("Node Operator")
     if request.method == 'GET':
         data = await get_node_by_wallet(wallet.lower())
-        print(data)
         if data != None:
             serializer = NodeSerializer(data, many=True)
             return JsonResponse(serializer.data, safe=False)
@@ -375,11 +392,13 @@ async def general_stats(request):
     """
     await LogEndpoint("Network Online Stats")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
         content = await r.get("online_stats")
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)
@@ -392,11 +411,13 @@ async def network_utilization(request):
     """
     await LogEndpoint("Network Utilization")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
         content = await r.get("network_utilization")
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)
@@ -408,11 +429,13 @@ async def network_versions(request):
     """
     await LogEndpoint("Network Versions")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
         content = await r.get("network_versions")
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)
@@ -424,11 +447,13 @@ async def providers_computing_currently(request):
     """
     await LogEndpoint("Network Computing")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
         content = await r.get("computing_now")
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)
@@ -440,11 +465,13 @@ async def providers_average_earnings(request):
     """
     await LogEndpoint("Providers Average Earnings")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
         content = await r.get("provider_average_earnings")
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)
@@ -456,11 +483,13 @@ async def network_earnings_24h(request):
     """
     await LogEndpoint("Network Earnings 24h")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
         content = await r.get("network_earnings_24h")
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)
@@ -472,11 +501,13 @@ async def network_earnings_90d(request):
     """
     await LogEndpoint("Network Earnings 90d")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
         content = await r.get("network_earnings_90d")
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)
@@ -488,11 +519,13 @@ async def network_earnings_6h(request):
     """
     await LogEndpoint("Network Earnings 6h")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0', maxsize=10000)
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
         content = await r.get("network_earnings_6h")
         data = json.loads(content)
-        r.close()
-        await r.wait_closed()
+        pool.disconnect()
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)

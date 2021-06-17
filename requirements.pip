@@ -12,7 +12,7 @@ markdown
 django-filter
 yapapi
 django-cors-headers
-aioredis
+aioredis==2.0.0a1
 daphne
 aiohttp
 sentry-sdk
