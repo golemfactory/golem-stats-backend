@@ -68,7 +68,7 @@ def get_node_by_wallet(wallet):
 
 async def total_api_calls(request):
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("api_requests", encoding='utf-8')
         data = json.loads(content)
         r.close()
@@ -81,7 +81,7 @@ async def total_api_calls(request):
 async def median_prices(request):
     await LogEndpoint("Network Median Pricing")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("network_median_pricing", encoding='utf-8')
         data = json.loads(content)
         r.close()
@@ -94,7 +94,7 @@ async def median_prices(request):
 async def average_pricing(request):
     await LogEndpoint("Network Average Pricing")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("network_average_pricing", encoding='utf-8')
         data = json.loads(content)
         r.close()
@@ -110,7 +110,7 @@ async def statsmax(request):
     """
     await LogEndpoint("Network Historical Stats")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("stats_max", encoding='utf-8')
         data = json.loads(content)
         r.close()
@@ -126,7 +126,7 @@ async def providercomputingmax(request):
     """
     await LogEndpoint("Network Historical Computing")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("providers_computing_max", encoding='utf-8')
         data = json.loads(content)
         r.close()
@@ -142,7 +142,7 @@ async def avgpricingmax(request):
     """
     await LogEndpoint("Network Historical Average Pricing")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("pricing_average_max", encoding='utf-8')
         data = json.loads(content)
         r.close()
@@ -158,7 +158,7 @@ async def medianpricingmax(request):
     """
     await LogEndpoint("Network Historical Median Pricing")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("pricing_median_max", encoding='utf-8')
         data = json.loads(content)
         r.close()
@@ -174,7 +174,7 @@ async def online_nodes(request):
     """
     await LogEndpoint("Network Online")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("online", encoding='utf-8')
         data = json.loads(content)
         r.close()
@@ -341,7 +341,7 @@ async def stats_30m(request):
     """
     await LogEndpoint("Network Online Stats 30m")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("stats_30m")
         data = json.loads(content)
         r.close()
@@ -375,7 +375,7 @@ async def general_stats(request):
     """
     await LogEndpoint("Network Online Stats")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("online_stats")
         data = json.loads(content)
         r.close()
@@ -392,7 +392,7 @@ async def network_utilization(request):
     """
     await LogEndpoint("Network Utilization")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("network_utilization")
         data = json.loads(content)
         r.close()
@@ -408,7 +408,7 @@ async def network_versions(request):
     """
     await LogEndpoint("Network Versions")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("network_versions")
         data = json.loads(content)
         r.close()
@@ -424,7 +424,7 @@ async def providers_computing_currently(request):
     """
     await LogEndpoint("Network Computing")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("computing_now")
         data = json.loads(content)
         r.close()
@@ -440,7 +440,7 @@ async def providers_average_earnings(request):
     """
     await LogEndpoint("Providers Average Earnings")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("provider_average_earnings")
         data = json.loads(content)
         r.close()
@@ -456,7 +456,7 @@ async def network_earnings_24h(request):
     """
     await LogEndpoint("Network Earnings 24h")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("network_earnings_24h")
         data = json.loads(content)
         r.close()
@@ -472,7 +472,7 @@ async def network_earnings_90d(request):
     """
     await LogEndpoint("Network Earnings 90d")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("network_earnings_90d")
         data = json.loads(content)
         r.close()
@@ -488,7 +488,7 @@ async def network_earnings_6h(request):
     """
     await LogEndpoint("Network Earnings 6h")
     if request.method == 'GET':
-        r = await aioredis.create_redis_pool('redis://redis:6379/0, maxsize=10000')
+        r = await aioredis.create_redis_pool('redis://redis:6379/0')
         content = await r.get("network_earnings_6h")
         data = json.loads(content)
         r.close()
@@ -496,19 +496,3 @@ async def network_earnings_6h(request):
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)
-
-
-def test(request):
-    now = round(time.time())
-    domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=yagna_version_major%7Bjob%3D"community.1"%7D*100%2Byagna_version_minor%7Bjob%3D"community.1"%7D*10%2Byagna_version_patch%7Bjob%3D"community.1"%7D&time={now}'
-    data = get_stats_data(domain)
-    nodes = data[0]['data']['result']
-    for obj in nodes:
-        try:
-            node = obj['metric']['instance']
-            version = "0" + obj['value'][1]
-            concatinated = version[0] + "." + version[1] + "." + version[2]
-            Node.objects.filter(node_id=node).update(version=concatinated)
-        except:
-            continue
