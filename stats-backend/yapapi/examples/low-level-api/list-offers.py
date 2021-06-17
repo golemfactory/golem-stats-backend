@@ -38,48 +38,6 @@ async def list_offers(conf: Configuration, subnet_tag: str):
                     test.append(json.dumps(data))
 
 
-async def list_offers_testnet(conf: Configuration, subnet_tag: str):
-    async with conf.market() as client:
-        market_api = Market(client)
-        dbuild = DemandBuilder()
-        dbuild.add(yp.NodeInfo(
-            name="some scanning node", subnet_tag=subnet_tag))
-        dbuild.add(yp.Activity(expiration=datetime.now(timezone.utc)))
-        async with market_api.subscribe(dbuild.properties, dbuild.constraints) as subscription:
-            async for event in subscription.events():
-                if event.issuer in test:
-                    continue
-                else:
-                    data = event.props
-                    try:
-                        data['wallet'] = event.props['golem.com.payment.platform.zksync-rinkeby-tglm.address']
-                    except:
-                        data['wallet'] = event.props['golem.com.payment.platform.zksync-mainnet-glm.address']
-                    data['id'] = event.issuer
-                    test.append(json.dumps(data))
-
-
-async def list_offers_arm(conf: Configuration, subnet_tag: str):
-    async with conf.market() as client:
-        market_api = Market(client)
-        dbuild = DemandBuilder()
-        dbuild.add(yp.NodeInfo(
-            name="some scanning node", subnet_tag=subnet_tag))
-        dbuild.add(yp.Activity(expiration=datetime.now(timezone.utc)))
-        async with market_api.subscribe(dbuild.properties, dbuild.constraints) as subscription:
-            async for event in subscription.events():
-                if event.issuer in test:
-                    continue
-                else:
-                    data = event.props
-                    try:
-                        data['wallet'] = event.props['golem.com.payment.platform.zksync-rinkeby-tglm.address']
-                    except:
-                        data['wallet'] = event.props['golem.com.payment.platform.zksync-mainnet-glm.address']
-                    data['id'] = event.issuer
-                    test.append(json.dumps(data))
-
-
 def main():
     try:
         asyncio.get_event_loop().run_until_complete(
@@ -112,6 +70,19 @@ def main():
                 list_offers(
                     Configuration(),
                     subnet_tag="aarch64-network",
+                ),
+                timeout=4,
+            )
+        )
+    except TimeoutError:
+        pass
+
+    try:
+        asyncio.get_event_loop().run_until_complete(
+            asyncio.wait_for(
+                list_offers(
+                    Configuration(),
+                    subnet_tag="devnet-beta.2",
                 ),
                 timeout=4,
             )
