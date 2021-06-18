@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 volumes:
   db_data: {}
   pgadmin:
@@ -6,25 +6,25 @@ services:
   traefik:
     image: traefik:latest
     ports:
-      - '80:80'
-      - '443:443'
+      - "80:80"
+      - "443:443"
     command:
-      - '--providers.docker=true'
-      - '--providers.docker.swarmmode=true'
-      - '--providers.docker.exposedbydefault=false'
-      - '--entrypoints.web.address=:80'
-      - '--entrypoints.web-secure.address=:443'
-      - '--entrypoints.web.http.redirections.entryPoint.to=web-secure'
-      - '--entrypoints.web.http.redirections.entryPoint.scheme=https'
-      - '--entrypoints.web.http.redirections.entrypoint.permanent=true'
-      - '--certificatesresolvers.letsencryptresolver.acme.httpchallenge=true'
-      - '--certificatesresolvers.letsencryptresolver.acme.httpchallenge.entrypoint=web'
-      - '--certificatesresolvers.letsencryptresolver.acme.email=phillip@golem.network'
-      - '--certificatesresolvers.letsencryptresolver.acme.storage=/letsencrypt/acme.json'
+      - "--providers.docker=true"
+      - "--providers.docker.swarmmode=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web-secure.address=:443"
+      - "--entrypoints.web.http.redirections.entryPoint.to=web-secure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+      - "--certificatesresolvers.letsencryptresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencryptresolver.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencryptresolver.acme.email=phillip@golem.network"
+      - "--certificatesresolvers.letsencryptresolver.acme.storage=/letsencrypt/acme.json"
     labels:
-      - 'traefik.enable=true'
-      - 'traefik.docker.network=swarm-example'
-      - 'traefik.http.routers.traefik.middlewares=traefik-compress'
+      - "traefik.enable=true"
+      - "traefik.docker.network=swarm-example"
+      - "traefik.http.routers.traefik.middlewares=traefik-compress"
 
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -43,8 +43,8 @@ services:
     depends_on:
       - postgres
     volumes:
-      - './stats-backend:/stats-backend/'
-      - './wait-for-it.sh:/wait-for-it.sh'
+      - "./stats-backend:/stats-backend/"
+      - "./wait-for-it.sh:/wait-for-it.sh"
     env_file:
       - ./.envs/.django
     deploy:
@@ -71,9 +71,10 @@ services:
     networks:
       - swarm-example
   redis:
-    image: 'redis:alpine'
+    image: "redis:alpine"
     expose:
-      - '6379'
+      - "6379"
+    command: [sh, -c, "redis-server --save "" --appendonly no"]
     deploy:
       replicas: 1
       update_config:
@@ -89,9 +90,9 @@ services:
       dockerfile: compose/celery/Dockerfile
     image: celery_worker:latest
     volumes:
-      - './stats-backend:/stats-backend/'
-      - './wait-for-it.sh:/wait-for-it.sh'
-      - './check_yagna.sh:/check_yagna.sh'
+      - "./stats-backend:/stats-backend/"
+      - "./wait-for-it.sh:/wait-for-it.sh"
+      - "./check_yagna.sh:/check_yagna.sh"
     env_file:
       - ./.envs/.django
     depends_on:
@@ -120,8 +121,8 @@ services:
     image: celery_beat:latest
     command: celery -A core beat -l INFO
     volumes:
-      - './stats-backend:/stats-backend/'
-      - './wait-for-it.sh:/wait-for-it.sh'
+      - "./stats-backend:/stats-backend/"
+      - "./wait-for-it.sh:/wait-for-it.sh"
     env_file:
       - ./.envs/.django
     depends_on:
@@ -145,7 +146,7 @@ services:
     env_file:
       - ./.envs/.db
     volumes:
-      - 'db_data:/var/lib/postgresql/data'
+      - "db_data:/var/lib/postgresql/data"
     networks:
       - swarm-example
   # pgadmin:
@@ -167,11 +168,11 @@ services:
       dockerfile: compose/frontend/Dockerfile
     image: frontend_golemstats:latest
     volumes:
-      - './golemstats-frontend:/app'
-      - '/app/node_modules'
-      - './nginx.conf:/etc/nginx/conf.d/default.conf'
-      - './golemstatssitemap.xml:/crawler/sitemap.xml'
-      - './robots.txt:/crawler/robots.txt'
+      - "./golemstats-frontend:/app"
+      - "/app/node_modules"
+      - "./nginx.conf:/etc/nginx/conf.d/default.conf"
+      - "./golemstatssitemap.xml:/crawler/sitemap.xml"
+      - "./robots.txt:/crawler/robots.txt"
     deploy:
       labels:
         - traefik.enable=true
