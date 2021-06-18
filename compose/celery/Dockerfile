@@ -39,7 +39,7 @@ RUN pip3 install --no-cache-dir -r /scripts/requirements.pip
 
 RUN mkdir -p $HOME/.local/share/ya-installer/terms
 RUN touch $HOME/.local/share/ya-installer/terms/testnet-01.tag
-RUN curl -sSf https://join.golem.network/as-provider | YA_INSTALLER_CORE=pre-rel-v0.6.6-rc3 bash - || echo "Nothing to see here"
+RUN curl -sSf https://join.golem.network/as-requestor | bash - || echo "Nothing to see here"
 ENV PATH=${PATH}:/root/.local/bin/:/root/.local/
 # CMD will run when this dockerfile is running
 CMD ["bash", "-c", "/wait-for-it.sh postgres:5432 -- /stats-backend/start.sh; celery -A core worker -l INFO"]
