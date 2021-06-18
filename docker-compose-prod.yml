@@ -72,7 +72,7 @@ services:
       - swarm-example
   redis:
     image: "redis:alpine"
-    command: [sh, -c, "redis-server --save "" --appendonly no"]
+    command: [sh, -c, "rm -f /data/dump.rdb && redis-server --save ''"]
     expose:
       - "6379"
     deploy:
