@@ -72,9 +72,9 @@ services:
       - swarm-example
   redis:
     image: "redis:alpine"
+    command: [sh, -c, "redis-server --save "" --appendonly no"]
     expose:
       - "6379"
-    command: [sh, -c, "redis-server --save "" --appendonly no"]
     deploy:
       replicas: 1
       update_config:
