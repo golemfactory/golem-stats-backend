@@ -41,5 +41,6 @@ RUN mkdir -p $HOME/.local/share/ya-installer/terms
 RUN touch $HOME/.local/share/ya-installer/terms/testnet-01.tag
 RUN curl -sSf https://join.golem.network/as-requestor | bash - || echo "Nothing to see here"
 ENV PATH=${PATH}:/root/.local/bin/:/root/.local/
+ENV MARKET_DB_CLEANUP_INTERVAL=10min
 # CMD will run when this dockerfile is running
 CMD ["bash", "-c", "/wait-for-it.sh postgres:5432 -- /stats-backend/start.sh; celery -A core worker -l INFO"]
