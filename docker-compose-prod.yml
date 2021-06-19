@@ -72,11 +72,9 @@ services:
       - swarm-example
   redis:
     image: "redis:alpine"
-    command: [sh, -c, "rm -f /data/dump.rdb && redis-server --maxclients 40000  --save ''"]
+    command: [sh, -c, "rm -f /data/dump.rdb && redis-server --maxclients 40000 --timeout 60  --save ''"]
     expose:
       - "6379"
-    volumes:
-      - ./redis.conf:/usr/local/etc/redis/redis.conf
     deploy:
       replicas: 1
       update_config:
