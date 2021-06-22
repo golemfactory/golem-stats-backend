@@ -9,7 +9,7 @@ import time
 import redis
 from django.db import transaction
 from datetime import datetime, timedelta, date
-from .models import Node, NetworkStats, NetworkStatsMax, ProvidersComputing, NetworkAveragePricing, NetworkMedianPricing, NetworkAveragePricingMax, NetworkMedianPricingMax, ProvidersComputingMax
+from .models import Node, NetworkStats, NetworkStatsMax, ProvidersComputing, NetworkAveragePricing, NetworkMedianPricing, NetworkAveragePricingMax, NetworkMedianPricingMax, ProvidersComputingMax, Network
 from django.db import connection
 from django.db.models import Count, Max
 from api.models import APICounter
@@ -339,18 +339,19 @@ def network_earnings_24h_to_redis():
 
 
 @app.task
-def network_earnings_90d_to_redis():
-    end = round(time.time())
-    start = round(time.time()) - int(10)
+def network_total_earnings():
+    now = round(time.time())
     domain = os.environ.get(
-        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(increase(payment_amount_received%7Bjob%3D~%22community.1%22%7D%5B90d%5D)%2F10%5E9)&start={start}&end={end}&step=1"
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%7D%5B1m%5D)%2F10%5E9)&time={now}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
-            content = {'total_earnings': data[0]['data']
-                       ['result'][0]['values'][-1][1]}
-            serialized = json.dumps(content)
-            r.set("network_earnings_90d", serialized)
+            output = data[0]['data']['result'][0]['value'][1]
+            print(output)
+            if float(output) > 0:
+                db = Network.objects.get(id=1)
+                db.total_earnings = db.total_earnings + float(output)
+                db.save()
 
 
 @app.task
