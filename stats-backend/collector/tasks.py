@@ -352,6 +352,9 @@ def network_total_earnings():
                 db = Network.objects.get(id=1)
                 db.total_earnings = db.total_earnings + float(output)
                 db.save()
+                content = {'total_earnings': db.total_earnings + float(output)}
+                serialized = json.dumps(content)
+                r.set("network_earnings_90d", serialized)
 
 
 @app.task
