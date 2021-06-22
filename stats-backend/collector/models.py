@@ -16,6 +16,10 @@ class Node(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
+class Network(models.Model):
+    total_earnings = models.FloatField()
+
+
 class NetworkStatsMax(models.Model):
     online = models.IntegerField()
     cores = models.IntegerField()

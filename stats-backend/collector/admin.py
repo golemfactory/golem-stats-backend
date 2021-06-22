@@ -1,3 +1,7 @@
 from django.contrib import admin
+from .models import Network
 
-# Register your models here.
+
+@admin.register(Network)
+class networkadmin(admin.ModelAdmin):
+    list_display = ("total_earnings", )
