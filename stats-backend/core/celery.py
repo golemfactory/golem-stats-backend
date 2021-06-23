@@ -77,7 +77,7 @@ def setup_periodic_tasks(sender, **kwargs):
     )
     sender.add_periodic_task(
         10.0,
-        requestors_to_redis().s(),
+        requestors_to_redis.s(),
     )
     sender.add_periodic_task(
         10.0,
