@@ -13,7 +13,7 @@ from .models import Node, NetworkStats, NetworkStatsMax, ProvidersComputing, Net
 from django.db import connection
 from django.db.models import Count, Max
 from api.models import APICounter
-from api.serializers import NodeSerializer, NetworkMedianPricingMaxSerializer, NetworkAveragePricingMaxSerializer, ProvidersComputingMaxSerializer, NetworkStatsMaxSerializer, NetworkStatsSerializer
+from api.serializers import NodeSerializer, NetworkMedianPricingMaxSerializer, NetworkAveragePricingMaxSerializer, ProvidersComputingMaxSerializer, NetworkStatsMaxSerializer, NetworkStatsSerializer, RequestorSerializer
 from django.core import serializers
 import tempfile
 
@@ -33,6 +33,14 @@ def requests_served():
     }
     serialized = json.dumps(jsondata)
     r.set("api_requests", serialized)
+
+
+@app.task
+def requestors_to_redis():
+    query = Requestors.objects.all()
+    serializer = RequestorSerializer(query, many=True)
+    data = json.dumps(serializer.data)
+    r.set("requestors", data)
 
 
 @app.task

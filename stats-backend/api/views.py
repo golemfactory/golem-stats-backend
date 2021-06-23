@@ -529,3 +529,21 @@ async def network_earnings_6h(request):
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)
+
+
+async def requestors(request):
+    """
+    Returns all the requestors seen on the network and the tasks requested amount.
+    """
+    await LogEndpoint("Requestors")
+    if request.method == 'GET':
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("requestors")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False)
+    else:
+        return HttpResponse(status=400)

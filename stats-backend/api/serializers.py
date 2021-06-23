@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from collector.models import Node, NetworkStatsMax, NetworkMedianPricingMax, NetworkAveragePricingMax, ProvidersComputingMax, NetworkStats
+from collector.models import Node, NetworkStatsMax, NetworkMedianPricingMax, NetworkAveragePricingMax, ProvidersComputingMax, NetworkStats, Requestors
 
 
 class NodeSerializer(serializers.ModelSerializer):
@@ -8,6 +8,13 @@ class NodeSerializer(serializers.ModelSerializer):
         model = Node
         fields = ['earnings_total', 'node_id', 'data',
                   'online', 'version', 'updated_at', 'created_at']
+
+
+class RequestorSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Requestors
+        fields = ['node_id', 'tasks_requested']
 
 
 class NetworkStatsMaxSerializer(serializers.ModelSerializer):
