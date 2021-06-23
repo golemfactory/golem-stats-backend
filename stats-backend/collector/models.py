@@ -72,3 +72,12 @@ class NetworkAveragePricingMax(models.Model):
     cpuh = models.FloatField()
     perh = models.FloatField()
     date = models.DateTimeField()
+
+
+class Requestors(models.Model):
+    node_id = models.CharField(max_length=42, unique=True)
+    tasks_requested = models.FloatField(null=True, blank=True)
+
+
+class requestor_scraper_check(models.Model):
+    indexed_before = models.BooleanField(default=False)

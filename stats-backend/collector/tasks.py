@@ -9,7 +9,7 @@ import time
 import redis
 from django.db import transaction
 from datetime import datetime, timedelta, date
-from .models import Node, NetworkStats, NetworkStatsMax, ProvidersComputing, NetworkAveragePricing, NetworkMedianPricing, NetworkAveragePricingMax, NetworkMedianPricingMax, ProvidersComputingMax, Network
+from .models import Node, NetworkStats, NetworkStatsMax, ProvidersComputing, NetworkAveragePricing, NetworkMedianPricing, NetworkAveragePricingMax, NetworkMedianPricingMax, ProvidersComputingMax, Network, Requestors, requestor_scraper_check
 from django.db import connection
 from django.db.models import Count, Max
 from api.models import APICounter
@@ -403,6 +403,55 @@ def node_earnings_total():
             user.save(update_fields=['earnings_total'])
         except:
             continue
+
+
+@app.task
+def requestor_scraper():
+    checker, checkcreated = requestor_scraper_check.objects.get_or_create(id=1)
+    if checkcreated:
+        # No requestors indexed before, we loop back over the last 90 days to init the table with data.
+        checker.indexed_before = True
+        checker.save()
+        now = round(time.time())
+        ninetydaysago = round(time.time()) - int(7776000)
+        hour = 3600
+        while ninetydaysago < now:
+            domain = os.environ.get(
+                'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=increase(market_agreements_requestor_approved%7Bjob%3D"community.1"%7D%5B{hour}s%5D)&time={ninetydaysago+hour}'
+            data = get_stats_data(domain)
+            ninetydaysago += hour
+            if data[1] == 200:
+                if data[0]['data']['result']:
+                    for node in data[0]['data']['result']:
+                        stats_tasks_requested = float(node['value'][1])
+                        if stats_tasks_requested > 1:
+                            obj, created = Requestors.objects.get_or_create(
+                                node_id=node['metric']['instance'])
+                            if created:
+                                obj.tasks_requested = stats_tasks_requested
+                                obj.save()
+                            else:
+                                obj.tasks_requested = obj.tasks_requested + stats_tasks_requested
+                                obj.save()
+    else:
+        # Already indexed, we check the last 10 seconds.
+        now = round(time.time())
+        domain = os.environ.get(
+            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=increase(market_agreements_requestor_approved%7Bjob%3D"community.1"%7D%5B10s%5D)&time={now}'
+        data = get_stats_data(domain)
+        if data[1] == 200:
+            if data[0]['data']['result']:
+                for node in data[0]['data']['result']:
+                    stats_tasks_requested = float(node['value'][1])
+                    if stats_tasks_requested > 1:
+                        obj, created = Requestors.objects.get_or_create(
+                            node_id=node['metric']['instance'])
+                        if created:
+                            obj.tasks_requested = stats_tasks_requested
+                            obj.save()
+                        else:
+                            obj.tasks_requested = obj.tasks_requested + stats_tasks_requested
+                            obj.save()
 
 
 @app.task
