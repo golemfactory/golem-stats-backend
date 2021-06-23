@@ -37,7 +37,7 @@ def requests_served():
 
 @app.task
 def requestors_to_redis():
-    query = Requestors.objects.all()
+    query = Requestors.objects.all().order_by('-tasks_requested')
     serializer = RequestorSerializer(query, many=True)
     data = json.dumps(serializer.data)
     r.set("requestors", data)
