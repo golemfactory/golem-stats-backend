@@ -14,7 +14,7 @@ class RequestorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Requestors
-        fields = ['node_id', 'tasks_requested']
+        fields = ['tasks_requested']
 
 
 class NetworkStatsMaxSerializer(serializers.ModelSerializer):
