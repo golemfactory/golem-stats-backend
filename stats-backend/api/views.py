@@ -547,3 +547,21 @@ async def requestors(request):
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)
+
+
+async def market_agreement_termination_reason(request):
+    """
+    Returns the reasons for market agreements termination.
+    """
+    await LogEndpoint("Market Agreement Termination")
+    if request.method == 'GET':
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("market_agreement_termination_reasons")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False)
+    else:
+        return HttpResponse(status=400)

@@ -414,6 +414,55 @@ def node_earnings_total():
 
 
 @app.task
+def market_agreement_termination_reasons():
+    end = round(time.time())
+    start = round(time.time()) - int(10)
+    content = {}
+    domain_success = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"Success"%7D%5B6h%5D))&time={end}'
+    data_success = get_stats_data(domain_success)
+    if data_success[1] == 200:
+        if data_success[0]['data']['result']:
+            content['market_agreements_success'] = round(float(
+                data_success[0]['data']['result'][0]['value'][1]))
+    # Failure
+    domain_cancelled = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"Cancelled"%7D%5B6h%5D))&time={end}'
+    data_cancelled = get_stats_data(domain_cancelled)
+    if data_cancelled[1] == 200:
+        if data_cancelled[0]['data']['result']:
+            content['market_agreements_cancelled'] = round(float(
+                data_cancelled[0]['data']['result'][0]['value'][1]))
+    # Expired
+    domain_expired = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"Expired"%7D%5B6h%5D))&time={end}'
+    data_expired = get_stats_data(domain_expired)
+    if data_expired[1] == 200:
+        if data_expired[0]['data']['result']:
+            content['market_agreements_expired'] = round(float(
+                data_expired[0]['data']['result'][0]['value'][1]))
+    # RequestorUnreachable
+    domain_unreachable = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"RequestorUnreachable"%7D%5B6h%5D))&time={end}'
+    data_unreachable = get_stats_data(domain_unreachable)
+    if data_unreachable[1] == 200:
+        if data_unreachable[0]['data']['result']:
+            content['market_agreements_requestorUnreachable'] = round(float(
+                data_unreachable[0]['data']['result'][0]['value'][1]))
+
+    # DebitNotesDeadline
+    domain_debitdeadline = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"DebitNotesDeadline"%7D%5B6h%5D))&time={end}'
+    data_debitdeadline = get_stats_data(domain_debitdeadline)
+    if data_debitdeadline[1] == 200:
+        if data_debitdeadline[0]['data']['result']:
+            content['market_agreements_debitnoteDeadline'] = round(float(
+                data_debitdeadline[0]['data']['result'][0]['value'][1]))
+    serialized = json.dumps(content)
+    r.set("market_agreement_termination_reasons", serialized)
+
+
+@app.task
 def requestor_scraper():
     checker, checkcreated = requestor_scraper_check.objects.get_or_create(id=1)
     if checkcreated:
