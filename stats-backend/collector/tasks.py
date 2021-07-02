@@ -412,6 +412,20 @@ def paid_invoices_1h():
 
 
 @app.task
+def provider_accepted_invoices_1h():
+    end = round(time.time())
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_invoices_provider_accepted%7Bjob%3D~"community.1"%7D%5B1h%5D))%2Fsum(increase(payment_invoices_provider_sent%7Bjob%3D~"community.1"%7D%5B1h%5D))&time={end}'
+    data = get_stats_data(domain)
+    if data[1] == 200:
+        if data[0]['data']['result']:
+            content = {'percentage_invoice_accepted': float(data[0]['data']
+                       ['result'][0]['value'][1]) * 100}
+            serialized = json.dumps(content)
+            r.set("provider_accepted_invoice_percentage", serialized)
+
+
+@app.task
 def node_earnings_total():
     providers = Node.objects.all()
     for user in providers:

@@ -38,6 +38,8 @@ urlpatterns = [
          views.market_agreement_termination_reason),
     path('network/market/invoice/paid/1h',
          views.paid_invoices_1h),
+    path('network/market/provider/invoice/accepted/1h',
+         views.provider_invoice_accepted_percentage),
     path('requestors', views.requestors),
     path('api/usage', views.total_api_calls),
     path('api/usage/count', views.show_endpoint_count), ]
