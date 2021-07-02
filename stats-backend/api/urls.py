@@ -36,7 +36,8 @@ urlpatterns = [
     path('network/pricing/average', views.average_pricing),
     path('network/market/agreement/termination/reasons',
          views.market_agreement_termination_reason),
+    path('network/market/invoice/paid/1h',
+         views.paid_invoices_1h),
     path('requestors', views.requestors),
     path('api/usage', views.total_api_calls),
-    path('api/usage/count', views.show_endpoint_count),
-]
+    path('api/usage/count', views.show_endpoint_count), ]

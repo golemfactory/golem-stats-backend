@@ -565,3 +565,20 @@ async def market_agreement_termination_reason(request):
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)
+
+async def paid_invoices_1h(request):
+    """
+    Returns the percentage of invoices paid during the last hour.
+    """
+    await LogEndpoint("Paid Invoices 1h")
+    if request.method == 'GET':
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("paid_invoices_1h")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False)
+    else:
+        return HttpResponse(status=400)
