@@ -447,7 +447,7 @@ def market_agreement_termination_reasons():
     start = round(time.time()) - int(10)
     content = {}
     domain_success = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"Success"%7D%5B6h%5D))&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"Success"%7D%5B1h%5D))&time={end}'
     data_success = get_stats_data(domain_success)
     if data_success[1] == 200:
         if data_success[0]['data']['result']:
