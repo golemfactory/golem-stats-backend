@@ -62,7 +62,7 @@ services:
         - traefik.http.middlewares.webserver_compress.compress=true
         - traefik.http.routers.webserver-web-secure.middlewares=webserver_compress
         - traefik.http.routers.webserver.middlewares=webserver_compress
-      replicas: 3
+      replicas: 10
       update_config:
         failure_action: rollback
         order: start-first
@@ -106,7 +106,7 @@ services:
       retries: 3
       start_period: 15s
     deploy:
-      replicas: 3
+      replicas: 5
       update_config:
         failure_action: rollback
         order: start-first
