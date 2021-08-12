@@ -189,7 +189,7 @@ services:
         - traefik.http.middlewares.frontend_compress.compress=true
         - traefik.http.routers.frontend.middlewares=frontend_compress
         - traefik.http.routers.frontend-web-secure.middlewares=frontend_compress
-      replicas: 3
+      replicas: 10
       update_config:
         failure_action: rollback
         order: start-first
