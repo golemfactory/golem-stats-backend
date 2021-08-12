@@ -173,6 +173,7 @@ services:
       - "./nginx.conf:/etc/nginx/conf.d/default.conf"
       - "./golemstatssitemap.xml:/crawler/sitemap.xml"
       - "./robots.txt:/crawler/robots.txt"
+      - "./staticfiles:/staticfiles"
     deploy:
       labels:
         - traefik.enable=true
