@@ -280,7 +280,7 @@ def network_utilization_to_redis():
     end = round(time.time())
     start = end - 21600
     domain = os.environ.get(
-        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%22%7D)&start={start}&end={end}&step=30"
+        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%22%7D)&start={start}&end={end}&step=1"
     content = get_stats_data(domain)
     if content[1] == 200:
         serialized = json.dumps(content[0])
@@ -319,48 +319,84 @@ def network_versions_to_redis():
 @app.task
 def network_earnings_6h_to_redis():
     end = round(time.time())
-    start = round(time.time()) - int(10)
+    # ZKSYNC MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(increase(payment_amount_received%7Bjob%3D~%22community.1%22%7D%5B6h%5D)%2F10%5E9)&start={start}&end={end}&step=1"
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B6h%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
-            content = {'total_earnings': data[0]['data']
-                       ['result'][0]['values'][-1][1][0:6]}
-            serialized = json.dumps(content)
-            r.set("network_earnings_6h", serialized)
+            zksync_mainnet_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 2)
+    # ERC20 MAINNET GLM
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B6h%5D)%2F10%5E9)&time={end}'
+    data = get_stats_data(domain)
+    if data[1] == 200:
+        if data[0]['data']['result']:
+            erc20_mainnet_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 2)
+    content = {'total_earnings': zksync_mainnet_glm + erc20_mainnet_glm}
+    serialized = json.dumps(content)
+    r.set("network_earnings_6h", serialized)
 
 
 @app.task
 def network_earnings_24h_to_redis():
     end = round(time.time())
-    start = round(time.time()) - int(10)
+    # ZKSYNC MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(increase(payment_amount_received%7Bjob%3D~%22community.1%22%7D%5B24h%5D)%2F10%5E9)&start={start}&end={end}&step=1"
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
-            content = {'total_earnings': data[0]['data']
-                       ['result'][0]['values'][-1][1][0:6]}
-            serialized = json.dumps(content)
-            r.set("network_earnings_24h", serialized)
+            zksync_mainnet_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 2)
+    # ERC20 MAINNET GLM
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
+    data = get_stats_data(domain)
+    if data[1] == 200:
+        if data[0]['data']['result']:
+            erc20_mainnet_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 2)
+    content = {'total_earnings': zksync_mainnet_glm + erc20_mainnet_glm}
+    serialized = json.dumps(content)
+    r.set("network_earnings_24h", serialized)
 
 
 @app.task
 def network_total_earnings():
-    now = round(time.time())
+    end = round(time.time())
+    # ZKSYNC MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%7D%5B1m%5D)%2F10%5E9)&time={now}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B1m%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
-            output = data[0]['data']['result'][0]['value'][1]
-            print(output)
-            if float(output) > 0:
+            zksync_mainnet_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 2)
+            if zksync_mainnet_glm > 0:
                 db = Network.objects.get(id=1)
-                db.total_earnings = db.total_earnings + float(output)
+                db.total_earnings = db.total_earnings + zksync_mainnet_glm
                 db.save()
-                content = {'total_earnings': db.total_earnings + float(output)}
+                content = {'total_earnings': db.total_earnings +
+                           zksync_mainnet_glm}
+                serialized = json.dumps(content)
+                r.set("network_earnings_90d", serialized)
+    # ERC20 MAINNET GLM
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B1m%5D)%2F10%5E9)&time={end}'
+    data = get_stats_data(domain)
+    if data[1] == 200:
+        if data[0]['data']['result']:
+            erc20_mainnet_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 2)
+            if erc20_mainnet_glm > 0:
+                db = Network.objects.get(id=1)
+                db.total_earnings = db.total_earnings + erc20_mainnet_glm
+                db.save()
+                content = {'total_earnings': db.total_earnings +
+                           erc20_mainnet_glm}
                 serialized = json.dumps(content)
                 r.set("network_earnings_90d", serialized)
 
