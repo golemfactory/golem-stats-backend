@@ -475,11 +475,17 @@ def node_earnings_total():
     for user in providers:
         now = round(time.time())
         domain = os.environ.get(
-            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{user.node_id}"%7D%5B90d%5D)%2F10%5E9)&time={now}'
+            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{user.node_id}"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B90d%5D)%2F10%5E9)&time={now}'
         data = get_stats_data(domain)
+        domain2 = os.environ.get(
+            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{user.node_id}"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B90d%5D)%2F10%5E9)&time={now}'
+        data2 = get_stats_data(domain)
         try:
-            content = data[0]['data']['result'][0]['value'][1]
-            user.earnings_total = content
+            zksync_mainnet_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 2)
+            erc20_mainnet_glm = round(
+                float(data2[0]['data']['result'][0]['value'][1]), 2)
+            user.earnings_total = zksync_mainnet_glm + erc20_mainnet_glm
             user.save(update_fields=['earnings_total'])
         except:
             continue
