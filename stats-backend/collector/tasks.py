@@ -421,16 +421,24 @@ def computing_now_to_redis():
 @app.task
 def providers_average_earnings_to_redis():
     end = round(time.time())
-    start = round(time.time()) - int(10)
     domain = os.environ.get(
-        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=avg(payment_amount_received%7Bjob%3D~%22community.1%22%7D%2F10%5E9)&start={start}&end={end}&step=1"
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=avg(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
-            content = {'average_earnings': data[0]['data']
-                       ['result'][0]['values'][-1][1][0:5]}
-            serialized = json.dumps(content)
-            r.set("provider_average_earnings", serialized)
+            zksync_mainnet_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 2)
+    # ERC20 MAINNET GLM
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=avg(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
+    data = get_stats_data(domain)
+    if data[1] == 200:
+        if data[0]['data']['result']:
+            erc20_mainnet_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 2)
+    content = {'average_earnings': zksync_mainnet_glm + erc20_mainnet_glm}
+    serialized = json.dumps(content)
+    r.set("provider_average_earnings", serialized)
 
 
 @app.task
