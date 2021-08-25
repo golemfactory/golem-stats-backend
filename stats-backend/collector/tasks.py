@@ -280,7 +280,7 @@ def network_utilization_to_redis():
     end = round(time.time())
     start = end - 21600
     domain = os.environ.get(
-        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%22%7D)&start={start}&end={end}&step=1"
+        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%22%7D)&start={start}&end={end}&step=30"
     content = get_stats_data(domain)
     if content[1] == 200:
         serialized = json.dumps(content[0])
