@@ -379,8 +379,7 @@ def network_total_earnings():
                 db = Network.objects.get(id=1)
                 db.total_earnings = db.total_earnings + zksync_mainnet_glm
                 db.save()
-                content = {'total_earnings': db.total_earnings +
-                           zksync_mainnet_glm}
+                content = {'total_earnings': db.total_earnings}
                 serialized = json.dumps(content)
                 r.set("network_earnings_90d", serialized)
     # ERC20 MAINNET GLM
@@ -395,8 +394,7 @@ def network_total_earnings():
                 db = Network.objects.get(id=1)
                 db.total_earnings = db.total_earnings + erc20_mainnet_glm
                 db.save()
-                content = {'total_earnings': db.total_earnings +
-                           erc20_mainnet_glm}
+                content = {'total_earnings': db.total_earnings}
                 serialized = json.dumps(content)
                 r.set("network_earnings_90d", serialized)
 
@@ -427,7 +425,7 @@ def providers_average_earnings_to_redis():
     if data[1] == 200:
         if data[0]['data']['result']:
             zksync_mainnet_glm = round(
-                float(data[0]['data']['result'][0]['value'][1]), 2)
+                float(data[0]['data']['result'][0]['value'][1]), )
     # ERC20 MAINNET GLM
     domain = os.environ.get(
         'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=avg(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
