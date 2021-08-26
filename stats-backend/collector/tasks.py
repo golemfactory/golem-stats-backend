@@ -433,7 +433,7 @@ def providers_average_earnings_to_redis():
     if data[1] == 200:
         if data[0]['data']['result']:
             erc20_mainnet_glm = round(
-                float(data[0]['data']['result'][0]['value'][1]), 2)
+                float(data[0]['data']['result'][0]['value'][1]), 6)
     content = {'average_earnings': zksync_mainnet_glm + erc20_mainnet_glm}
     serialized = json.dumps(content)
     r.set("provider_average_earnings", serialized)
