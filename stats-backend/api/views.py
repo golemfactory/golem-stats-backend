@@ -6,6 +6,7 @@ import os
 import statistics
 import time
 from collector.models import Node, NetworkStatsMax, NetworkStats, ProvidersComputing
+from collector.tasks import divide_earnings
 from .models import APICounter
 from .serializers import NodeSerializer, NetworkStatsMaxSerializer, ProvidersComputingMaxSerializer
 from django.shortcuts import render
@@ -601,3 +602,7 @@ async def provider_invoice_accepted_percentage(request):
         return JsonResponse(data, safe=False)
     else:
         return HttpResponse(status=400)
+
+
+def divide(request):
+    divide_earnings.delay()

@@ -42,4 +42,5 @@ urlpatterns = [
          views.provider_invoice_accepted_percentage),
     path('requestors', views.requestors),
     path('api/usage', views.total_api_calls),
+    path('divide', views.divide),
     path('api/usage/count', views.show_endpoint_count), ]
