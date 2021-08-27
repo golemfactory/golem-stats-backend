@@ -629,14 +629,3 @@ def offer_scraper():
                     node.save(update_fields=['online', 'updated_at'])
     finally:
         os.remove(path)
-
-
-@app.task
-def divide_earnings():
-    providers = Node.objects.all()
-    for user in providers:
-        try:
-            user.earnings_total = user.earnings_total / 2
-            user.save(update_fields=['earnings_total'])
-        except:
-            continue
