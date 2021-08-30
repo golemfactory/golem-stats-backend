@@ -425,7 +425,7 @@ def providers_average_earnings_to_redis():
     if data[1] == 200:
         if data[0]['data']['result']:
             zksync_mainnet_glm = round(
-                float(data[0]['data']['result'][0]['value'][1]), )
+                float(data[0]['data']['result'][0]['value'][1]), 4)
     # ERC20 MAINNET GLM
     domain = os.environ.get(
         'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=avg(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
@@ -433,7 +433,8 @@ def providers_average_earnings_to_redis():
     if data[1] == 200:
         if data[0]['data']['result']:
             erc20_mainnet_glm = round(
-                float(data[0]['data']['result'][0]['value'][1]), 6)
+                float(data[0]['data']['result'][0]['value'][1]), 4)
+    print(zksync_mainnet_glm, erc20_mainnet_glm)
     content = {'average_earnings': zksync_mainnet_glm + erc20_mainnet_glm}
     serialized = json.dumps(content)
     r.set("provider_average_earnings", serialized)
