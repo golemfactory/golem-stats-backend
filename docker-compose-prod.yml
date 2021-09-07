@@ -50,8 +50,6 @@ services:
       context: .
       dockerfile: compose/django/Dockerfile
     image: webserver:latest
-    depends_on:
-      - postgres
     volumes:
       - "./stats-backend:/stats-backend/"
       - "./wait-for-it.sh:/wait-for-it.sh"
@@ -107,10 +105,6 @@ services:
       - "./check_yagna.sh:/check_yagna.sh"
     env_file:
       - ./.envs/.django
-    depends_on:
-      - redis
-      - postgres
-      - webserver
     healthcheck:
       test: /check_yagna.sh || exit 1
       interval: 15s
@@ -138,10 +132,6 @@ services:
       - "./wait-for-it.sh:/wait-for-it.sh"
     env_file:
       - ./.envs/.django
-    depends_on:
-      - redis
-      - postgres
-      - webserver
     deploy:
       replicas: 1
       update_config:
