@@ -30,7 +30,7 @@ jobs:
             port: ${{ secrets.PORT }}
             script: |
                 cd golem-stats-backend
-                git pull https://${{ secrets.PAT }}@github.com/golemfactory/golem-stats-backend
+                git pull https://github.com/cryptobench/golem-stats-backend
                 docker-compose -f docker-compose-prod.yml build
                 docker stack services -q golemstats \
                   | while read service; do
