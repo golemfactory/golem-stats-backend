@@ -21,7 +21,7 @@ services:
       - "--certificatesresolvers.letsencryptresolver.acme.httpchallenge.entrypoint=web"
       - "--certificatesresolvers.letsencryptresolver.acme.email=phillip@golem.network"
       - "--certificatesresolvers.letsencryptresolver.acme.storage=/letsencrypt/acme.json"
-      - "--pilot.token=replace_me"
+      - "--pilot.token=${PILOT_TOKEN}"
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=swarm-example"
@@ -30,6 +30,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./letsencrypt:/letsencrypt
+    env_file:
+      - ./.envs/.traefik
     deploy:
       replicas: 3
       update_config:
