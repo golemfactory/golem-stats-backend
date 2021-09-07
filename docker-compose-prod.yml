@@ -31,6 +31,13 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./letsencrypt:/letsencrypt
     deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        failure_action: rollback
+        delay: 10s
+      restart_policy:
+        condition: on-failure
       placement:
         constraints:
           - node.role == manager
@@ -65,8 +72,9 @@ services:
         - traefik.http.routers.webserver.middlewares=webserver_compress
       replicas: 10
       update_config:
+        parallelism: 1
         failure_action: rollback
-        order: start-first
+        delay: 10s
       restart_policy:
         condition: on-failure
     networks:
@@ -79,8 +87,9 @@ services:
     deploy:
       replicas: 1
       update_config:
+        parallelism: 1
         failure_action: rollback
-        order: start-first
+        delay: 10s
       restart_policy:
         condition: on-failure
     networks:
@@ -109,8 +118,9 @@ services:
     deploy:
       replicas: 5
       update_config:
+        parallelism: 1
         failure_action: rollback
-        order: start-first
+        delay: 10s
       restart_policy:
         condition: on-failure
     networks:
@@ -133,8 +143,9 @@ services:
     deploy:
       replicas: 1
       update_config:
+        parallelism: 1
         failure_action: rollback
-        order: start-first
+        delay: 10s
       restart_policy:
         condition: on-failure
     networks:
@@ -150,19 +161,14 @@ services:
       - "db_data:/var/lib/postgresql/data"
     networks:
       - swarm-example
-  # pgadmin:
-  #   image: dpage/pgadmin4
-  #   links:
-  #     - postgres
-  #   depends_on:
-  #     - postgres
-  #   environment:
-  #     PGADMIN_DEFAULT_EMAIL: 123@123.com
-  #     PGADMIN_DEFAULT_PASSWORD: 123
-  #   volumes:
-  #     - pgadmin:/var/lib/pgadmin
-  #   ports:
-  #     - '5050:80'
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        failure_action: rollback
+        delay: 10s
+      restart_policy:
+        condition: on-failure
   frontend:
     build:
       context: .
@@ -192,8 +198,9 @@ services:
         - traefik.http.routers.frontend-web-secure.middlewares=frontend_compress
       replicas: 10
       update_config:
+        parallelism: 1
         failure_action: rollback
-        order: start-first
+        delay: 10s
       restart_policy:
         condition: on-failure
     networks:
