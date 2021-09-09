@@ -4,7 +4,7 @@ volumes:
   prometheus_data: {}
   grafana_data: {}
 services:
-    prometheus:
+  prometheus:
     image: prom/prometheus
     volumes:
       - ./prometheus/:/etc/prometheus/
