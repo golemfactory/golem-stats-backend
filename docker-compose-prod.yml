@@ -47,6 +47,7 @@ services:
         - traefik.http.services.grafana.loadbalancer.server.port=3000
         - traefik.http.routers.grafana.service=grafana@docker
         - traefik.docker.network=swarm-example
+        - traefik.http.routers.grafana.tls=true
       placement:
         constraints:
           - node.role == manager
@@ -85,6 +86,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./letsencrypt:/letsencrypt
+      - ./certs:/etc/certs:ro
+      - ./traefik/config.yml:/etc/traefik/config.yml:ro
     env_file:
       - ./.envs/.traefik
     deploy:

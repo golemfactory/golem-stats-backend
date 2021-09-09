@@ -49,6 +49,7 @@ services:
         - traefik.http.services.grafana.loadbalancer.server.port=3000
         - traefik.http.routers.grafana.service=grafana@docker
         - traefik.docker.network=swarm-example
+        - traefik.http.routers.grafana.tls=true
       placement:
         constraints:
           - node.role == manager
@@ -68,7 +69,6 @@ services:
       - "--entrypoints.web.address=:80"
       - "--metrics.prometheus=true"
       - "--metrics.prometheus.buckets=0.1,0.3,1.2,5.0"
-      - "--pilot.token=${PILOT_TOKEN}"
       - --metrics.prometheus.entryPoint=metrics
       - --entryPoints.metrics.address=:8080
     labels:
@@ -78,6 +78,8 @@ services:
 
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./certs:/etc/certs:ro
+      - ./traefik/config.yml:/etc/traefik/config.yml:ro
     env_file:
       - ./.envs/.traefik
     deploy:
