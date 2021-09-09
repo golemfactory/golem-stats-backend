@@ -20,7 +20,7 @@ services:
       labels:
         - traefik.enable=true
         - traefik.http.routers.prometheus.rule=Host(`prometheus.localhost`)
-        - traefik.http.routers.prometheus.entrypoints=web
+        - traefik.http.routers.prometheus.entrypoints=monitor
         - traefik.http.services.prometheus.loadbalancer.server.port=9090
         - traefik.http.routers.prometheus.service=prometheus@docker
         - traefik.docker.network=swarm-example
@@ -43,7 +43,7 @@ services:
       labels:
         - traefik.enable=true
         - traefik.http.routers.grafana.rule=Host(`grafana.localhost`)
-        - traefik.http.routers.grafana.entrypoints=web
+        - traefik.http.routers.grafana.entrypoints=monitor
         - traefik.http.services.grafana.loadbalancer.server.port=3000
         - traefik.http.routers.grafana.service=grafana@docker
         - traefik.docker.network=swarm-example
@@ -58,11 +58,13 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "90:90"
     command:
       - "--providers.docker=true"
       - "--providers.docker.swarmmode=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
+      - "--entrypoints.monitor.address=:90"
       - "--entrypoints.web-secure.address=:443"
       - "--entrypoints.web.http.redirections.entryPoint.to=web-secure"
       - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
