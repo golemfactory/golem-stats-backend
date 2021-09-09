@@ -31,7 +31,7 @@ jobs:
             command_timeout: 20m
             script: |
                 cd golem-stats-backend
-                git pull https://github.com/cryptobench/golem-stats-backend
+                git pull
                 docker-compose -f docker-compose-prod.yml build
                 docker stack services -q golemstats \
                   | while read service; do
