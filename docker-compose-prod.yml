@@ -239,13 +239,13 @@ services:
     deploy:
       labels:
         - traefik.enable=true
-        - traefik.http.routers.frontend.rule=Host(`stats.golem.network`, 'golemstats.com')
+        - traefik.http.routers.frontend.rule=Host(`stats.golem.network`, `golemstats.com`)
         - traefik.http.services.frontend.loadbalancer.server.port=80
         - traefik.http.routers.frontend.service=frontend@docker
         - traefik.http.routers.frontend.entrypoints=web
         - traefik.docker.network=swarm-example
         - traefik.http.routers.frontend.tls.certresolver=letsencryptresolver
-        - traefik.http.routers.frontend-web-secure.rule=Host(`stats.golem.network`, 'golemstats.com')
+        - traefik.http.routers.frontend-web-secure.rule=Host(`stats.golem.network`, `golemstats.com`)
         - traefik.http.routers.frontend-web-secure.tls=true
         - traefik.http.routers.frontend-web-secure.entrypoints=web-secure
         - traefik.http.middlewares.frontend_compress.compress=true
