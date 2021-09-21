@@ -49,6 +49,8 @@ scrape_configs:
       port: 8080
 
   - job_name: 'docker'
+      
+    scrape_interval: 5s
          # metrics_path defaults to '/metrics'
          # scheme defaults to 'http'.
 
