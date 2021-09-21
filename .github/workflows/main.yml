@@ -34,7 +34,3 @@ jobs:
                 git pull
                 docker-compose -f docker-compose-prod.yml build
                 docker stack deploy -c docker-compose-prod.yml golemstats
-                docker stack services -q golemstats \
-                  | while read service; do
-                    docker service update --force $service
-                  done
