@@ -1,14 +1,12 @@
 version: "3.8"
 volumes:
   db_data: {}
-  prometheus_data: {}
-  grafana_data: {}
 services:
   prometheus:
     image: prom/prometheus
     volumes:
       - ./prometheus/:/etc/prometheus/
-      - prometheus_data:/prometheus
+      - ./prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
@@ -39,7 +37,8 @@ services:
     depends_on:
       - prometheus
     volumes:
-      - grafana_data:/var/lib/grafana
+      - ./grafana:/var/lib/grafana
+      - ./prometheus_data:/prometheus
     networks:
       - swarm-example
     user: "104"
