@@ -7,7 +7,7 @@ class NodeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Node
         fields = ['earnings_total', 'node_id', 'data',
-                  'online', 'version', 'updated_at', 'created_at']
+                  'online', 'version', 'updated_at', 'created_at', 'benchmark_score']
 
 
 class RequestorSerializer(serializers.ModelSerializer):
