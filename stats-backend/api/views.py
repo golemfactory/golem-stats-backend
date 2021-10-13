@@ -620,5 +620,6 @@ async def store_benchmarks(request):
         if request.META['HTTP_STATSTOKEN'] == os.getenv("STATS_TOKEN"):
             for obj in received_json_data:
                 await save_benchmark(obj['provider_id'], obj['score'])
+            return HttpResponse(status=200)
     else:
         return HttpResponse(status=400)
