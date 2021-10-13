@@ -206,7 +206,7 @@ services:
     networks:
       - swarm-example
   postgres:
-    image: postgres
+    image: postgres:version13
     build:
       context: .
       dockerfile: compose/postgres/Dockerfile
