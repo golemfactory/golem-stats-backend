@@ -38,6 +38,7 @@ def get_all_nodes():
 def save_benchmark(node_id, score):
     data = Node.objects.get(node_id=node_id)
     data.benchmark_score = score
+    data.benchmarked_at = datetime.now()
     data.save()
     return
 
@@ -621,5 +622,7 @@ async def store_benchmarks(request):
             for obj in received_json_data:
                 await save_benchmark(obj['provider_id'], obj['score'])
             return HttpResponse(status=200)
+        else:
+            return HttpResponse(status=400)
     else:
         return HttpResponse(status=400)
