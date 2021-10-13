@@ -137,7 +137,7 @@ services:
       update_config:
         parallelism: 1
         failure_action: rollback
-        delay: 10s
+        delay: 4s
       restart_policy:
         condition: on-failure
     networks:
