@@ -16,7 +16,7 @@ import redis
 import json
 import aioredis
 from asgiref.sync import sync_to_async
-import datetime
+from datetime import datetime
 import math
 
 from django.http import JsonResponse, HttpResponse
