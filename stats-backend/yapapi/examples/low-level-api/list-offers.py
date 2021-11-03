@@ -88,6 +88,18 @@ def main():
         )
     except TimeoutError:
         pass
+    try:
+        asyncio.get_event_loop().run_until_complete(
+            asyncio.wait_for(
+                list_offers(
+                    Configuration(),
+                    subnet_tag="devnet-beta",
+                ),
+                timeout=4,
+            )
+        )
+    except TimeoutError:
+        pass
     serialized = json.dumps(test)
     if len(test) > 450:
         r = redis.Redis(host='redis', port=6379, db=0)
