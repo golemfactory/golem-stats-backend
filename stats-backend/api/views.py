@@ -16,7 +16,7 @@ import redis
 import json
 import aioredis
 from asgiref.sync import sync_to_async
-import datetime
+from datetime import datetime
 import math
 
 from django.http import JsonResponse, HttpResponse
@@ -32,6 +32,15 @@ def get_node(yagna_id):
 def get_all_nodes():
     data = Node.objects.all().order_by('-created_at')
     return data
+
+
+@sync_to_async
+def save_benchmark(node_id, score):
+    data = Node.objects.get(node_id=node_id)
+    data.benchmark_score = score
+    data.benchmarked_at = datetime.now()
+    data.save()
+    return
 
 
 @sync_to_async
@@ -599,5 +608,21 @@ async def provider_invoice_accepted_percentage(request):
         data = json.loads(content)
         pool.disconnect()
         return JsonResponse(data, safe=False)
+    else:
+        return HttpResponse(status=400)
+
+
+async def store_benchmarks(request):
+    """
+    Store benchmark results
+    """
+    if request.method == 'POST':
+        received_json_data = json.loads(request.body)
+        if request.META['HTTP_STATSTOKEN'] == os.getenv("STATS_TOKEN"):
+            for obj in received_json_data:
+                await save_benchmark(obj['provider_id'], obj['score'])
+            return HttpResponse(status=200)
+        else:
+            return HttpResponse(status=400)
     else:
         return HttpResponse(status=400)

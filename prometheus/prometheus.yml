@@ -47,3 +47,12 @@ scrape_configs:
       - 'tasks.traefik'
       type: 'A'
       port: 8080
+
+  - job_name: 'docker'
+      
+    scrape_interval: 5s
+         # metrics_path defaults to '/metrics'
+         # scheme defaults to 'http'.
+
+    static_configs:
+      - targets: ['localhost:9323']

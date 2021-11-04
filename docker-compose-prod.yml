@@ -1,14 +1,12 @@
 version: "3.8"
 volumes:
   db_data: {}
-  prometheus_data: {}
-  grafana_data: {}
 services:
   prometheus:
     image: prom/prometheus
     volumes:
       - ./prometheus/:/etc/prometheus/
-      - prometheus_data:/prometheus
+      - ./prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
@@ -16,6 +14,7 @@ services:
       - "--web.console.templates=/usr/share/prometheus/consoles"
     networks:
       - swarm-example
+    user: "1000:1000"
     deploy:
       labels:
         - traefik.enable=true
@@ -39,14 +38,15 @@ services:
     depends_on:
       - prometheus
     volumes:
-      - grafana_data:/var/lib/grafana
+      - ./grafana:/var/lib/grafana
+      - ./prometheus_data:/prometheus
     networks:
       - swarm-example
     user: "104"
     deploy:
       labels:
         - traefik.enable=true
-        - traefik.http.routers.grafana.rule=Host(`monitor.stats.golem.network`)
+        - traefik.http.routers.grafana.rule=Host(`monitor.stats.golem.network` )
         - traefik.http.routers.grafana.entrypoints=web
         - traefik.http.services.grafana.loadbalancer.server.port=3000
         - traefik.http.routers.grafana.service=grafana@docker
@@ -121,13 +121,13 @@ services:
     deploy:
       labels:
         - traefik.enable=true
-        - traefik.http.routers.webserver.rule=Host(`api.stats.golem.network`)
+        - traefik.http.routers.webserver.rule=Host(`api.stats.golem.network`, `api.golemstats.com`)
         - traefik.http.routers.webserver.entrypoints=web
         - traefik.http.services.webserver.loadbalancer.server.port=8002
         - traefik.http.routers.webserver.service=webserver@docker
         - traefik.docker.network=swarm-example
         - traefik.http.routers.webserver.tls.certresolver=letsencryptresolver
-        - traefik.http.routers.webserver-web-secure.rule=Host(`api.stats.golem.network`)
+        - traefik.http.routers.webserver-web-secure.rule=Host(`api.stats.golem.network`,`api.golemstats.com`)
         - traefik.http.routers.webserver-web-secure.tls=true
         - traefik.http.routers.webserver-web-secure.entrypoints=web-secure
         - traefik.http.middlewares.webserver_compress.compress=true
@@ -137,7 +137,7 @@ services:
       update_config:
         parallelism: 1
         failure_action: rollback
-        delay: 10s
+        delay: 4s
       restart_policy:
         condition: on-failure
     networks:
@@ -206,7 +206,7 @@ services:
     networks:
       - swarm-example
   postgres:
-    image: postgres
+    image: postgres:version13
     build:
       context: .
       dockerfile: compose/postgres/Dockerfile
@@ -239,13 +239,13 @@ services:
     deploy:
       labels:
         - traefik.enable=true
-        - traefik.http.routers.frontend.rule=Host(`stats.golem.network`)
+        - traefik.http.routers.frontend.rule=Host(`stats.golem.network`, `golemstats.com`)
         - traefik.http.services.frontend.loadbalancer.server.port=80
         - traefik.http.routers.frontend.service=frontend@docker
         - traefik.http.routers.frontend.entrypoints=web
         - traefik.docker.network=swarm-example
         - traefik.http.routers.frontend.tls.certresolver=letsencryptresolver
-        - traefik.http.routers.frontend-web-secure.rule=Host(`stats.golem.network`)
+        - traefik.http.routers.frontend-web-secure.rule=Host(`stats.golem.network`, `golemstats.com`)
         - traefik.http.routers.frontend-web-secure.tls=true
         - traefik.http.routers.frontend-web-secure.entrypoints=web-secure
         - traefik.http.middlewares.frontend_compress.compress=true

@@ -14,6 +14,8 @@ class Node(models.Model):
     version = models.CharField(max_length=5)
     updated_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    benchmark_score = models.IntegerField(default=0)
+    benchmarked_at = models.DateTimeField(null=True, blank=True)
 
 
 class Network(models.Model):

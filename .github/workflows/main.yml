@@ -33,7 +33,4 @@ jobs:
                 cd golem-stats-backend
                 git pull
                 docker-compose -f docker-compose-prod.yml build
-                docker stack services -q golemstats \
-                  | while read service; do
-                    docker service update --force $service
-                  done
+                docker stack deploy -c docker-compose-prod.yml golemstats
