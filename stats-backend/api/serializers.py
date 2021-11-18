@@ -10,12 +10,17 @@ class BenchmarkSerializer(serializers.ModelSerializer):
 
 
 class NodeSerializer(serializers.ModelSerializer):
-    benchmark_set = BenchmarkSerializer(many=True)
+    last_benchmark = serializers.SerializerMethodField('get_benchmark')
 
     class Meta:
         model = Node
         fields = ['earnings_total', 'node_id', 'data',
-                  'online', 'version', 'updated_at', 'created_at', 'benchmark_set']
+                  'online', 'version', 'updated_at', 'created_at', 'last_benchmark']
+
+    def get_benchmark(self, node):
+        benchmark = Benchmark.objects.last()
+        serializer = BenchmarkSerializer(instance=benchmark)
+        return serializer.data
 
 
 class RequestorSerializer(serializers.ModelSerializer):
