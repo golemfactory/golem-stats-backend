@@ -18,7 +18,7 @@ class NodeSerializer(serializers.ModelSerializer):
                   'online', 'version', 'updated_at', 'created_at', 'last_benchmark']
 
     def get_benchmark(self, node):
-        benchmark = Benchmark.objects.last()
+        benchmark = Benchmark.objects.filter(provider=node).last()
         serializer = BenchmarkSerializer(instance=benchmark)
         return serializer.data
 
