@@ -78,8 +78,6 @@ services:
 
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./certs-traefik:/etc/certs:ro
-      - ./traefik/config.yml:/etc/traefik/config.yml:ro
     env_file:
       - ./.envs/.traefik
     deploy:
@@ -106,13 +104,13 @@ services:
     env_file:
       - ./.envs/.django
     deploy:
-      # labels:
-      #   - traefik.enable=true
-      #   - traefik.http.routers.webserver.rule=Host(`api.localhost`)
-      #   - traefik.http.routers.webserver.entrypoints=web
-      #   - traefik.http.services.webserver.loadbalancer.server.port=8002
-      #   - traefik.http.routers.webserver.service=webserver@docker
-      #   - traefik.docker.network=swarm-example
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.webserver.rule=Host(`api.localhost`)
+        - traefik.http.routers.webserver.entrypoints=web
+        - traefik.http.services.webserver.loadbalancer.server.port=8002
+        - traefik.http.routers.webserver.service=webserver@docker
+        - traefik.docker.network=swarm-example
       replicas: 1
       update_config:
         parallelism: 1

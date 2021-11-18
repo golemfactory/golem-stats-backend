@@ -1,13 +1,27 @@
 from rest_framework import serializers
-from collector.models import Node, NetworkStatsMax, NetworkMedianPricingMax, NetworkAveragePricingMax, ProvidersComputingMax, NetworkStats, Requestors
+from collector.models import Node, NetworkStatsMax, NetworkMedianPricingMax, NetworkAveragePricingMax, ProvidersComputingMax, NetworkStats, Requestors, Benchmark
+
+
+class BenchmarkSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Benchmark
+        fields = ['benchmark_score', 'benchmarked_at']
 
 
 class NodeSerializer(serializers.ModelSerializer):
+    last_benchmark = serializers.SerializerMethodField('get_benchmark')
 
     class Meta:
         model = Node
         fields = ['earnings_total', 'node_id', 'data',
-                  'online', 'version', 'updated_at', 'created_at', ]
+                  'online', 'version', 'updated_at', 'created_at', 'last_benchmark']
+
+    def get_benchmark(self, node):
+        benchmark = Benchmark.objects.filter(
+            provider=node).last()
+        serializer = BenchmarkSerializer(instance=benchmark)
+        return serializer.data
 
 
 class RequestorSerializer(serializers.ModelSerializer):
