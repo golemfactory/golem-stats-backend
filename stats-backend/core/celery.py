@@ -14,7 +14,7 @@ app = Celery('core')
 
 @app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
-    from collector.tasks import offer_scraper, network_online_to_redis, network_stats_to_redis, network_utilization_to_redis, computing_now_to_redis, providers_average_earnings_to_redis, network_earnings_6h_to_redis, network_earnings_24h_to_redis, network_total_earnings, network_versions_to_redis, node_earnings_total, stats_snapshot_yesterday, requests_served, network_median_pricing, network_average_pricing, computing_snapshot_yesterday, pricing_snapshot_yesterday, max_stats, networkstats_30m, network_node_versions, requestor_scraper, requestors_to_redis, market_agreement_termination_reasons, paid_invoices_1h, provider_accepted_invoices_1h
+    from collector.tasks import offer_scraper, network_online_to_redis, network_stats_to_redis, network_utilization_to_redis, computing_now_to_redis, providers_average_earnings_to_redis, network_earnings_6h_to_redis, network_earnings_24h_to_redis, network_total_earnings, network_versions_to_redis, node_earnings_total, stats_snapshot_yesterday, requests_served, network_median_pricing, network_average_pricing, computing_snapshot_yesterday, pricing_snapshot_yesterday, max_stats, networkstats_30m, network_node_versions, requestor_scraper, requestors_to_redis, market_agreement_termination_reasons, paid_invoices_1h, provider_accepted_invoices_1h, save_endpoint_logs_to_db
     sender.add_periodic_task(
         30.0,
         offer_scraper.s(),
@@ -22,6 +22,10 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         10.0,
         requestor_scraper.s(),
+    )
+    sender.add_periodic_task(
+        10.0,
+        save_endpoint_logs_to_db.s(),
     )
     sender.add_periodic_task(
         60,

@@ -26,6 +26,15 @@ r = redis.Redis(connection_pool=pool)
 
 
 @app.task
+def save_endpoint_logs_to_db():
+    data = r.lrange('API', 0, -1)
+    # Remove entries in list
+    r.delete('API')
+    bulk_list = [APICounter(endpoint=val) for val in list(data)]
+    APICounter.objects.bulk_create(bulk_list)
+
+
+@app.task
 def requests_served():
     count = APICounter.objects.all().count()
     jsondata = {

@@ -61,9 +61,13 @@ def get_computing():
     return data
 
 
+pool = redis.ConnectionPool(host='redis', port=6379, db=0)
+r = redis.Redis(connection_pool=pool)
+
+
 @sync_to_async
 def LogEndpoint(endpoint):
-    APICounter.objects.create(endpoint=endpoint)
+    r.lpush("API", endpoint)
 
 
 @sync_to_async
