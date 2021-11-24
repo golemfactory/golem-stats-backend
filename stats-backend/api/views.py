@@ -5,7 +5,7 @@ from .utils import get_stats_data, get_yastats_data
 import os
 import statistics
 import time
-from collector.models import Node, NetworkStatsMax, NetworkStats, ProvidersComputing
+from collector.models import Node, NetworkStatsMax, NetworkStats, ProvidersComputing, Benchmark
 from .models import APICounter
 from .serializers import NodeSerializer, NetworkStatsMaxSerializer, ProvidersComputingMaxSerializer
 from django.shortcuts import render
@@ -37,9 +37,7 @@ def get_all_nodes():
 @sync_to_async
 def save_benchmark(node_id, score):
     data = Node.objects.get(node_id=node_id)
-    data.benchmark_score = score
-    data.benchmarked_at = datetime.now()
-    data.save()
+    benchmark = Benchmark.objects.create(benchmark_score=score, provider=data)
     return
 
 
