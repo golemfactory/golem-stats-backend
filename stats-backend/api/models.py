@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models.fields import BigIntegerField, CharField
 from django.utils import timezone
 
 
@@ -6,4 +7,8 @@ from django.utils import timezone
 
 
 class APICounter(models.Model):
-    endpoint = models.CharField(max_length=50)
+    endpoint = CharField(max_length=50)
+
+
+class APIHits(models.Model):
+    count = BigIntegerField()

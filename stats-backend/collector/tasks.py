@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, date
 from .models import Node, NetworkStats, NetworkStatsMax, ProvidersComputing, NetworkAveragePricing, NetworkMedianPricing, NetworkAveragePricingMax, NetworkMedianPricingMax, ProvidersComputingMax, Network, Requestors, requestor_scraper_check
 from django.db import connection
 from django.db.models import Count, Max
-from api.models import APICounter
+from api.models import APIHits
 from api.serializers import NodeSerializer, NetworkMedianPricingMaxSerializer, NetworkAveragePricingMaxSerializer, ProvidersComputingMaxSerializer, NetworkStatsMaxSerializer, NetworkStatsSerializer, RequestorSerializer
 from django.core import serializers
 import tempfile
@@ -27,18 +27,23 @@ r = redis.Redis(connection_pool=pool)
 
 @app.task
 def save_endpoint_logs_to_db():
-    data = r.lrange('API', 0, -1)
+    length = r.llen('API')
     # Remove entries in list
     r.delete('API')
-    bulk_list = [APICounter(endpoint=val) for val in list(data)]
-    APICounter.objects.bulk_create(bulk_list)
+    obj, objcreated = APIHits.objects.get_or_create(id=1)
+    if objcreated:
+        obj.count = length
+        obj.save()
+    else:
+        obj.count = obj.count + length
+        obj.save()
 
 
 @app.task
 def requests_served():
-    count = APICounter.objects.all().count()
+    obj = APIHits.objects.get(id=1)
     jsondata = {
-        "count": count
+        "count": obj.count
     }
     serialized = json.dumps(jsondata)
     r.set("api_requests", serialized)
