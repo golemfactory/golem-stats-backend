@@ -1,12 +1,10 @@
  
 DJANGO   := phillipjensen/golem-stats-backend
-TAG    := $(shell git rev-parse HEAD)
-IMG_DJANGO    := ${DJANGO}:${TAG}
+IMG_DJANGO    := ${DJANGO}:${GITHUB_SHA}
 LATEST_DJANGO := ${DJANGO}:latest
 
 CELERY   := phillipjensen/golem-stats-backend-celery
-TAG    := $(shell git rev-parse HEAD)
-IMG_CELERY    := ${CELERY}:${TAG}
+IMG_CELERY    := ${CELERY}:${GITHUB_SHA}
 LATEST_CELERY := ${CELERY}:latest
  
 build:
