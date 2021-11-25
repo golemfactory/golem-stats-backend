@@ -10,6 +10,8 @@ LATEST_CELERY := ${CELERY}:${GITHUB_SHA}
 build:
 	@docker build -t ${IMG_DJANGO} -f ./dockerfiles/Django .
 	@docker build -t ${IMG_CELERY} -f ./dockerfiles/Celery .
+	@docker tag ${IMG_DJANGO} ${LATEST_DJANGO}
+	@docker tag ${IMG_CELERY} ${LATEST_CELERY}
 
  
 push:
