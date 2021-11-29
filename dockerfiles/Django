@@ -1,9 +1,9 @@
 # pull official python alpine image
-FROM python:3.9-alpine
+FROM python:3.7-alpine
 
 # Set Environment Variable
-ENV PYTHONUNBUFFERED 1
-ENV C_FORCE_ROOT true
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 # Making source and static directory
 RUN mkdir /stats-backend
@@ -17,30 +17,27 @@ RUN apk update && apk add --no-cache \
     postgresql \
     zlib \
     openssh-server \
-    jpeg 
+    jpeg \
+    py3-psycopg2 \
+    postgresql-dev \
+    gcc \
+    musl-dev
+
+
 # Installing temporary packages required for installing requirements.pip 
-RUN apk add --no-cache --virtual build-deps \
-    gcc \  
-    python3-dev \ 
-    libffi-dev \ 
-    musl-dev \
-    postgresql-dev\
-    zlib-dev \
-    build-base \
-    cargo \
-    rust \
-    jpeg-dev 
+RUN apk add --no-cache libffi-dev openssl-dev
+
+
 
 # Update pip
 
 # Installing requirements.pip from project
 COPY ./requirements.pip /scripts/
-RUN pip install --upgrade pip && pip install cryptography
+RUN pip install --upgrade pip && pip install cryptography psycopg2-binary
 RUN pip install --no-cache-dir -r /scripts/requirements.pip
 
 # removing temporary packages from docker and removing cache 
-RUN apk del build-deps && \
-    find -type d -name __pycache__ -prune -exec rm -rf {} \; && \
+RUN find -type d -name __pycache__ -prune -exec rm -rf {} \; && \
     rm -rf ~/.cache/pip
 COPY ./wait-for-it.sh /wait-for-it.sh
 COPY ./stats-backend/ /stats-backend/
