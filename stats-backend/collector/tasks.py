@@ -353,7 +353,16 @@ def network_earnings_6h_to_redis():
         if data[0]['data']['result']:
             erc20_mainnet_glm = round(
                 float(data[0]['data']['result'][0]['value'][1]), 2)
-    content = {'total_earnings': zksync_mainnet_glm + erc20_mainnet_glm}
+    # ERC20 POLYGON MAINNET GLM
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-polygon-glm"%7D%5B6h%5D)%2F10%5E9)&time={end}'
+    data = get_stats_data(domain)
+    if data[1] == 200:
+        if data[0]['data']['result']:
+            erc20_polygon_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 2)
+    content = {'total_earnings': zksync_mainnet_glm +
+               erc20_mainnet_glm + erc20_polygon_glm}
     serialized = json.dumps(content)
     r.set("network_earnings_6h", serialized)
 
@@ -377,7 +386,17 @@ def network_earnings_24h_to_redis():
         if data[0]['data']['result']:
             erc20_mainnet_glm = round(
                 float(data[0]['data']['result'][0]['value'][1]), 2)
-    content = {'total_earnings': zksync_mainnet_glm + erc20_mainnet_glm}
+
+    # ERC20 POLYGON MAINNET GLM
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-polygon-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
+    data = get_stats_data(domain)
+    if data[1] == 200:
+        if data[0]['data']['result']:
+            erc20_polygon_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 2)
+    content = {'total_earnings': zksync_mainnet_glm +
+               erc20_mainnet_glm + erc20_polygon_glm}
     serialized = json.dumps(content)
     r.set("network_earnings_24h", serialized)
 
@@ -411,6 +430,21 @@ def network_total_earnings():
             if erc20_mainnet_glm > 0:
                 db = Network.objects.get(id=1)
                 db.total_earnings = db.total_earnings + erc20_mainnet_glm
+                db.save()
+                content = {'total_earnings': db.total_earnings}
+                serialized = json.dumps(content)
+                r.set("network_earnings_90d", serialized)
+    # ERC20 POLYGON MAINNET GLM
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-polygon-glm"%7D%5B1m%5D)%2F10%5E9)&time={end}'
+    data = get_stats_data(domain)
+    if data[1] == 200:
+        if data[0]['data']['result']:
+            erc20_polygon_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 2)
+            if erc20_polygon_glm > 0:
+                db = Network.objects.get(id=1)
+                db.total_earnings = db.total_earnings + erc20_polygon_glm
                 db.save()
                 content = {'total_earnings': db.total_earnings}
                 serialized = json.dumps(content)
@@ -452,8 +486,16 @@ def providers_average_earnings_to_redis():
         if data[0]['data']['result']:
             erc20_mainnet_glm = round(
                 float(data[0]['data']['result'][0]['value'][1]), 4)
-    print(zksync_mainnet_glm, erc20_mainnet_glm)
-    content = {'average_earnings': zksync_mainnet_glm + erc20_mainnet_glm}
+    # ERC20 POLYGON MAINNET GLM
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=avg(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-polygon-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
+    data = get_stats_data(domain)
+    if data[1] == 200:
+        if data[0]['data']['result']:
+            erc20_polygon_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 4)
+    content = {'average_earnings': zksync_mainnet_glm +
+               erc20_mainnet_glm + erc20_polygon_glm}
     serialized = json.dumps(content)
     r.set("provider_average_earnings", serialized)
 
@@ -497,12 +539,17 @@ def node_earnings_total():
         domain2 = os.environ.get(
             'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{user.node_id}"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B90d%5D)%2F10%5E9)&time={now}'
         data2 = get_stats_data(domain2)
+        domain3 = os.environ.get(
+            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{user.node_id}"%2C%20platform%3D"erc20-polygon-glm"%7D%5B90d%5D)%2F10%5E9)&time={now}'
+        data3 = get_stats_data(domain3)
         try:
             zksync_mainnet_glm = round(
                 float(data[0]['data']['result'][0]['value'][1]), 2)
             erc20_mainnet_glm = round(
                 float(data2[0]['data']['result'][0]['value'][1]), 2)
-            user.earnings_total = zksync_mainnet_glm + erc20_mainnet_glm
+            erc20_polygon_glm = round(
+                float(data3[0]['data']['result'][0]['value'][1]), 2)
+            user.earnings_total = zksync_mainnet_glm + erc20_mainnet_glm + erc20_polygon_glm
             user.save(update_fields=['earnings_total'])
         except:
             continue
