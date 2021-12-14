@@ -24,9 +24,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
 
-      - name: Build Containers
-        run: make build
+      - name: Build AMD64 images
+        run: make build-amd64
 
+      - name: Push AMD64 images
+        run: make push-amd64
 
       - name: SSH deploy
         uses: appleboy/ssh-action@master
@@ -40,4 +42,5 @@ jobs:
                 docker service update --force --image phillipjensen/golem-stats-backend-celery:${{ github.sha }} golemstats_celery
                 docker service update --force --image phillipjensen/golem-stats-backend-celery-beat:${{ github.sha }} golemstats_celery_beat
   
-  
+      - name: Build ARM64 images
+        run: make build-amd64
