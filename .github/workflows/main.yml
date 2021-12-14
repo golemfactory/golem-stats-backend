@@ -8,7 +8,7 @@ env:
 on:
   push:
     branches:
-      - mono-repo-migration #Use your own branch here (Might be staging or testing)
+      - master
 jobs:
   build:
     runs-on: ubuntu-latest
