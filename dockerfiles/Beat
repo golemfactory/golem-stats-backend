@@ -39,7 +39,6 @@ RUN pip3 install --no-cache-dir -r /scripts/requirements.pip
 
 RUN mkdir -p $HOME/.local/share/ya-installer/terms
 RUN touch $HOME/.local/share/ya-installer/terms/testnet-01.tag
-RUN curl -sSf https://join.golem.network/as-requestor | bash - || echo "Nothing to see here"
 ENV PATH=${PATH}:/root/.local/bin/:/root/.local/
 ENV MARKET_DB_CLEANUP_INTERVAL=10min
 COPY ./wait-for-it.sh /wait-for-it.sh
