@@ -31,11 +31,7 @@ else:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-try:
-    ALLOWED_HOSTS = [os.environ.get("LOCAL_TESTING_ADDR")]
-except:
-    ALLOWED_HOSTS = ['api.stats.golem.network',
-                     'api.golemstats.com']
+ALLOWED_HOSTS = ['api.stats.golem.network', 'api.golemstats.com', ]
 
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
