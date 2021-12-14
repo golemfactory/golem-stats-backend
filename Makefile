@@ -33,11 +33,6 @@ push-amd64:
 	@docker push ${CELERY}:latest
 	@docker push ${CELERY_BEAT}:latest
 
-build-arm64:
-	@docker buildx create --use	
-	@docker buildx build --platform=linux/arm64 --push -t ${IMG_DJANGO} -t ${DJANGO}:latest -f ./dockerfiles/Django .
-	@docker buildx build --platform=linux/arm64 --push -t ${IMG_CELERY} -t ${CELERY}:latest -f ./dockerfiles/Celery .
-	@docker buildx build --platform=linux/arm64 --push -t ${IMG_CELERY_BEAT} -t ${CELERY_BEAT}:latest -f ./dockerfiles/Beat .
 
 login:
 	@docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
