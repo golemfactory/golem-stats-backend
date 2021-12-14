@@ -18,6 +18,5 @@ from django.urls import include, path
 
 
 urlpatterns = [
-    path('notsosecret/', admin.site.urls),
     path('v1/', include('api.urls')),
 ]

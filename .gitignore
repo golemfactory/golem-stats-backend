@@ -6,4 +6,3 @@ celerybeat-schedule
 stats-backend/static/admin/*
 stats-backend/static/rest_framework/*
 celerybeat-schedule.db
-golemstats-frontend/

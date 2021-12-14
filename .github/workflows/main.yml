@@ -1,26 +1,31 @@
-# This is a basic workflow to help you get started with Actions
+#Location: .github/workflows/custom_config.yml
 
-name: CI
+name: Build and push containers to Dockerhub
+env:
+  DOCKER_USER: ${{ secrets.DOCKER_USER }}
+  DOCKER_PASS: ${{ secrets.DOCKER_PASS }}
 
-# Controls when the action will run. 
 on:
-  # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ master ]
-
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+    branches:
+      - master
 jobs:
-  # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
+    steps: 
+      - name: Git clone on our repo
+        uses: actions/checkout@v2
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Login to Dockerhub
+        run: make login
+
+      - name: Build Containers
+        run: make build-amd64
+
+      - name: Push Containers
+        run: make push-amd64
+
+
       - name: SSH deploy
         uses: appleboy/ssh-action@master
         with:
@@ -28,9 +33,9 @@ jobs:
             username: ${{ secrets.USERNAME }}
             key: ${{ secrets.KEY }}
             port: ${{ secrets.PORT }}
-            command_timeout: 20m
             script: |
-                cd golem-stats-backend
-                git pull
-                docker-compose -f docker-compose-prod.yml build
-                docker stack deploy -c docker-compose-prod.yml golemstats
+                docker service update --force --image phillipjensen/golem-stats-backend:${{ github.sha }} golemstats_webserver
+                docker service update --force --image phillipjensen/golem-stats-backend-celery:${{ github.sha }} golemstats_celery
+                docker service update --force --image phillipjensen/golem-stats-backend-celery-beat:${{ github.sha }} golemstats_celery_beat
+  
+  

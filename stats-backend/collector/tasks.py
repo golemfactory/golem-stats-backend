@@ -167,21 +167,23 @@ def network_average_pricing():
     start = []
     data = Node.objects.filter(online=True)
     for obj in data:
-        if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][0])) < 5:
+        pricing_vector = {obj.data['golem.com.usage.vector'][0]: obj.data['golem.com.pricing.model.linear.coeffs']
+                          [0], obj.data['golem.com.usage.vector'][1]: obj.data['golem.com.pricing.model.linear.coeffs'][1]}
+        if len(str(pricing_vector["golem.usage.duration_sec"])) < 5:
             perhour.append(
-                obj.data['golem.com.pricing.model.linear.coeffs'][0])
+                pricing_vector["golem.usage.duration_sec"])
         else:
             perhour.append(
-                obj.data['golem.com.pricing.model.linear.coeffs'][0] * 3600)
+                pricing_vector["golem.usage.duration_sec"] * 3600)
 
             start.append(
                 (obj.data['golem.com.pricing.model.linear.coeffs'][2]))
-        if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][1])) < 5:
+        if len(str(pricing_vector["golem.usage.cpu_sec"])) < 5:
             cpuhour.append(
-                obj.data['golem.com.pricing.model.linear.coeffs'][1])
+                pricing_vector["golem.usage.cpu_sec"])
         else:
             cpuhour.append(
-                obj.data['golem.com.pricing.model.linear.coeffs'][1] * 3600)
+                pricing_vector["golem.usage.cpu_sec"] * 3600)
 
     content = {
         "cpuhour": statistics.mean(cpuhour),
@@ -194,28 +196,30 @@ def network_average_pricing():
     r.set("network_average_pricing", serialized)
 
 
-@app.task
+@ app.task
 def network_median_pricing():
     perhour = []
     cpuhour = []
     startprice = []
     data = Node.objects.filter(online=True)
     for obj in data:
-        if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][0])) < 5:
+        pricing_vector = {obj.data['golem.com.usage.vector'][0]: obj.data['golem.com.pricing.model.linear.coeffs']
+                          [0], obj.data['golem.com.usage.vector'][1]: obj.data['golem.com.pricing.model.linear.coeffs'][1]}
+        if len(str(pricing_vector["golem.usage.duration_sec"])) < 5:
             perhour.append(
-                obj.data['golem.com.pricing.model.linear.coeffs'][0])
+                pricing_vector["golem.usage.duration_sec"])
         else:
             perhour.append(
-                obj.data['golem.com.pricing.model.linear.coeffs'][0] * 3600)
+                pricing_vector["golem.usage.duration_sec"] * 3600)
 
             startprice.append(
                 (obj.data['golem.com.pricing.model.linear.coeffs'][2]))
-        if len(str(obj.data['golem.com.pricing.model.linear.coeffs'][1])) < 5:
+        if len(str(pricing_vector["golem.usage.cpu_sec"])) < 5:
             cpuhour.append(
-                obj.data['golem.com.pricing.model.linear.coeffs'][1])
+                pricing_vector["golem.usage.cpu_sec"])
         else:
             cpuhour.append(
-                obj.data['golem.com.pricing.model.linear.coeffs'][1] * 3600)
+                pricing_vector["golem.usage.cpu_sec"] * 3600)
 
     content = {
         "cpuhour": statistics.median(cpuhour),
@@ -228,7 +232,7 @@ def network_median_pricing():
     r.set("network_median_pricing", serialized)
 
 
-@app.task
+@ app.task
 def network_online_to_redis():
     data = Node.objects.filter(online=True)
     serializer = NodeSerializer(data, many=True)
@@ -236,7 +240,7 @@ def network_online_to_redis():
     r.set("online", test)
 
 
-@app.task
+@ app.task
 def max_stats():
     data = ProvidersComputingMax.objects.all()
     serializercomputing = ProvidersComputingMaxSerializer(data, many=True)
@@ -259,7 +263,7 @@ def max_stats():
     r.set("stats_max", statsmax)
 
 
-@app.task
+@ app.task
 def network_stats_to_redis():
     cores = []
     threads = []
@@ -279,7 +283,7 @@ def network_stats_to_redis():
     r.set("online_stats", serialized)
 
 
-@app.task
+@ app.task
 def networkstats_30m():
     now = datetime.now()
     before = now - timedelta(minutes=30)
@@ -289,7 +293,7 @@ def networkstats_30m():
     r.set("stats_30m", json.dumps(serializer.data))
 
 
-@app.task
+@ app.task
 def network_utilization_to_redis():
     end = round(time.time())
     start = end - 21600
@@ -301,7 +305,7 @@ def network_utilization_to_redis():
         r.set("network_utilization", serialized)
 
 
-@app.task
+@ app.task
 def network_node_versions():
     now = round(time.time())
     domain = os.environ.get(
@@ -318,7 +322,7 @@ def network_node_versions():
             continue
 
 
-@app.task
+@ app.task
 def network_versions_to_redis():
     end = round(time.time())
     start = end - 86400
@@ -330,7 +334,7 @@ def network_versions_to_redis():
         r.set("network_versions", serialized)
 
 
-@app.task
+@ app.task
 def network_earnings_6h_to_redis():
     end = round(time.time())
     # ZKSYNC MAINNET GLM
@@ -349,12 +353,21 @@ def network_earnings_6h_to_redis():
         if data[0]['data']['result']:
             erc20_mainnet_glm = round(
                 float(data[0]['data']['result'][0]['value'][1]), 2)
-    content = {'total_earnings': zksync_mainnet_glm + erc20_mainnet_glm}
+    # ERC20 POLYGON MAINNET GLM
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-polygon-glm"%7D%5B6h%5D)%2F10%5E9)&time={end}'
+    data = get_stats_data(domain)
+    if data[1] == 200:
+        if data[0]['data']['result']:
+            erc20_polygon_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 2)
+    content = {'total_earnings': zksync_mainnet_glm +
+               erc20_mainnet_glm + erc20_polygon_glm}
     serialized = json.dumps(content)
     r.set("network_earnings_6h", serialized)
 
 
-@app.task
+@ app.task
 def network_earnings_24h_to_redis():
     end = round(time.time())
     # ZKSYNC MAINNET GLM
@@ -373,12 +386,22 @@ def network_earnings_24h_to_redis():
         if data[0]['data']['result']:
             erc20_mainnet_glm = round(
                 float(data[0]['data']['result'][0]['value'][1]), 2)
-    content = {'total_earnings': zksync_mainnet_glm + erc20_mainnet_glm}
+
+    # ERC20 POLYGON MAINNET GLM
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-polygon-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
+    data = get_stats_data(domain)
+    if data[1] == 200:
+        if data[0]['data']['result']:
+            erc20_polygon_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 2)
+    content = {'total_earnings': zksync_mainnet_glm +
+               erc20_mainnet_glm + erc20_polygon_glm}
     serialized = json.dumps(content)
     r.set("network_earnings_24h", serialized)
 
 
-@app.task
+@ app.task
 def network_total_earnings():
     end = round(time.time())
     # ZKSYNC MAINNET GLM
@@ -411,9 +434,24 @@ def network_total_earnings():
                 content = {'total_earnings': db.total_earnings}
                 serialized = json.dumps(content)
                 r.set("network_earnings_90d", serialized)
+    # ERC20 POLYGON MAINNET GLM
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-polygon-glm"%7D%5B1m%5D)%2F10%5E9)&time={end}'
+    data = get_stats_data(domain)
+    if data[1] == 200:
+        if data[0]['data']['result']:
+            erc20_polygon_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 2)
+            if erc20_polygon_glm > 0:
+                db = Network.objects.get(id=1)
+                db.total_earnings = db.total_earnings + erc20_polygon_glm
+                db.save()
+                content = {'total_earnings': db.total_earnings}
+                serialized = json.dumps(content)
+                r.set("network_earnings_90d", serialized)
 
 
-@app.task
+@ app.task
 def computing_now_to_redis():
     end = round(time.time())
     start = round(time.time()) - int(10)
@@ -430,7 +468,7 @@ def computing_now_to_redis():
             r.set("computing_now", serialized)
 
 
-@app.task
+@ app.task
 def providers_average_earnings_to_redis():
     end = round(time.time())
     domain = os.environ.get(
@@ -448,13 +486,21 @@ def providers_average_earnings_to_redis():
         if data[0]['data']['result']:
             erc20_mainnet_glm = round(
                 float(data[0]['data']['result'][0]['value'][1]), 4)
-    print(zksync_mainnet_glm, erc20_mainnet_glm)
-    content = {'average_earnings': zksync_mainnet_glm + erc20_mainnet_glm}
+    # ERC20 POLYGON MAINNET GLM
+    domain = os.environ.get(
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=avg(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-polygon-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
+    data = get_stats_data(domain)
+    if data[1] == 200:
+        if data[0]['data']['result']:
+            erc20_polygon_glm = round(
+                float(data[0]['data']['result'][0]['value'][1]), 4)
+    content = {'average_earnings': zksync_mainnet_glm +
+               erc20_mainnet_glm + erc20_polygon_glm}
     serialized = json.dumps(content)
     r.set("provider_average_earnings", serialized)
 
 
-@app.task
+@ app.task
 def paid_invoices_1h():
     end = round(time.time())
     domain = os.environ.get(
@@ -468,7 +514,7 @@ def paid_invoices_1h():
             r.set("paid_invoices_1h", serialized)
 
 
-@app.task
+@ app.task
 def provider_accepted_invoices_1h():
     end = round(time.time())
     domain = os.environ.get(
@@ -482,29 +528,34 @@ def provider_accepted_invoices_1h():
             r.set("provider_accepted_invoice_percentage", serialized)
 
 
-@app.task
+@ app.task
 def node_earnings_total():
     providers = Node.objects.all()
     for user in providers:
         now = round(time.time())
         domain = os.environ.get(
-            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{user.node_id}"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B90d%5D)%2F10%5E9)&time={now}'
+            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{user.node_id}"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B1m%5D)%2F10%5E9)&time={now}'
         data = get_stats_data(domain)
         domain2 = os.environ.get(
-            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{user.node_id}"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B90d%5D)%2F10%5E9)&time={now}'
+            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{user.node_id}"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B1m%5D)%2F10%5E9)&time={now}'
         data2 = get_stats_data(domain2)
+        domain3 = os.environ.get(
+            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{user.node_id}"%2C%20platform%3D"erc20-polygon-glm"%7D%5B1m%5D)%2F10%5E9)&time={now}'
+        data3 = get_stats_data(domain3)
         try:
             zksync_mainnet_glm = round(
                 float(data[0]['data']['result'][0]['value'][1]), 2)
             erc20_mainnet_glm = round(
                 float(data2[0]['data']['result'][0]['value'][1]), 2)
-            user.earnings_total = zksync_mainnet_glm + erc20_mainnet_glm
+            erc20_polygon_glm = round(
+                float(data3[0]['data']['result'][0]['value'][1]), 2)
+            user.earnings_total += zksync_mainnet_glm + erc20_mainnet_glm + erc20_polygon_glm
             user.save(update_fields=['earnings_total'])
         except:
             continue
 
 
-@app.task
+@ app.task
 def market_agreement_termination_reasons():
     end = round(time.time())
     start = round(time.time()) - int(10)
@@ -553,7 +604,7 @@ def market_agreement_termination_reasons():
     r.set("market_agreement_termination_reasons", serialized)
 
 
-@app.task
+@ app.task
 def requestor_scraper():
     checker, checkcreated = requestor_scraper_check.objects.get_or_create(id=1)
     if checkcreated:
@@ -602,7 +653,7 @@ def requestor_scraper():
                             obj.save()
 
 
-@app.task
+@ app.task
 def offer_scraper():
     os.chdir("/stats-backend/yapapi/examples/low-level-api")
     with open('data.config') as f:
