@@ -68,7 +68,7 @@ def setup_periodic_tasks(sender, **kwargs):
         computing_snapshot_yesterday.s(),
     )
     sender.add_periodic_task(
-        crontab(minute="*/1"),
+        crontab(minute="*/10"),
         node_earnings_total.s(),
     )
     sender.add_periodic_task(
