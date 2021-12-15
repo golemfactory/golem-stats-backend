@@ -26,6 +26,8 @@ async def list_offers(conf: Configuration, subnet_tag: str):
         dbuild.add(yp.Activity(expiration=datetime.now(timezone.utc)))
         async with market_api.subscribe(dbuild.properties, dbuild.constraints) as subscription:
             async for event in subscription.events():
+                if event.props['golem.runtime.name'] != "vm":
+                    continue
                 if event.issuer in test:
                     continue
                 else:
