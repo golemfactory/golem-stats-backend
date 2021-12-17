@@ -305,8 +305,11 @@ async def node(request, yagna_id):
     await LogEndpoint("Node Detailed")
     if request.method == 'GET':
         data = await get_node(yagna_id)
-        serializer = NodeSerializer(data, many=True)
-        return JsonResponse(serializer.data, safe=False)
+        if data:
+            serializer = NodeSerializer(data, many=True)
+            return JsonResponse(serializer.data, safe=False)
+        else:
+            return HttpResponse(status=404)
     else:
         return HttpResponse(status=400)
 
