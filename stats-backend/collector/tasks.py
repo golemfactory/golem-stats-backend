@@ -16,6 +16,7 @@ from api.models import APIHits
 from api.serializers import NodeSerializer, NetworkMedianPricingMaxSerializer, NetworkAveragePricingMaxSerializer, ProvidersComputingMaxSerializer, NetworkStatsMaxSerializer, NetworkStatsSerializer, RequestorSerializer
 from django.core import serializers
 import tempfile
+from django.utils import timezone
 
 
 # jsonmsg = {"user_id": elem, "path": "/src/data/user_avatars/" + elem + ".png"}
@@ -673,13 +674,13 @@ def offer_scraper():
             obj.data = data
             obj.wallet = wallet
             obj.online = True
-            obj.updated_at = datetime.now()
+            obj.updated_at = timezone.now()
             obj.save(update_fields=['data', 'wallet', 'online', 'updated_at'])
         else:
             obj.data = data
             obj.wallet = wallet
             obj.online = True
-            obj.updated_at = datetime.now()
+            obj.updated_at = timezone.now()
             obj.save(update_fields=['data', 'wallet', 'online', 'updated_at'])
     # Find offline providers
     str1 = ''.join(serialized)
@@ -692,7 +693,7 @@ def offer_scraper():
             for node in online_nodes:
                 if not node.node_id in str1:
                     node.online = False
-                    node.updated_at = datetime.now()
+                    node.updated_at = timezone.now()
                     node.save(update_fields=['online', 'updated_at'])
     finally:
         os.remove(path)
