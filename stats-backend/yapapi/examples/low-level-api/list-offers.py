@@ -123,7 +123,7 @@ def main():
     except TimeoutError:
         pass
     serialized = json.dumps(test)
-    if len(test) > 450:
+    if len(test) > 580:
         r = redis.Redis(host='redis', port=6379, db=0)
         content = r.set("offers", serialized)
 
