@@ -205,24 +205,24 @@ def network_median_pricing():
     startprice = []
     data = Node.objects.filter(online=True)
     for obj in data:
-        pricing_vector = {obj.data['golem.com.usage.vector'][0]: obj.data['golem.com.pricing.model.linear.coeffs']
-                          [0], obj.data['golem.com.usage.vector'][1]: obj.data['golem.com.pricing.model.linear.coeffs'][1]}
-        if len(str(pricing_vector["golem.usage.duration_sec"])) < 5:
-            perhour.append(
-                pricing_vector["golem.usage.duration_sec"])
-        else:
-            perhour.append(
-                pricing_vector["golem.usage.duration_sec"] * 3600)
+        if obj.data['golem.node.debug.subnet'] != "Thorg":
+            pricing_vector = {obj.data['golem.com.usage.vector'][0]: obj.data['golem.com.pricing.model.linear.coeffs']
+                              [0], obj.data['golem.com.usage.vector'][1]: obj.data['golem.com.pricing.model.linear.coeffs'][1]}
+            if len(str(pricing_vector["golem.usage.duration_sec"])) < 5:
+                perhour.append(
+                    pricing_vector["golem.usage.duration_sec"])
+            else:
+                perhour.append(
+                    pricing_vector["golem.usage.duration_sec"] * 3600)
 
-            startprice.append(
-                (obj.data['golem.com.pricing.model.linear.coeffs'][2]))
-        if len(str(pricing_vector["golem.usage.cpu_sec"])) < 5:
-            cpuhour.append(
-                pricing_vector["golem.usage.cpu_sec"])
-        else:
-            cpuhour.append(
-                pricing_vector["golem.usage.cpu_sec"] * 3600)
-
+                startprice.append(
+                    (obj.data['golem.com.pricing.model.linear.coeffs'][2]))
+            if len(str(pricing_vector["golem.usage.cpu_sec"])) < 5:
+                cpuhour.append(
+                    pricing_vector["golem.usage.cpu_sec"])
+            else:
+                cpuhour.append(
+                    pricing_vector["golem.usage.cpu_sec"] * 3600)
     content = {
         "cpuhour": statistics.median(cpuhour),
         "perhour": statistics.median(perhour),
