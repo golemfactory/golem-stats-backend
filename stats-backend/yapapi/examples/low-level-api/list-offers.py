@@ -83,6 +83,18 @@ def main():
             asyncio.wait_for(
                 list_offers(
                     Configuration(),
+                    subnet_tag="LazySubnet",
+                ),
+                timeout=4,
+            )
+        )
+    except TimeoutError:
+        pass
+    try:
+        asyncio.get_event_loop().run_until_complete(
+            asyncio.wait_for(
+                list_offers(
+                    Configuration(),
                     subnet_tag="devnet-beta.2",
                 ),
                 timeout=4,
