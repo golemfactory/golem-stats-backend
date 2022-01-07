@@ -15,7 +15,7 @@ class NodeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Node
         fields = ['earnings_total', 'node_id', 'data',
-                  'online', 'version', 'updated_at', 'created_at', 'last_benchmark']
+                  'online', 'version', 'updated_at', 'created_at', 'last_benchmark', 'computing_now']
 
     def get_benchmark(self, node):
         benchmark = Benchmark.objects.filter(
