@@ -39,7 +39,10 @@ async def list_offers(conf: Configuration, subnet_tag: str):
                         test.append(json.dumps(data))
                 elif event.props['golem.runtime.name'] == "gminer":
                     data = event.props
-                    data["wallet"] = event.props['golem.com.payment.platform.polygon-polygon-glm.address']
+                    try:
+                        data["wallet"] = event.props['golem.com.payment.platform.polygon-polygon-glm.address']
+                    except:
+                        data['wallet'] = event.props["golem.com.payment.platform.erc20-polygon-glm.address"]
                     data['golem.node.debug.subnet'] = "Thorg"
                     data['id'] = event.issuer
                     test.append(json.dumps(data))
