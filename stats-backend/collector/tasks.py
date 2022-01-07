@@ -530,6 +530,27 @@ def provider_accepted_invoices_1h():
 
 
 @ app.task
+def online_nodes_computing():
+    end = round(time.time())
+    providers = Node.objects.filter(online=True)
+    for node in providers:
+        domain = os.environ.get(
+            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=round(increase(activity_provider_created%7Bhostname%3D~%22{node.node_id}%22%2C%20job%3D~%22community.1%22%7D%5B1795s%5D%20offset%2010s)%20-%20increase(activity_provider_destroyed%7Bhostname%3D~%22{node.node_id}%22%2C%20job%3D~%22community.1%22%7D%5B1795s%5D%20offset%205s))&time={end}'
+        data = get_stats_data(domain)
+        if data[1] == 200:
+            if data[0]['data']['result']:
+                try:
+                    if int(data[0]['data']['result'][0]['value'][1]) >= 1:
+                        node.computing_now = True
+                        node.save()
+                    else:
+                        node.computing_now = False
+                        node.save()
+                except:
+                    continue
+
+
+@ app.task
 def node_earnings_total():
     providers = Node.objects.all()
     for user in providers:
@@ -693,7 +714,9 @@ def offer_scraper():
             for node in online_nodes:
                 if not node.node_id in str1:
                     node.online = False
+                    node.computing_now = False
                     node.updated_at = timezone.now()
-                    node.save(update_fields=['online', 'updated_at'])
+                    node.save(update_fields=[
+                              'online', 'updated_at', 'computing_now'])
     finally:
         os.remove(path)
