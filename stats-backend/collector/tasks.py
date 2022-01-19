@@ -11,7 +11,7 @@ from django.db import transaction
 from datetime import datetime, timedelta, date
 from .models import Node, NetworkStats, NetworkStatsMax, ProvidersComputing, NetworkAveragePricing, NetworkMedianPricing, NetworkAveragePricingMax, NetworkMedianPricingMax, ProvidersComputingMax, Network, Requestors, requestor_scraper_check
 from django.db import connection
-from django.db.models import Count, Max
+from django.db.models import Count, Max, Avg, Min
 from api.models import APIHits
 from api.serializers import NodeSerializer, NetworkMedianPricingMaxSerializer, NetworkAveragePricingMaxSerializer, ProvidersComputingMaxSerializer, NetworkStatsMaxSerializer, NetworkStatsSerializer, RequestorSerializer
 from django.core import serializers
@@ -113,17 +113,17 @@ def computing_snapshot_yesterday():
 def pricing_snapshot_yesterday():
     start_date = date.today() - timedelta(days=1)
     averagestart = NetworkAveragePricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(start=Max('start'))
+        'day', 'date')}).values('day').annotate(start=Avg('start'))
     averagecpuh = NetworkAveragePricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(cpuh=Max('cpuh'))
+        'day', 'date')}).values('day').annotate(cpuh=Avg('cpuh'))
     averageperh = NetworkAveragePricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(perh=Max('perh'))
+        'day', 'date')}).values('day').annotate(perh=Avg('perh'))
     medianstart = NetworkMedianPricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(start=Max('start'))
+        'day', 'date')}).values('day').annotate(start=Min('start'))
     mediancpuh = NetworkMedianPricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(cpuh=Max('cpuh'))
+        'day', 'date')}).values('day').annotate(cpuh=Min('cpuh'))
     medianperh = NetworkMedianPricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(perh=Max('perh'))
+        'day', 'date')}).values('day').annotate(perh=Min('perh'))
 
     test2 = NetworkAveragePricingMax.objects.all()
     for obj in averagestart:
