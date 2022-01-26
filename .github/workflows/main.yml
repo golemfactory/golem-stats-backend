@@ -37,5 +37,6 @@ jobs:
                 docker service update --force --image phillipjensen/golem-stats-backend:${{ github.sha }} golemstats_webserver
                 docker service update --force --image phillipjensen/golem-stats-backend-celery:${{ github.sha }} golemstats_celery
                 docker service update --force --image phillipjensen/golem-stats-backend-celery-beat:${{ github.sha }} golemstats_celery_beat
+                docker service update --force --image phillipjensen/golem-stats-backend-celery-yagna:${{ github.sha }} golemstats_yagna_node
   
   
