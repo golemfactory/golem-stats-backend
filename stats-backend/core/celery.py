@@ -18,112 +18,222 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         30.0,
         offer_scraper.s(),
+        queue='yagna',
+        options={
+            'queue': 'yagna',
+            'routing_key': 'yagna'}
     )
     sender.add_periodic_task(
         30.0,
         online_nodes_computing.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         10.0,
         requestor_scraper.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         10.0,
         save_endpoint_logs_to_db.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         60,
         networkstats_30m.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         10.0,
         requests_served.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         15.0,
         network_median_pricing.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         15.0,
         paid_invoices_1h.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         15.0,
         provider_accepted_invoices_1h.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         15.0,
         market_agreement_termination_reasons.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         15.0,
         network_average_pricing.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         crontab(minute=0, hour=0),
         stats_snapshot_yesterday.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         crontab(minute=0, hour=0),
         pricing_snapshot_yesterday.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         crontab(minute=0, hour=0),
         computing_snapshot_yesterday.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         crontab(minute="*/10"),
         node_earnings_total.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         crontab(minute="*/1"),
         network_node_versions.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         crontab(hour="*/1"),
         max_stats.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         10.0,
         network_online_to_redis.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         10.0,
         network_stats_to_redis.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         10.0,
         network_utilization_to_redis.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         10.0,
         requestors_to_redis.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         10.0,
         computing_now_to_redis.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         10.0,
         providers_average_earnings_to_redis.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         10.0,
         network_earnings_24h_to_redis.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         crontab(minute="*/1"),
         network_total_earnings.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         10.0,
         network_earnings_6h_to_redis.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         10.0,
         network_versions_to_redis.s(),
-    )
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'})
 
 
+app.conf.task_default_queue = 'default'
 app.conf.broker_url = 'redis://redis:6379/0'
 app.conf.result_backend = 'redis://redis:6379/0'
+app.conf.task_routes = {'app.tasks.default': {
+    'queue': 'default'}, 'app.tasks.yagna': {'queue': 'yagna'}}
