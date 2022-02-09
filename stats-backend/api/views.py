@@ -367,7 +367,7 @@ async def computing_total(request):
 
 def networkstats(request, minutes):
     now = datetime.now()
-    before = now - timedelta(minutes=minutes)
+    before = now - timedelta(minutes=int(minutes))
     data = NetworkStats.objects.filter(
         date__range=(before, now)).order_by('date')
     serializer = NetworkStatsSerializer(data, many=True)
