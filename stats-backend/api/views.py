@@ -369,7 +369,7 @@ def networkstats(request, minutes):
     now = datetime.now()
     before = now - timedelta(minutes=int(minutes))
     data = NetworkStats.objects.filter(
-        date__range=(before, now)).order_by('date')
+        date__range=(before, now)).order_by('date')[::10]
     serializer = NetworkStatsSerializer(data, many=True)
     return JsonResponse(serializer.data, safe=False)
 
