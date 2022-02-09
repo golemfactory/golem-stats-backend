@@ -7,7 +7,7 @@ import statistics
 import time
 from collector.models import Node, NetworkStatsMax, NetworkStats, ProvidersComputing, Benchmark
 from .models import APICounter
-from .serializers import NodeSerializer, NetworkStatsMaxSerializer, ProvidersComputingMaxSerializer
+from .serializers import NodeSerializer, NetworkStatsMaxSerializer, ProvidersComputingMaxSerializer, NetworkStatsSerializer
 from django.shortcuts import render
 from django.db.models import Count
 from django.conf import settings
@@ -16,7 +16,7 @@ import redis
 import json
 import aioredis
 from asgiref.sync import sync_to_async
-from datetime import datetime
+from datetime import datetime, timedelta
 import math
 
 from django.http import JsonResponse, HttpResponse
@@ -363,6 +363,15 @@ async def computing_total(request):
         return JsonResponse(serializer.data, safe=False)
     else:
         return HttpResponse(status=400)
+
+
+def networkstats(request, minutes):
+    now = datetime.now()
+    before = now - timedelta(minutes=minutes)
+    data = NetworkStats.objects.filter(
+        date__range=(before, now)).order_by('date')
+    serializer = NetworkStatsSerializer(data, many=True)
+    return JsonResponse(serializer.data, safe=False)
 
 
 async def stats_30m(request):

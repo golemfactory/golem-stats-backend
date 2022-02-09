@@ -27,6 +27,7 @@ urlpatterns = [
     path('network/historical/stats', views.statsmax),
     path('network/historical/stats/computing', views.computing_total),
     path('network/historical/stats/30m', views.stats_30m),
+    path('network/historical/stats/extended/<minutes>', views.networkstats),
     path('network/historical/pricing/median', views.medianpricingmax),
     path('network/historical/pricing/average', views.avgpricingmax),
     path('network/historical/provider/computing', views.providercomputingmax),
