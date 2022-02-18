@@ -317,9 +317,14 @@ def network_node_versions():
     for obj in nodes:
         try:
             node = obj['metric']['instance']
-            version = "0" + obj['value'][1]
-            concatinated = version[0] + "." + version[1] + "." + version[2]
-            Node.objects.filter(node_id=node).update(version=concatinated)
+            if len(obj['value'][1]) == 2:
+                version = "0" + obj['value'][1]
+                concatinated = version[0] + "." + version[1] + "." + version[2]
+                Node.objects.filter(node_id=node).update(version=concatinated)
+            elif len(obj['value'][1]) == 3:
+                version = obj['value'][1]
+                concatinated = "0." + version[0] + version[1] + "." + version[2]
+                Node.objects.filter(node_id=node).update(version=concatinated)
         except:
             continue
 
