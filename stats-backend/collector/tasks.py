@@ -323,7 +323,8 @@ def network_node_versions():
                 Node.objects.filter(node_id=node).update(version=concatinated)
             elif len(obj['value'][1]) == 3:
                 version = obj['value'][1]
-                concatinated = "0." + version[0] + version[1] + "." + version[2]
+                concatinated = "0." + version[0] + \
+                    version[1] + "." + version[2]
                 Node.objects.filter(node_id=node).update(version=concatinated)
         except:
             continue
@@ -331,13 +332,32 @@ def network_node_versions():
 
 @ app.task
 def network_versions_to_redis():
-    end = round(time.time())
-    start = end - 86400
+    now = round(time.time())
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query_range?query=count_values("version"%2C%201000%2Byagna_version_major%7Bjob%3D"community.1"%7D*100%2Byagna_version_minor%7Bjob%3D"community.1"%7D*10%2Byagna_version_patch%7Bjob%3D"community.1"%7D)&start={start}&end={end}&step=300'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query_range?query=count_values("version"%2C%20yagna_version_major%7Bjob%3D"community.1"%7D*100%2Byagna_version_minor%7Bjob%3D"community.1"%7D*10%2Byagna_version_patch%7Bjob%3D"community.1"%7D)&start={now}&end={now}&step=5'
     content = get_stats_data(domain)
     if content[1] == 200:
-        serialized = json.dumps(content)
+        versions_nonsorted = []
+        versions = []
+        data = content[0]['data']['result']
+        # Append to array so we can sort
+        for obj in data:
+            versions_nonsorted.append(
+                {"version": int(obj['metric']['version']), "count": obj['values'][0][1]})
+        versions_nonsorted.sort(key=lambda x: x['version'], reverse=False)
+        for obj in versions_nonsorted:
+            version = str(obj['version'])
+            count = obj['count']
+            if len(version) == 2:
+                concatinated = "0." + version[0] + "." + version[1]
+            elif len(version) == 3:
+                concatinated = "0." + version[0] + \
+                    version[1] + "." + version[2]
+            versions.append({
+                "version": concatinated,
+                "count": count,
+            })
+        serialized = json.dumps(versions)
         r.set("network_versions", serialized)
 
 
