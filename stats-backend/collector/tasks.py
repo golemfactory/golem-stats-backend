@@ -578,7 +578,7 @@ def online_nodes_computing():
 
 @ app.task
 def node_earnings_total():
-    providers = Node.objects.all()
+    providers = Node.objects.filter(online=True)
     for user in providers:
         now = round(time.time())
         domain = os.environ.get(
