@@ -14,6 +14,7 @@ import sys
 from corsheaders.defaults import default_headers
 
 import sys
+import json
 
 TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -31,7 +32,7 @@ else:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['api.stats.golem.network', 'api.golemstats.com', ]
+ALLOWED_HOSTS = json.loads(os.environ['ALLOWED_HOSTS'])
 
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
