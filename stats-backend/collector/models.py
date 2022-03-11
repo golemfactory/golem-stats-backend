@@ -12,7 +12,7 @@ class Node(models.Model):
     data = models.JSONField(null=True)
     online = models.BooleanField(default=False)
     computing_now = models.BooleanField(default=False)
-    version = models.CharField(max_length=5)
+    version = models.CharField(max_length=7)
     updated_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
