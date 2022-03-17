@@ -545,7 +545,7 @@ def computing_now_to_redis():
 def providers_average_earnings_to_redis():
     end = round(time.time())
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=avg(increase(payment_amount_sent%7Bjob%3D~"community.1"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=avg(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -555,7 +555,7 @@ def providers_average_earnings_to_redis():
             zksync_mainnet_glm = 0.0
     # ERC20 MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=avg(increase(payment_amount_sent%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=avg(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -565,7 +565,7 @@ def providers_average_earnings_to_redis():
             erc20_mainnet_glm = 0.0
     # ERC20 POLYGON MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=avg(increase(payment_amount_sent%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-polygon-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=avg(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-polygon-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -575,7 +575,7 @@ def providers_average_earnings_to_redis():
             erc20_polygon_glm = 0.0
     # POLYGON POLYGON MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=avg(increase(payment_amount_sent%7Bjob%3D~"community.1"%2C%20platform%3D"polygon-polygon-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=avg(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"polygon-polygon-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
