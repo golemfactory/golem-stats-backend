@@ -444,7 +444,7 @@ def network_earnings_24h_to_redis():
         else:
             erc20_polygon_glm = 0.0
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_sent%7Bjob%3D~"community.1"%2C%20platform%3D"polygon-polygon-glm"%7D%5B6h%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_sent%7Bjob%3D~"community.1"%2C%20platform%3D"polygon-polygon-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -452,6 +452,8 @@ def network_earnings_24h_to_redis():
                 float(data[0]['data']['result'][0]['value'][1]), 2)
         else:
             polygon_polygon_glm = 0.0
+    print(zksync_mainnet_glm,
+          erc20_mainnet_glm, erc20_polygon_glm, polygon_polygon_glm)
     content = {'total_earnings': zksync_mainnet_glm +
                erc20_mainnet_glm + erc20_polygon_glm + polygon_polygon_glm}
     serialized = json.dumps(content)
