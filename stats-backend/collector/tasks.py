@@ -404,8 +404,8 @@ def network_earnings_6h_to_redis():
                 float(data[0]['data']['result'][0]['value'][1]), 2)
         else:
             erc20_polygon_glm = 0.0
-    content = {'total_earnings': zksync_mainnet_glm +
-               erc20_mainnet_glm + erc20_polygon_glm + polygon_polygon_glm}
+    content = {'total_earnings': round(float(zksync_mainnet_glm +
+               erc20_mainnet_glm + erc20_polygon_glm + polygon_polygon_glm), 2)}
     serialized = json.dumps(content)
     r.set("network_earnings_6h", serialized)
 
@@ -452,8 +452,8 @@ def network_earnings_24h_to_redis():
                 float(data[0]['data']['result'][0]['value'][1]), 2)
         else:
             polygon_polygon_glm = 0.0
-    content = {'total_earnings': zksync_mainnet_glm +
-               erc20_mainnet_glm + erc20_polygon_glm + polygon_polygon_glm}
+    content = {'total_earnings': round(float(zksync_mainnet_glm +
+               erc20_mainnet_glm + erc20_polygon_glm + polygon_polygon_glm), 2)}
     serialized = json.dumps(content)
     r.set("network_earnings_24h", serialized)
 
