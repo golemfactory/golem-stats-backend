@@ -6,7 +6,7 @@ class OfferSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Offer
-        fields = ['runtime', 'properties', 'updated_at']
+        fields = ['runtime', 'monthly_price_glm', 'properties', 'updated_at']
 
 
 class NodeSerializer(serializers.ModelSerializer):
