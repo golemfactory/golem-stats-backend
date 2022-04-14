@@ -20,7 +20,7 @@ def v2_network_online_to_redis():
     data = Node.objects.filter(online=True)
     serializer = NodeSerializer(data, many=True)
     test = json.dumps(serializer.data)
-    r.set("online", test)
+    r.set("v2_online", test)
 
 
 @ app.task

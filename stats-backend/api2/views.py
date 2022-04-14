@@ -38,7 +38,7 @@ async def network_online(request):
             "redis://redis:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
-        content = await r.get("online")
+        content = await r.get("v2_online")
         data = json.loads(content)
         pool.disconnect()
         return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
