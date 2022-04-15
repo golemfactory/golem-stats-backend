@@ -10,6 +10,7 @@ import redis
 from django.db import transaction
 from datetime import datetime, timedelta, date
 from .models import Node, NetworkStats, NetworkStatsMax, ProvidersComputing, NetworkAveragePricing, NetworkMedianPricing, NetworkAveragePricingMax, NetworkMedianPricingMax, ProvidersComputingMax, Network, Requestors, requestor_scraper_check
+from api2.models import Node as Nodev2
 from django.db import connection
 from django.db.models import Count, Max, Avg, Min
 from api.models import APIHits
@@ -168,7 +169,7 @@ def network_average_pricing():
     start = []
     data = Node.objects.filter(online=True)
     for obj in data:
-        if obj.data['golem.node.debug.subnet'] != "Thorg":
+        if str(obj.data['golem.runtime.name']) == "vm" or str(obj.data['golem.runtime.name']) == "wasmtime":
             pricing_vector = {obj.data['golem.com.usage.vector'][0]: obj.data['golem.com.pricing.model.linear.coeffs']
                               [0], obj.data['golem.com.usage.vector'][1]: obj.data['golem.com.pricing.model.linear.coeffs'][1]}
             if len(str(pricing_vector["golem.usage.duration_sec"])) < 5:
@@ -205,7 +206,7 @@ def network_median_pricing():
     startprice = []
     data = Node.objects.filter(online=True)
     for obj in data:
-        if obj.data['golem.node.debug.subnet'] != "Thorg":
+        if str(obj.data['golem.runtime.name']) == "vm" or str(obj.data['golem.runtime.name']) == "wasmtime":
             pricing_vector = {obj.data['golem.com.usage.vector'][0]: obj.data['golem.com.pricing.model.linear.coeffs']
                               [0], obj.data['golem.com.usage.vector'][1]: obj.data['golem.com.pricing.model.linear.coeffs'][1]}
             if len(str(pricing_vector["golem.usage.duration_sec"])) < 5:
@@ -321,11 +322,15 @@ def network_node_versions():
                 version = "0" + obj['value'][1]
                 concatinated = version[0] + "." + version[1] + "." + version[2]
                 Node.objects.filter(node_id=node).update(version=concatinated)
+                Nodev2.objects.filter(node_id=node).update(
+                    version=concatinated)
             elif len(obj['value'][1]) == 3:
                 version = obj['value'][1]
                 concatinated = "0." + version[0] + \
                     version[1] + "." + version[2]
                 Node.objects.filter(node_id=node).update(version=concatinated)
+                Nodev2.objects.filter(node_id=node).update(
+                    version=concatinated)
         except:
             continue
 
@@ -470,7 +475,7 @@ def network_total_earnings():
             zksync_mainnet_glm = round(
                 float(data[0]['data']['result'][0]['value'][1]), 2)
             if zksync_mainnet_glm > 0:
-                db = Network.objects.get(id=1)
+                db, created = Network.objects.get_or_create(id=1)
                 db.total_earnings = db.total_earnings + zksync_mainnet_glm
                 db.save()
                 content = {'total_earnings': db.total_earnings}
@@ -486,7 +491,7 @@ def network_total_earnings():
             erc20_mainnet_glm = round(
                 float(data[0]['data']['result'][0]['value'][1]), 2)
             if erc20_mainnet_glm > 0:
-                db = Network.objects.get(id=1)
+                db, created = Network.objects.get_or_create(id=1)
                 db.total_earnings = db.total_earnings + erc20_mainnet_glm
                 db.save()
                 content = {'total_earnings': db.total_earnings}
@@ -501,7 +506,7 @@ def network_total_earnings():
             polygon_polygon_glm = round(
                 float(data[0]['data']['result'][0]['value'][1]), 2)
             if polygon_polygon_glm > 0:
-                db = Network.objects.get(id=1)
+                db, created = Network.objects.get_or_create(id=1)
                 db.total_earnings = db.total_earnings + polygon_polygon_glm
                 db.save()
                 content = {'total_earnings': db.total_earnings}
@@ -516,7 +521,7 @@ def network_total_earnings():
             erc20_polygon_glm = round(
                 float(data[0]['data']['result'][0]['value'][1]), 2)
             if erc20_polygon_glm > 0:
-                db = Network.objects.get(id=1)
+                db, created = Network.objects.get_or_create(id=1)
                 db.total_earnings = db.total_earnings + erc20_polygon_glm
                 db.save()
                 content = {'total_earnings': db.total_earnings}
@@ -639,8 +644,11 @@ def online_nodes_computing():
 
 
 @ app.task
-def node_earnings_total():
-    providers = Node.objects.filter(online=True)
+def node_earnings_total(node_version):
+    if node_version == "v1":
+        providers = Node.objects.filter(online=True)
+    elif node_version == "v2":
+        providers = Nodev2.objects.filter(online=True)
     for user in providers:
         now = round(time.time())
         domain = os.environ.get(
@@ -675,8 +683,12 @@ def node_earnings_total():
                 float(data4[0]['data']['result'][0]['value'][1]), 2)
         else:
             polygon_polygon_glm = 0.0
-        user.earnings_total += zksync_mainnet_glm + \
-            erc20_mainnet_glm + erc20_polygon_glm + polygon_polygon_glm
+        if user.earnings_total:
+            user.earnings_total += zksync_mainnet_glm + \
+                erc20_mainnet_glm + erc20_polygon_glm + polygon_polygon_glm
+        else:
+            user.earnings_total = zksync_mainnet_glm + \
+                erc20_mainnet_glm + erc20_polygon_glm + polygon_polygon_glm
         user.save(update_fields=['earnings_total'])
 
 

@@ -24,7 +24,7 @@ class Benchmark(models.Model):
 
 
 class Network(models.Model):
-    total_earnings = models.FloatField()
+    total_earnings = models.FloatField(null=True, blank=True)
 
 
 class NetworkStatsMax(models.Model):

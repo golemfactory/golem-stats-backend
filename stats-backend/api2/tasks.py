@@ -19,7 +19,8 @@ r = redis.Redis(connection_pool=pool)
 def v2_network_online_to_redis():
     data = Node.objects.filter(online=True)
     serializer = NodeSerializer(data, many=True)
-    test = json.dumps(serializer.data)
+    test = json.dumps(serializer.data, default=str)
+
     r.set("v2_online", test)
 
 
@@ -48,11 +49,11 @@ def v2_offer_scraper():
             if data['golem.runtime.name'] == 'vm':
                 vectors = {}
                 for key, value in enumerate(data['golem.com.usage.vector']):
-                    vectors[key] = value
-                monthly_pricing = (vectors['golem.usage.duration_sec'] * seconds_current_month) + (
-                    vectors['golem.usage.cpu_sec'] * seconds_current_month * data['golem.inf.cpu.cores']) + data['golem.com.pricing.model.linear.coeffs'][-1]
+                    vectors[value] = key
+                monthly_pricing = (data['golem.com.pricing.model.linear.coeffs'][vectors['golem.usage.duration_sec']] * seconds_current_month) + (
+                    data['golem.com.pricing.model.linear.coeffs'][vectors['golem.usage.cpu_sec']] * seconds_current_month * data['golem.inf.cpu.cores']) + data['golem.com.pricing.model.linear.coeffs'][-1]
                 offerobj.monthly_price_glm = monthly_pricing
-                offerobj.save(update_fields=['monthly_pricing_glm'])
+                offerobj.save(update_fields=['monthly_price_glm'])
             obj.wallet = wallet
             obj.online = True
             obj.save(update_fields=['wallet', 'online'])
@@ -62,9 +63,9 @@ def v2_offer_scraper():
             if data['golem.runtime.name'] == 'vm':
                 vectors = {}
                 for key, value in enumerate(data['golem.com.usage.vector']):
-                    vectors[value] = data['golem.com.pricing.model.linear.coeffs'][key]
-                monthly_pricing = (vectors['golem.usage.duration_sec'] * seconds_current_month) + (
-                    vectors['golem.usage.cpu_sec'] * seconds_current_month * data['golem.inf.cpu.cores']) + data['golem.com.pricing.model.linear.coeffs'][-1]
+                    vectors[value] = key
+                monthly_pricing = (data['golem.com.pricing.model.linear.coeffs'][vectors['golem.usage.duration_sec']] * seconds_current_month) + (
+                    data['golem.com.pricing.model.linear.coeffs'][vectors['golem.usage.cpu_sec']] * seconds_current_month * data['golem.inf.cpu.cores']) + data['golem.com.pricing.model.linear.coeffs'][-1]
                 offerobj.monthly_price_glm = monthly_pricing
                 offerobj.save(update_fields=['monthly_price_glm'])
             offerobj.properties = data

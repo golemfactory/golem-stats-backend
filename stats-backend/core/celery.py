@@ -56,14 +56,14 @@ def setup_periodic_tasks(sender, **kwargs):
             'queue': 'default',
             'routing_key': 'default'}
     )
-    sender.add_periodic_task(
-        10.0,
-        save_endpoint_logs_to_db.s(),
-        queue='default',
-        options={
-            'queue': 'default',
-            'routing_key': 'default'}
-    )
+    # sender.add_periodic_task(
+    #     10.0,
+    #     save_endpoint_logs_to_db.s(),
+    #     queue='default',
+    #     options={
+    #         'queue': 'default',
+    #         'routing_key': 'default'}
+    # )
     sender.add_periodic_task(
         60,
         networkstats_30m.s(),
@@ -72,14 +72,14 @@ def setup_periodic_tasks(sender, **kwargs):
             'queue': 'default',
             'routing_key': 'default'}
     )
-    sender.add_periodic_task(
-        10.0,
-        requests_served.s(),
-        queue='default',
-        options={
-            'queue': 'default',
-            'routing_key': 'default'}
-    )
+    # sender.add_periodic_task(
+    #     10.0,
+    #     requests_served.s(),
+    #     queue='default',
+    #     options={
+    #         'queue': 'default',
+    #         'routing_key': 'default'}
+    # )
     sender.add_periodic_task(
         15.0,
         network_median_pricing.s(),
@@ -146,7 +146,15 @@ def setup_periodic_tasks(sender, **kwargs):
     )
     sender.add_periodic_task(
         crontab(minute="*/10"),
-        node_earnings_total.s(),
+        node_earnings_total.s(node_version='v1'),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
+    )
+    sender.add_periodic_task(
+        crontab(minute="*/1"),
+        node_earnings_total.s(node_version='v2'),
         queue='default',
         options={
             'queue': 'default',
