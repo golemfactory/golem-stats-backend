@@ -6,13 +6,14 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('collector', '0028_node_computing_now'),
+        ('collector', '0030_alter_network_total_earnings'),
     ]
 
     operations = [
         migrations.AddField(
             model_name='benchmark',
             name='type',
-            field=models.CharField(choices=[('primary', 'primary'), ('secondary', 'secondary')], default='primary', max_length=9),
+            field=models.CharField(choices=[(
+                'primary', 'primary'), ('secondary', 'secondary')], default='primary', max_length=9),
         ),
     ]
