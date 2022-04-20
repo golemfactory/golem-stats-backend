@@ -1,19 +1,19 @@
-DJANGO   := phillipjensen/golem-stats-backend
+DJANGO   := ghcr.io/golemfactory/golem-stats-backend
 IMG_DJANGO    := golem-stats-backend:${GITHUB_SHA}
 DJANGO_LATEST_LOCAL    := golem-stats-backend:latest
 LATEST_DJANGO := ${DJANGO}:${GITHUB_SHA}
 
-CELERY   := phillipjensen/golem-stats-backend-celery
+CELERY   := ghcr.io/golemfactory/golem-stats-backend-celery
 IMG_CELERY    := golem-stats-backend-celery:${GITHUB_SHA}
 CELERY_LATEST_LOCAL    := golem-stats-backend-celery:latest
 LATEST_CELERY := ${CELERY}:${GITHUB_SHA}
 
-CELERY_BEAT   := phillipjensen/golem-stats-backend-celery-beat
+CELERY_BEAT   := ghcr.io/golemfactory/golem-stats-backend-celery-beat
 IMG_CELERY_BEAT    := golem-stats-backend-celery-beat:${GITHUB_SHA}
 CELERY_BEAT_LATEST_LOCAL    := golem-stats-backend-celery-beat:latest
 LATEST_CELERY_BEAT := ${CELERY_BEAT}:${GITHUB_SHA}
 
-YAGNA   := phillipjensen/golem-stats-backend-celery-yagna
+YAGNA   := ghcr.io/golemfactory/golem-stats-backend-celery-yagna
 IMG_YAGNA    := golem-stats-backend-celery-yagna:${GITHUB_SHA}
 YAGNA_LATEST_LOCAL    := golem-stats-backend-celery-yagna:latest
 LATEST_YAGNA := ${YAGNA}:${GITHUB_SHA}
@@ -45,5 +45,5 @@ push-amd64:
 
 
 login:
-	@docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
+	@docker login ghcr.io -u ${DOCKER_USER} -p ${DOCKER_PASS}
 	

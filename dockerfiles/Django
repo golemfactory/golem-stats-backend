@@ -1,6 +1,6 @@
 # pull official python alpine image
 FROM python:3.7-alpine
-
+LABEL org.opencontainers.image.source https://github.com/golemfactory/golem-stats-backend
 # Set Environment Variable
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1

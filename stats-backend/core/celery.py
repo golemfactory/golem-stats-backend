@@ -15,6 +15,7 @@ app = Celery('core')
 @app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     from collector.tasks import offer_scraper, online_nodes_computing, network_online_to_redis, network_stats_to_redis, network_utilization_to_redis, computing_now_to_redis, providers_average_earnings_to_redis, network_earnings_6h_to_redis, network_earnings_24h_to_redis, network_total_earnings, network_versions_to_redis, node_earnings_total, stats_snapshot_yesterday, requests_served, network_median_pricing, network_average_pricing, computing_snapshot_yesterday, pricing_snapshot_yesterday, max_stats, networkstats_30m, network_node_versions, requestor_scraper, requestors_to_redis, market_agreement_termination_reasons, paid_invoices_1h, provider_accepted_invoices_1h, save_endpoint_logs_to_db
+    from api2.tasks import v2_offer_scraper, v2_network_online_to_redis
     sender.add_periodic_task(
         30.0,
         offer_scraper.s(),
@@ -22,6 +23,22 @@ def setup_periodic_tasks(sender, **kwargs):
         options={
             'queue': 'yagna',
             'routing_key': 'yagna'}
+    )
+    sender.add_periodic_task(
+        30.0,
+        v2_offer_scraper.s(),
+        queue='yagna',
+        options={
+            'queue': 'yagna',
+            'routing_key': 'yagna'}
+    )
+    sender.add_periodic_task(
+        10.0,
+        v2_network_online_to_redis.s(),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
     )
     sender.add_periodic_task(
         30.0,
@@ -39,14 +56,14 @@ def setup_periodic_tasks(sender, **kwargs):
             'queue': 'default',
             'routing_key': 'default'}
     )
-    sender.add_periodic_task(
-        10.0,
-        save_endpoint_logs_to_db.s(),
-        queue='default',
-        options={
-            'queue': 'default',
-            'routing_key': 'default'}
-    )
+    # sender.add_periodic_task(
+    #     10.0,
+    #     save_endpoint_logs_to_db.s(),
+    #     queue='default',
+    #     options={
+    #         'queue': 'default',
+    #         'routing_key': 'default'}
+    # )
     sender.add_periodic_task(
         60,
         networkstats_30m.s(),
@@ -55,14 +72,14 @@ def setup_periodic_tasks(sender, **kwargs):
             'queue': 'default',
             'routing_key': 'default'}
     )
-    sender.add_periodic_task(
-        10.0,
-        requests_served.s(),
-        queue='default',
-        options={
-            'queue': 'default',
-            'routing_key': 'default'}
-    )
+    # sender.add_periodic_task(
+    #     10.0,
+    #     requests_served.s(),
+    #     queue='default',
+    #     options={
+    #         'queue': 'default',
+    #         'routing_key': 'default'}
+    # )
     sender.add_periodic_task(
         15.0,
         network_median_pricing.s(),
@@ -129,7 +146,15 @@ def setup_periodic_tasks(sender, **kwargs):
     )
     sender.add_periodic_task(
         crontab(minute="*/10"),
-        node_earnings_total.s(),
+        node_earnings_total.s(node_version='v1'),
+        queue='default',
+        options={
+            'queue': 'default',
+            'routing_key': 'default'}
+    )
+    sender.add_periodic_task(
+        crontab(minute="*/1"),
+        node_earnings_total.s(node_version='v2'),
         queue='default',
         options={
             'queue': 'default',

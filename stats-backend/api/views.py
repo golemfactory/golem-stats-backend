@@ -220,7 +220,7 @@ async def activity_graph_provider(request, yagna_id):
         'STATS_URL') + f'api/datasources/proxy/40/api/v1/query_range?query=sum(changes(activity_provider_usage_0%7Bjob%3D~"community.1"%2C%20instance%3D~"{yagna_id}"%7D%5B60s%5D))&start={start}&end={end}&step=120'
     data = await get_yastats_data(domain)
     if data[1] == 200:
-        return JsonResponse(data[0])
+        return JsonResponse(data[0], json_dumps_params={'indent': 4})
 
 
 async def payments_last_n_hours_provider(request, yagna_id, hours):
@@ -233,13 +233,13 @@ async def payments_last_n_hours_provider(request, yagna_id, hours):
         if data[0]['data']['result']:
             content = {'earnings': data[0]['data']
                        ['result'][0]['value'][1]}
-            return JsonResponse(content)
+            return JsonResponse(content, json_dumps_params={'indent': 4})
         else:
             content = {'earnings': []}
-            return JsonResponse(content)
+            return JsonResponse(content, json_dumps_params={'indent': 4})
     else:
         content = {'earnings': []}
-        return JsonResponse(content)
+        return JsonResponse(content, json_dumps_params={'indent': 4})
 
 
 async def total_tasks_computed(request, yagna_id):
@@ -252,13 +252,13 @@ async def total_tasks_computed(request, yagna_id):
         if data[0]['data']['result']:
             output = int(float(data[0]['data']['result'][0]['value'][1]))
             content = {'tasks_computed_total': output}
-            return JsonResponse(content)
+            return JsonResponse(content, json_dumps_params={'indent': 4})
         else:
             content = {'tasks_computed_total': []}
-            return JsonResponse(content)
+            return JsonResponse(content, json_dumps_params={'indent': 4})
     else:
         content = {'tasks_computed_total': []}
-        return JsonResponse(content)
+        return JsonResponse(content, json_dumps_params={'indent': 4})
 
 
 async def provider_seconds_computed_total(request, yagna_id):
@@ -271,13 +271,13 @@ async def provider_seconds_computed_total(request, yagna_id):
         if data[0]['data']['result']:
             output = data[0]['data']['result'][0]['value'][1]
             content = {'seconds_computed': output}
-            return JsonResponse(content)
+            return JsonResponse(content, json_dumps_params={'indent': 4})
         else:
             content = {'seconds_computed': []}
-            return JsonResponse(content)
+            return JsonResponse(content, json_dumps_params={'indent': 4})
     else:
         content = {'seconds_computed': []}
-        return JsonResponse(content)
+        return JsonResponse(content, json_dumps_params={'indent': 4})
 
 
 async def provider_computing(request, yagna_id):
@@ -290,13 +290,13 @@ async def provider_computing(request, yagna_id):
         if data[0]['data']['result']:
             content = {'computing': data[0]['data']
                        ['result'][0]['value'][1]}
-            return JsonResponse(content)
+            return JsonResponse(content, json_dumps_params={'indent': 4})
         else:
             content = {'computing': []}
-            return JsonResponse(content)
+            return JsonResponse(content, json_dumps_params={'indent': 4})
     else:
         content = {'computing': []}
-        return JsonResponse(content)
+        return JsonResponse(content, json_dumps_params={'indent': 4})
 
 
 async def node(request, yagna_id):
@@ -305,10 +305,13 @@ async def node(request, yagna_id):
     """
     await LogEndpoint("Node Detailed")
     if request.method == 'GET':
-        data = await get_node(yagna_id)
-        if data:
-            serializer = NodeSerializer(data, many=True)
-            return JsonResponse(serializer.data, safe=False)
+        if yagna_id.startswith("0x"):
+            data = await get_node(yagna_id)
+            if data:
+                serializer = NodeSerializer(data, many=True)
+                return JsonResponse(serializer.data, safe=False, json_dumps_params={'indent': 4})
+            else:
+                return HttpResponse(status=404)
         else:
             return HttpResponse(status=404)
     else:
@@ -323,7 +326,7 @@ async def latest_nodes(request):
     if request.method == 'GET':
         data = await get_all_nodes()
         serializer = NodeSerializer(data, many=True)
-        return JsonResponse(serializer.data, safe=False)
+        return JsonResponse(serializer.data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
@@ -336,7 +339,7 @@ async def latest_nodes_by_number(request, number):
     if request.method == 'GET':
         data = await get_latest_n_nodes(number)
         serializer = NodeSerializer(data, many=True)
-        return JsonResponse(serializer.data, safe=False)
+        return JsonResponse(serializer.data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
@@ -349,7 +352,7 @@ async def show_endpoint_count(request):
     if request.method == 'GET':
         endpoint = request.GET['endpoint']
         data = await filter_endpoint(endpoint)
-        return JsonResponse(data, safe=False)
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
@@ -361,7 +364,7 @@ async def computing_total(request):
     if request.method == 'GET':
         data = await get_computing()
         serializer = ProvidersComputingMaxSerializer(data, many=True)
-        return JsonResponse(serializer.data, safe=False)
+        return JsonResponse(serializer.data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
@@ -379,7 +382,7 @@ async def stats_30m(request):
         content = await r.get("stats_30m")
         data = json.loads(content)
         pool.disconnect()
-        return JsonResponse(data, safe=False)
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
@@ -393,7 +396,7 @@ async def node_wallet(request, wallet):
         data = await get_node_by_wallet(wallet.lower())
         if data != None:
             serializer = NodeSerializer(data, many=True)
-            return JsonResponse(serializer.data, safe=False)
+            return JsonResponse(serializer.data, safe=False, json_dumps_params={'indent': 4})
         else:
             return HttpResponse(status=404)
 
@@ -414,7 +417,7 @@ async def general_stats(request):
         content = await r.get("online_stats")
         data = json.loads(content)
         pool.disconnect()
-        return JsonResponse(data, safe=False)
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
@@ -433,7 +436,7 @@ async def network_utilization(request):
         content = await r.get("network_utilization")
         data = json.loads(content)
         pool.disconnect()
-        return JsonResponse(data, safe=False)
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
@@ -451,7 +454,7 @@ async def network_versions(request):
         content = await r.get("network_versions")
         data = json.loads(content)
         pool.disconnect()
-        return JsonResponse(data, safe=False)
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
@@ -469,7 +472,7 @@ async def providers_computing_currently(request):
         content = await r.get("computing_now")
         data = json.loads(content)
         pool.disconnect()
-        return JsonResponse(data, safe=False)
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
@@ -487,7 +490,7 @@ async def providers_average_earnings(request):
         content = await r.get("provider_average_earnings")
         data = json.loads(content)
         pool.disconnect()
-        return JsonResponse(data, safe=False)
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
@@ -505,7 +508,7 @@ async def network_earnings_24h(request):
         content = await r.get("network_earnings_24h")
         data = json.loads(content)
         pool.disconnect()
-        return JsonResponse(data, safe=False)
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
@@ -523,7 +526,7 @@ async def network_earnings_90d(request):
         content = await r.get("network_earnings_90d")
         data = json.loads(content)
         pool.disconnect()
-        return JsonResponse(data, safe=False)
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
@@ -541,7 +544,7 @@ async def network_earnings_6h(request):
         content = await r.get("network_earnings_6h")
         data = json.loads(content)
         pool.disconnect()
-        return JsonResponse(data, safe=False)
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
@@ -559,7 +562,7 @@ async def requestors(request):
         content = await r.get("requestors")
         data = json.loads(content)
         pool.disconnect()
-        return JsonResponse(data, safe=False)
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
@@ -577,7 +580,7 @@ async def market_agreement_termination_reason(request):
         content = await r.get("market_agreement_termination_reasons")
         data = json.loads(content)
         pool.disconnect()
-        return JsonResponse(data, safe=False)
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
@@ -595,7 +598,7 @@ async def paid_invoices_1h(request):
         content = await r.get("paid_invoices_1h")
         data = json.loads(content)
         pool.disconnect()
-        return JsonResponse(data, safe=False)
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
@@ -613,7 +616,7 @@ async def provider_invoice_accepted_percentage(request):
         content = await r.get("provider_accepted_invoice_percentage")
         data = json.loads(content)
         pool.disconnect()
-        return JsonResponse(data, safe=False)
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
