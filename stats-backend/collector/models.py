@@ -2,9 +2,6 @@ from django.db import models
 from django.utils import timezone
 
 
-# Create your models here.
-
-
 class Node(models.Model):
     node_id = models.CharField(max_length=42, unique=True)
     wallet = models.CharField(max_length=42, null=True, blank=True)
@@ -17,7 +14,16 @@ class Node(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
+BENCHMARK_CHOICES = (
+    ("primary", "primary"),
+    ("secondary", "secondary"),
+)
+
+
 class Benchmark(models.Model):
+    type = models.CharField(max_length=9,
+                            choices=BENCHMARK_CHOICES,
+                            default="primary")
     benchmark_score = models.IntegerField()
     benchmarked_at = models.DateTimeField(default=timezone.now)
     provider = models.ForeignKey(Node, on_delete=models.CASCADE)

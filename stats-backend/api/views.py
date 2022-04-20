@@ -7,7 +7,7 @@ import statistics
 import time
 from collector.models import Node, NetworkStatsMax, NetworkStats, ProvidersComputing, Benchmark
 from .models import APICounter
-from .serializers import NodeSerializer, NetworkStatsMaxSerializer, ProvidersComputingMaxSerializer, NetworkStatsSerializer
+from .serializers import NodeSerializer, NetworkStatsMaxSerializer, ProvidersComputingMaxSerializer
 from django.shortcuts import render
 from django.db.models import Count
 from django.conf import settings
@@ -16,7 +16,7 @@ import redis
 import json
 import aioredis
 from asgiref.sync import sync_to_async
-from datetime import datetime, timedelta
+from datetime import datetime
 import math
 
 from django.http import JsonResponse, HttpResponse
@@ -35,9 +35,10 @@ def get_all_nodes():
 
 
 @sync_to_async
-def save_benchmark(node_id, score):
+def save_benchmark(node_id, score, benchmark_type):
     data = Node.objects.get(node_id=node_id)
-    benchmark = Benchmark.objects.create(benchmark_score=score, provider=data)
+    benchmark = Benchmark.objects.create(
+        benchmark_score=score, provider=data, type=benchmark_type)
     return
 
 
@@ -368,15 +369,6 @@ async def computing_total(request):
         return HttpResponse(status=400)
 
 
-def networkstats(request, minutes):
-    now = datetime.now()
-    before = now - timedelta(minutes=int(minutes))
-    data = NetworkStats.objects.filter(
-        date__range=(before, now)).order_by('date')[::10]
-    serializer = NetworkStatsSerializer(data, many=True)
-    return JsonResponse(serializer.data, safe=False, json_dumps_params={'indent': 4})
-
-
 async def stats_30m(request):
     """
     Network stats past 30 minutes.
@@ -636,8 +628,9 @@ async def store_benchmarks(request):
     if request.method == 'POST':
         received_json_data = json.loads(request.body)
         if request.META['HTTP_STATSTOKEN'] == os.getenv("STATS_TOKEN"):
+            print(request.META)
             for obj in received_json_data:
-                await save_benchmark(obj['provider_id'], obj['score'])
+                await save_benchmark(obj['provider_id'], obj['score'], request.META['HTTP_BENCHMARKTYPE'])
             return HttpResponse(status=200)
         else:
             return HttpResponse(status=400)
