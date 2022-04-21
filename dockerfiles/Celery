@@ -1,6 +1,6 @@
 FROM python:3.7-alpine
 ENV PYTHONUNBUFFERED 1
-LABEL org.opencontainers.image.source https://github.com/golemfactory/golem-stats-backend-celery
+LABEL org.opencontainers.image.source https://github.com/golemfactory/golem-stats-backend
 # Creating working directory
 RUN mkdir /stats-backend
 RUN mkdir /stats-backend/static
