@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /bin/sh
     _cputype="$(uname -m)"
 
 
