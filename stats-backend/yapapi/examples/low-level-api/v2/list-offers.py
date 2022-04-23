@@ -22,7 +22,7 @@ async def list_offers(conf: Configuration, subnet_tag: str):
         market_api = Market(client)
         dbuild = DemandBuilder()
         dbuild.add(yp.NodeInfo(
-            name="some scanning node", subnet_tag=subnet_tag))
+            name="Golem Stats Indexer", subnet_tag=subnet_tag))
         dbuild.add(yp.Activity(expiration=datetime.now(timezone.utc)))
         async with market_api.subscribe(dbuild.properties, dbuild.constraints) as subscription:
             async for event in subscription.events():
