@@ -53,10 +53,10 @@ def v2_offer_scraper():
                 monthly_pricing = (data['golem.com.pricing.model.linear.coeffs'][vectors['golem.usage.duration_sec']] * seconds_current_month) + (
                     data['golem.com.pricing.model.linear.coeffs'][vectors['golem.usage.cpu_sec']] * seconds_current_month * data['golem.inf.cpu.cores']) + data['golem.com.pricing.model.linear.coeffs'][-1]
                 offerobj.monthly_price_glm = monthly_pricing
-                offerobj.save(update_fields=['monthly_price_glm'])
+                offerobj.save()
             obj.wallet = wallet
             obj.online = True
-            obj.save(update_fields=['wallet', 'online'])
+            obj.save()
         else:
             offerobj, offercreated = Offer.objects.get_or_create(
                 provider=obj, runtime=data['golem.runtime.name'])
@@ -67,12 +67,12 @@ def v2_offer_scraper():
                 monthly_pricing = (data['golem.com.pricing.model.linear.coeffs'][vectors['golem.usage.duration_sec']] * seconds_current_month) + (
                     data['golem.com.pricing.model.linear.coeffs'][vectors['golem.usage.cpu_sec']] * seconds_current_month * data['golem.inf.cpu.cores']) + data['golem.com.pricing.model.linear.coeffs'][-1]
                 offerobj.monthly_price_glm = monthly_pricing
-                offerobj.save(update_fields=['monthly_price_glm'])
+                offerobj.save()
             offerobj.properties = data
-            offerobj.save(update_fields=['properties'])
+            offerobj.save()
             obj.wallet = wallet
             obj.online = True
-            obj.save(update_fields=['wallet', 'online'])
+            obj.save()
     # Find offline providers
     str1 = ''.join(serialized)
     fd, path = tempfile.mkstemp()
