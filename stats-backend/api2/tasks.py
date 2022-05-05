@@ -70,6 +70,7 @@ def v2_offer_scraper():
                 offerobj.save()
             offerobj.properties = data
             offerobj.save()
+            obj.runtime = data['golem.runtime.name']
             obj.wallet = wallet
             obj.online = True
             obj.save()
