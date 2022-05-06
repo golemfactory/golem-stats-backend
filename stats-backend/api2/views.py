@@ -4,23 +4,17 @@ from .serializers import NodeSerializer
 import redis
 import json
 import aioredis
-from asgiref.sync import sync_to_async
+
 from django.http import JsonResponse, HttpResponse
 
 pool = redis.ConnectionPool(host='redis', port=6379, db=0)
 r = redis.Redis(connection_pool=pool)
 
 
-@sync_to_async
-def get_node(yagna_id):
-    data = Node.objects.filter(node_id=yagna_id)
-    return data
-
-
-async def node(request, yagna_id):
+def node(request, yagna_id):
     if request.method == 'GET':
         if yagna_id.startswith("0x"):
-            data = await get_node(yagna_id)
+            data = Node.objects.filter(node_id=yagna_id)
             if data:
                 serializer = NodeSerializer(data, many=True)
                 return JsonResponse(serializer.data, safe=False, json_dumps_params={'indent': 4})
