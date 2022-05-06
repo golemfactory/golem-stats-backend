@@ -22,44 +22,6 @@ import math
 from django.http import JsonResponse, HttpResponse
 
 
-@sync_to_async
-def get_node(yagna_id):
-    data = Node.objects.filter(node_id=yagna_id)
-    return data
-
-
-@sync_to_async
-def get_all_nodes():
-    data = Node.objects.all().order_by('-created_at')
-    return data
-
-
-@sync_to_async
-def save_benchmark(node_id, score, benchmark_type):
-    data = Node.objects.get(node_id=node_id)
-    benchmark = Benchmark.objects.create(
-        benchmark_score=score, provider=data, type=benchmark_type)
-    return
-
-
-@sync_to_async
-def filter_endpoint(endpoint):
-    data = APICounter.objects.filter(endpoint=endpoint).count()
-    return data
-
-
-@sync_to_async
-def get_latest_n_nodes(amount):
-    data = Node.objects.all().order_by('-created_at')[:amount]
-    return data
-
-
-@sync_to_async
-def get_computing():
-    data = ProvidersComputing.objects.all().order_by('-total')
-    return data
-
-
 pool = redis.ConnectionPool(host='redis', port=6379, db=0)
 r = redis.Redis(connection_pool=pool)
 
@@ -67,15 +29,6 @@ r = redis.Redis(connection_pool=pool)
 @sync_to_async
 def LogEndpoint(endpoint):
     r.lpush("API", endpoint)
-
-
-@sync_to_async
-def get_node_by_wallet(wallet):
-    data = Node.objects.filter(wallet=wallet)
-    if data:
-        return data
-    else:
-        return None
 
 
 async def total_api_calls(request):
@@ -299,14 +252,13 @@ async def provider_computing(request, yagna_id):
         return JsonResponse(content, json_dumps_params={'indent': 4})
 
 
-async def node(request, yagna_id):
+def node(request, yagna_id):
     """
     Retrieves data about a specific node.
     """
-    await LogEndpoint("Node Detailed")
     if request.method == 'GET':
         if yagna_id.startswith("0x"):
-            data = await get_node(yagna_id)
+            data = Node.objects.filter(node_id=yagna_id)
             if data:
                 serializer = NodeSerializer(data, many=True)
                 return JsonResponse(serializer.data, safe=False, json_dumps_params={'indent': 4})
@@ -318,26 +270,24 @@ async def node(request, yagna_id):
         return HttpResponse(status=400)
 
 
-async def latest_nodes(request):
+def latest_nodes(request):
     """
     Lists all index nodes over time and orders it by the latest node discovered.
     """
-    await LogEndpoint("Latest Nodes")
     if request.method == 'GET':
-        data = await get_all_nodes()
+        data = Node.objects.all().order_by('-created_at')
         serializer = NodeSerializer(data, many=True)
         return JsonResponse(serializer.data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
 
-async def latest_nodes_by_number(request, number):
+def latest_nodes_by_number(request, number):
     """
     Lists n amount of the latest nodes indexed.
     """
-    await LogEndpoint("Latest Nodes N")
     if request.method == 'GET':
-        data = await get_latest_n_nodes(number)
+        data = Node.objects.all().order_by('-created_at')[:number]
         serializer = NodeSerializer(data, many=True)
         return JsonResponse(serializer.data, safe=False, json_dumps_params={'indent': 4})
     else:
@@ -351,18 +301,18 @@ async def show_endpoint_count(request):
     await LogEndpoint("List Endpoint Count")
     if request.method == 'GET':
         endpoint = request.GET['endpoint']
-        data = await filter_endpoint(endpoint)
+        data = APICounter.objects.filter(endpoint=endpoint).count()
         return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
 
-async def computing_total(request):
+def computing_total(request):
     """
     Retrieves data about a specific node.
     """
     if request.method == 'GET':
-        data = await get_computing()
+        data = ProvidersComputing.objects.all().order_by('-total')
         serializer = ProvidersComputingMaxSerializer(data, many=True)
         return JsonResponse(serializer.data, safe=False, json_dumps_params={'indent': 4})
     else:
@@ -393,7 +343,7 @@ async def node_wallet(request, wallet):
     """
     await LogEndpoint("Node Operator")
     if request.method == 'GET':
-        data = await get_node_by_wallet(wallet.lower())
+        data = Node.objects.filter(wallet=wallet)
         if data != None:
             serializer = NodeSerializer(data, many=True)
             return JsonResponse(serializer.data, safe=False, json_dumps_params={'indent': 4})
@@ -621,16 +571,17 @@ async def provider_invoice_accepted_percentage(request):
         return HttpResponse(status=400)
 
 
-async def store_benchmarks(request):
+def store_benchmarks(request):
     """
     Store benchmark results
     """
     if request.method == 'POST':
         received_json_data = json.loads(request.body)
         if request.META['HTTP_STATSTOKEN'] == os.getenv("STATS_TOKEN"):
-            print(request.META)
             for obj in received_json_data:
-                await save_benchmark(obj['provider_id'], obj['score'], request.META['HTTP_BENCHMARKTYPE'])
+                data = Node.objects.get(node_id=obj['provider_id'])
+                benchmark = Benchmark.objects.create(
+                    benchmark_score=obj['score'], provider=data, type=request.META['HTTP_BENCHMARKTYPE'])
             return HttpResponse(status=200)
         else:
             return HttpResponse(status=400)
