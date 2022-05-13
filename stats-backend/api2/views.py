@@ -11,6 +11,13 @@ pool = redis.ConnectionPool(host='redis', port=6379, db=0)
 r = redis.Redis(connection_pool=pool)
 
 
+def globe_data(request):
+    # open json file and return data
+    with open('/globe_data.geojson') as json_file:
+        data = json.load(json_file)
+    return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
+
+
 def node(request, yagna_id):
     if request.method == 'GET':
         if yagna_id.startswith("0x"):

@@ -33,5 +33,5 @@ RUN apk add --no-cache --virtual .build-deps \
     && apk add --virtual .rundeps $runDeps \
     && apk del .build-deps
 COPY ./stats-backend/ /stats-backend/
-
+COPY ./globe_data.geojson /globe_data.geojson
 CMD ["sh", "-c",  "/wait-for-it.sh postgres:5432 -- python manage.py makemigrations; python manage.py migrate; python manage.py collectstatic --no-input; daphne -u /tmp/daphne.sock -b 0.0.0.0 -p 8002 core.asgi:application"]
