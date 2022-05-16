@@ -1,9 +1,10 @@
 from django.shortcuts import render
-from .models import Node
-from .serializers import NodeSerializer
+from .models import Node, Offer
+from .serializers import NodeSerializer, OfferSerializer
 import redis
 import json
 import aioredis
+import requests
 
 from django.http import JsonResponse, HttpResponse
 
@@ -16,6 +17,20 @@ def globe_data(request):
     with open('/globe_data.geojson') as json_file:
         data = json.load(json_file)
     return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
+
+
+async def cheapest_provider(request):
+    if request.method == 'GET':
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("v2_cheapest_provider")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
+    else:
+        return HttpResponse(status=400)
 
 
 def node(request, yagna_id):

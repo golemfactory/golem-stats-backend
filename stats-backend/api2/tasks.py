@@ -7,9 +7,10 @@ from .models import Node, Offer
 from django.utils import timezone
 import tempfile
 import redis
-from .serializers import NodeSerializer
+from .serializers import NodeSerializer, OfferSerializer
 import calendar
 import datetime
+import requests
 
 pool = redis.ConnectionPool(host='redis', port=6379, db=0)
 r = redis.Redis(connection_pool=pool)
@@ -22,6 +23,62 @@ def v2_network_online_to_redis():
     test = json.dumps(serializer.data, default=str)
 
     r.set("v2_online", test)
+
+
+@ app.task
+def v2_cheapest_provider():
+    req = requests.get(
+        "https://api.coingecko.com/api/v3/coins/ethereum/contract/0x7DD9c5Cba05E151C895FDe1CF355C9A1D5DA6429")
+    data = req.json()
+    price = data['market_data']['current_price']['usd']
+    obj = Offer.objects.filter(runtime="vm").order_by("monthly_price_glm")
+    serializer = OfferSerializer(obj, many=True)
+    mainnet_providers = []
+    for index, provider in enumerate(serializer.data):
+        if "golem.com.payment.platform.erc20-mainnet-glm.address" in provider['properties']:
+            mainnet_providers.append(provider)
+    sorted_pricing_and_specs = sorted(mainnet_providers, key=lambda element: (
+        float(element['properties']['golem.inf.cpu.threads']), float(element['monthly_price_glm'])))
+    two_cores = []
+    eight_cores = []
+    thirtytwo_cores = []
+    sixtyfour_cores = []
+    for obj in sorted_pricing_and_specs:
+        if float(obj['properties']['golem.inf.cpu.threads']) == 2:
+            obj['usd_monthly'] = float(price) * float(obj['monthly_price_glm'])
+            obj['active'] = True
+            two_cores.append(obj)
+        elif float(obj['properties']['golem.inf.cpu.threads']) >= 2:
+            obj['usd_monthly'] = float(price) * float(obj['monthly_price_glm'])
+            obj['active'] = True
+            two_cores.append(obj)
+        if float(obj['properties']['golem.inf.cpu.threads']) == 8:
+            obj['active'] = False
+            obj['usd_monthly'] = float(price) * float(obj['monthly_price_glm'])
+            eight_cores.append(obj)
+        elif float(obj['properties']['golem.inf.cpu.threads']) >= 8:
+            obj['active'] = False
+            obj['usd_monthly'] = float(price) * float(obj['monthly_price_glm'])
+            eight_cores.append(obj)
+        if float(obj['properties']['golem.inf.cpu.threads']) == 32:
+            obj['active'] = False
+            obj['usd_monthly'] = float(price) * float(obj['monthly_price_glm'])
+            thirtytwo_cores.append(obj)
+        elif float(obj['properties']['golem.inf.cpu.threads']) >= 32:
+            obj['active'] = False
+            obj['usd_monthly'] = float(price) * float(obj['monthly_price_glm'])
+            thirtytwo_cores.append(obj)
+        if float(obj['properties']['golem.inf.cpu.threads']) == 64:
+            obj['active'] = False
+            obj['usd_monthly'] = float(price) * float(obj['monthly_price_glm'])
+            sixtyfour_cores.append(obj)
+        elif float(obj['properties']['golem.inf.cpu.threads']) >= 64:
+            obj['active'] = False
+            obj['usd_monthly'] = float(price) * float(obj['monthly_price_glm'])
+            sixtyfour_cores.append(obj)
+    data = json.dumps({'2': two_cores[0], '8': eight_cores[0],
+                      '32': thirtytwo_cores[0], '64': sixtyfour_cores[0]})
+    r.set("v2_cheapest_provider", data)
 
 
 @ app.task
