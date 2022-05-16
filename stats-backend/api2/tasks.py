@@ -26,6 +26,14 @@ def v2_network_online_to_redis():
 
 
 @ app.task
+def latest_blog_posts():
+    req = requests.get(
+        f"https://blog.golemproject.net/ghost/api/v3/content/posts/?key={os.environ.get('BLOG_API_KEY')}&include=tags,authors&limit=3")
+    data = json.dumps(req.json())
+    r.set("v2_index_blog_posts", data)
+
+
+@ app.task
 def v2_cheapest_provider():
     req = requests.get(
         "https://api.coingecko.com/api/v3/coins/ethereum/contract/0x7DD9c5Cba05E151C895FDe1CF355C9A1D5DA6429")

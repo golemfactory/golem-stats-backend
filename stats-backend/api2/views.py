@@ -19,16 +19,24 @@ def globe_data(request):
     return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
 
 
-async def cheapest_provider(request):
+async def golem_main_website_index(request):
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
-        content = await r.get("v2_cheapest_provider")
-        data = json.loads(content)
+
+        fetch_blogs = await r.get("v2_index_blog_posts")
+        blogs = json.loads(fetch_blogs)
+
+        fetch_network_stats = await r.get("online_stats")
+        stats = json.loads(fetch_network_stats)
+
+        fetch_cheapest_providers = await r.get("v2_cheapest_provider")
+        cheapest_providers = json.loads(fetch_cheapest_providers)
+
         pool.disconnect()
-        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
+        return JsonResponse({'blogs': blogs, 'stats': stats, 'providers': cheapest_providers}, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
 
