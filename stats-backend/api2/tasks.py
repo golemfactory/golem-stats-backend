@@ -47,45 +47,71 @@ def v2_cheapest_provider():
             mainnet_providers.append(provider)
     sorted_pricing_and_specs = sorted(mainnet_providers, key=lambda element: (
         float(element['properties']['golem.inf.cpu.threads']), float(element['monthly_price_glm'])))
-    two_cores = []
-    eight_cores = []
-    thirtytwo_cores = []
-    sixtyfour_cores = []
+    two_cores = [{'name': 'Digital Ocean',
+                  'usd_monthly': '15', 'cores': 2, 'memory': '1', 'disk': "25", "glm": float(price) * 15}, {'name': 'Amazon Web Services',
+                                                                                                            'usd_monthly': '15.23', 'cores': 2, 'memory': '1', 'disk': "25", "glm": float(price) * 15.23}, {'name': 'Google Cloud Platform',
+                                                                                                                                                                                                            'usd_monthly': '12', 'cores': 2, 'memory': '1', 'disk': "25", "glm": float(price) * 12}, {'name': 'Azure',
+                                                                                                                                                                                                                                                                                                      'usd_monthly': '15.11', 'cores': 2, 'memory': '1', 'disk': "25", "glm": float(price) * 15.11}, ]
+    eight_cores = [{'name': 'Digital Ocean',
+                    'usd_monthly': '80', 'cores': 8, 'memory': '16', 'disk': "320", "glm": float(price) * 80}, {'name': 'Amazon Web Services',
+                                                                                                                'usd_monthly': '121.81', 'cores': 8, 'memory': '16', 'disk': "320", "glm": float(price) * 121.81}, {'name': 'Google Cloud Platform',
+                                                                                                                                                                                                                    'usd_monthly': '221', 'cores': 8, 'memory': '16', 'disk': "320", "glm": float(price) * 221}, {'name': 'Azure',
+                                                                                                                                                                                                                                                                                                                  'usd_monthly': '121.18', 'cores': 8, 'memory': '16', 'disk': "320", "glm": float(price) * 121.18}]
+    thirtytwo_cores = [{'name': 'Digital Ocean',
+                        'usd_monthly': '640', 'cores': 32, 'memory': '64', 'disk': "400", "glm": float(price) * 640}, {'name': 'Amazon Web Services',
+                                                                                                                       'usd_monthly': '834.24', 'cores': 32, 'memory': '64', 'disk': "400", "glm": float(price) * 834.24}, {'name': 'Google Cloud Platform',
+                                                                                                                                                                                                                            'usd_monthly': '746.04', 'cores': 32, 'memory': '64', 'disk': "400", "glm": float(price) * 746.04}, {'name': 'Azure',
+                                                                                                                                                                                                                                                                                                                                 'usd_monthly': '1238.08', 'cores': 32, 'memory': '64', 'disk': "256", "glm": float(price) * 1238.08}, ]
+    sixtyfour_cores = [{'name': 'Digital Ocean',
+                        'usd_monthly': '1200', 'cores': 40, 'memory': '160', 'disk': "500", "glm": float(price) * 1200}, {'name': 'Amazon Web Services',
+                                                                                                                          'usd_monthly': '1638.48', 'cores': 64, 'memory': '64', 'disk': "500", "glm": float(price) * 1638.48}, {'name': 'Google Cloud Platform',
+                                                                                                                                                                                                                                 'usd_monthly': '1914.62', 'cores': 60, 'memory': '240', 'disk': "500", "glm": float(price) * 1914.62}, {'name': 'Azure',
+                                                                                                                                                                                                                                                                                                                                         'usd_monthly': '2616.32', 'cores': 64, 'memory': '256', 'disk': "512", "glm": float(price) * 2616.32}, ]
     for obj in sorted_pricing_and_specs:
-        if float(obj['properties']['golem.inf.cpu.threads']) == 2:
-            obj['usd_monthly'] = float(price) * float(obj['monthly_price_glm'])
-            obj['active'] = True
-            two_cores.append(obj)
-        elif float(obj['properties']['golem.inf.cpu.threads']) >= 2:
-            obj['usd_monthly'] = float(price) * float(obj['monthly_price_glm'])
-            obj['active'] = True
-            two_cores.append(obj)
-        if float(obj['properties']['golem.inf.cpu.threads']) == 8:
-            obj['active'] = False
-            obj['usd_monthly'] = float(price) * float(obj['monthly_price_glm'])
-            eight_cores.append(obj)
-        elif float(obj['properties']['golem.inf.cpu.threads']) >= 8:
-            obj['active'] = False
-            obj['usd_monthly'] = float(price) * float(obj['monthly_price_glm'])
-            eight_cores.append(obj)
-        if float(obj['properties']['golem.inf.cpu.threads']) == 32:
-            obj['active'] = False
-            obj['usd_monthly'] = float(price) * float(obj['monthly_price_glm'])
-            thirtytwo_cores.append(obj)
-        elif float(obj['properties']['golem.inf.cpu.threads']) >= 32:
-            obj['active'] = False
-            obj['usd_monthly'] = float(price) * float(obj['monthly_price_glm'])
-            thirtytwo_cores.append(obj)
-        if float(obj['properties']['golem.inf.cpu.threads']) == 64:
-            obj['active'] = False
-            obj['usd_monthly'] = float(price) * float(obj['monthly_price_glm'])
-            sixtyfour_cores.append(obj)
-        elif float(obj['properties']['golem.inf.cpu.threads']) >= 64:
-            obj['active'] = False
-            obj['usd_monthly'] = float(price) * float(obj['monthly_price_glm'])
-            sixtyfour_cores.append(obj)
-    data = json.dumps({'2': two_cores[0], '8': eight_cores[0],
-                      '32': thirtytwo_cores[0], '64': sixtyfour_cores[0]})
+        provider = {}
+        provider['name'] = "Golem Network"
+        provider['usd_monthly'] = float(
+            price) * float(obj['monthly_price_glm'])
+        provider['cores'] = float(
+            obj['properties']['golem.inf.cpu.threads'])
+        provider['memory'] = float(obj['properties']['golem.inf.mem.gib'])
+        provider['disk'] = float(
+            obj['properties']['golem.inf.storage.gib'])
+        provider['glm'] = float(obj['monthly_price_glm'])
+        if float(obj['properties']['golem.inf.cpu.threads']) == 2 and len(two_cores) == 4:
+            two_cores.append(provider)
+        elif float(obj['properties']['golem.inf.cpu.threads']) >= 2 and len(two_cores) == 4:
+
+            two_cores.append(provider)
+        if float(obj['properties']['golem.inf.cpu.threads']) == 8 and len(eight_cores) == 4:
+
+            eight_cores.append(provider)
+        elif float(obj['properties']['golem.inf.cpu.threads']) >= 8 and len(eight_cores) == 4:
+
+            eight_cores.append(provider)
+        if float(obj['properties']['golem.inf.cpu.threads']) == 32 and len(thirtytwo_cores) == 4:
+
+            thirtytwo_cores.append(provider)
+        elif float(obj['properties']['golem.inf.cpu.threads']) >= 32 and len(thirtytwo_cores) == 4:
+
+            thirtytwo_cores.append(provider)
+        if float(obj['properties']['golem.inf.cpu.threads']) == 64 and len(sixtyfour_cores) == 4:
+
+            sixtyfour_cores.append(provider)
+        elif float(obj['properties']['golem.inf.cpu.threads']) >= 64 and len(sixtyfour_cores) == 4:
+
+            sixtyfour_cores.append(provider)
+
+    sorted_two = sorted(two_cores, key=lambda element: (
+        float(element['usd_monthly'])))
+    sorted_eight = sorted(eight_cores, key=lambda element: (
+        float(element['usd_monthly'])))
+    sorted_thirtytwo = sorted(thirtytwo_cores, key=lambda element: (
+        float(element['usd_monthly'])))
+    sorted_sixtyfour = sorted(sixtyfour_cores, key=lambda element: (
+        float(element['usd_monthly'])))
+    data = json.dumps({'2': sorted_two, '8': sorted_eight,
+                      '32': sorted_thirtytwo, '64': sorted_sixtyfour})
     r.set("v2_cheapest_provider", data)
 
 
