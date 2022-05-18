@@ -77,6 +77,7 @@ def v2_cheapest_provider():
         provider['cores'] = float(
             obj['properties']['golem.inf.cpu.threads'])
         provider['memory'] = float(obj['properties']['golem.inf.mem.gib'])
+        provider['bandwidth'] = "Unlimited"
         provider['disk'] = float(
             obj['properties']['golem.inf.storage.gib'])
         provider['glm'] = float(obj['monthly_price_glm'])
