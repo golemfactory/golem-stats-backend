@@ -70,6 +70,7 @@ def v2_cheapest_provider():
     for obj in sorted_pricing_and_specs:
         provider = {}
         provider['name'] = "Golem Network"
+        provider['node_id'] = obj['properties']['id']
         provider['usd_monthly'] = float(
             price) * float(obj['monthly_price_glm'])
         provider['cores'] = float(
