@@ -47,30 +47,31 @@ def v2_cheapest_provider():
             mainnet_providers.append(provider)
     sorted_pricing_and_specs = sorted(mainnet_providers, key=lambda element: (
         float(element['properties']['golem.inf.cpu.threads']), float(element['monthly_price_glm'])))
-    two_cores = [{'name': 'Digital Ocean',
-                  'usd_monthly': '15', 'cores': 2, 'memory': '1', 'disk': "25", "glm": float(price) * 15}, {'name': 'Amazon Web Services',
-                                                                                                            'usd_monthly': '15.23', 'cores': 2, 'memory': '1', 'disk': "25", "glm": float(price) * 15.23}, {'name': 'Google Cloud Platform',
-                                                                                                                                                                                                            'usd_monthly': '12', 'cores': 2, 'memory': '1', 'disk': "25", "glm": float(price) * 12}, {'name': 'Azure',
+    two_cores = [{'name': 'Digital Ocean', 'img': '/do-logo.svg',
+                  'usd_monthly': '15', 'cores': 2, 'memory': '1', 'disk': "25", "glm": float(price) * 15}, {'name': 'Amazon Web Services', 'img': '/aws-logo.svg',
+                                                                                                            'usd_monthly': '15.23', 'cores': 2, 'memory': '1', 'disk': "25", "glm": float(price) * 15.23}, {'name': 'Google Cloud Platform', 'img': '/gcp-logo.svg',
+                                                                                                                                                                                                            'usd_monthly': '12', 'cores': 2, 'memory': '1', 'disk': "25", "glm": float(price) * 12}, {'name': 'Azure', 'img': '/azure-logo.svg',
                                                                                                                                                                                                                                                                                                       'usd_monthly': '15.11', 'cores': 2, 'memory': '1', 'disk': "25", "glm": float(price) * 15.11}, ]
-    eight_cores = [{'name': 'Digital Ocean',
-                    'usd_monthly': '80', 'cores': 8, 'memory': '16', 'disk': "320", "glm": float(price) * 80}, {'name': 'Amazon Web Services',
-                                                                                                                'usd_monthly': '121.81', 'cores': 8, 'memory': '16', 'disk': "320", "glm": float(price) * 121.81}, {'name': 'Google Cloud Platform',
-                                                                                                                                                                                                                    'usd_monthly': '221', 'cores': 8, 'memory': '16', 'disk': "320", "glm": float(price) * 221}, {'name': 'Azure',
+    eight_cores = [{'name': 'Digital Ocean', 'img': '/do-logo.svg',
+                    'usd_monthly': '80', 'cores': 8, 'memory': '16', 'disk': "320", "glm": float(price) * 80}, {'name': 'Amazon Web Services', 'img': '/aws-logo.svg',
+                                                                                                                'usd_monthly': '121.81', 'cores': 8, 'memory': '16', 'disk': "320", "glm": float(price) * 121.81}, {'name': 'Google Cloud Platform', 'img': '/gcp-logo.svg',
+                                                                                                                                                                                                                    'usd_monthly': '221', 'cores': 8, 'memory': '16', 'disk': "320", "glm": float(price) * 221}, {'name': 'Azure', 'img': '/azure-logo.svg',
                                                                                                                                                                                                                                                                                                                   'usd_monthly': '121.18', 'cores': 8, 'memory': '16', 'disk': "320", "glm": float(price) * 121.18}]
-    thirtytwo_cores = [{'name': 'Digital Ocean',
-                        'usd_monthly': '640', 'cores': 32, 'memory': '64', 'disk': "400", "glm": float(price) * 640}, {'name': 'Amazon Web Services',
-                                                                                                                       'usd_monthly': '834.24', 'cores': 32, 'memory': '64', 'disk': "400", "glm": float(price) * 834.24}, {'name': 'Google Cloud Platform',
-                                                                                                                                                                                                                            'usd_monthly': '746.04', 'cores': 32, 'memory': '64', 'disk': "400", "glm": float(price) * 746.04}, {'name': 'Azure',
+    thirtytwo_cores = [{'name': 'Digital Ocean', 'img': '/do-logo.svg',
+                        'usd_monthly': '640', 'cores': 32, 'memory': '64', 'disk': "400", "glm": float(price) * 640}, {'name': 'Amazon Web Services', 'img': '/aws-logo.svg',
+                                                                                                                       'usd_monthly': '834.24', 'cores': 32, 'memory': '64', 'disk': "400", "glm": float(price) * 834.24}, {'name': 'Google Cloud Platform', 'img': '/gcp-logo.svg',
+                                                                                                                                                                                                                            'usd_monthly': '746.04', 'cores': 32, 'memory': '64', 'disk': "400", "glm": float(price) * 746.04}, {'name': 'Azure', 'img': '/azure-logo.svg',
                                                                                                                                                                                                                                                                                                                                  'usd_monthly': '1238.08', 'cores': 32, 'memory': '64', 'disk': "256", "glm": float(price) * 1238.08}, ]
-    sixtyfour_cores = [{'name': 'Digital Ocean',
-                        'usd_monthly': '1200', 'cores': 40, 'memory': '160', 'disk': "500", "glm": float(price) * 1200}, {'name': 'Amazon Web Services',
-                                                                                                                          'usd_monthly': '1638.48', 'cores': 64, 'memory': '64', 'disk': "500", "glm": float(price) * 1638.48}, {'name': 'Google Cloud Platform',
-                                                                                                                                                                                                                                 'usd_monthly': '1914.62', 'cores': 60, 'memory': '240', 'disk': "500", "glm": float(price) * 1914.62}, {'name': 'Azure',
+    sixtyfour_cores = [{'name': 'Digital Ocean', 'img': '/do-logo.svg',
+                        'usd_monthly': '1200', 'cores': 40, 'memory': '160', 'disk': "500", "glm": float(price) * 1200}, {'name': 'Amazon Web Services', 'img': '/aws-logo.svg',
+                                                                                                                          'usd_monthly': '1638.48', 'cores': 64, 'memory': '64', 'disk': "500", "glm": float(price) * 1638.48}, {'name': 'Google Cloud Platform', 'img': '/gcp-logo.svg',
+                                                                                                                                                                                                                                 'usd_monthly': '1914.62', 'cores': 60, 'memory': '240', 'disk': "500", "glm": float(price) * 1914.62}, {'name': 'Azure', 'img': '/azure-logo.svg',
                                                                                                                                                                                                                                                                                                                                          'usd_monthly': '2616.32', 'cores': 64, 'memory': '256', 'disk': "512", "glm": float(price) * 2616.32}, ]
     for obj in sorted_pricing_and_specs:
         provider = {}
         provider['name'] = "Golem Network"
         provider['node_id'] = obj['properties']['id']
+        provider['img'] = "/golem.png"
         provider['usd_monthly'] = float(
             price) * float(obj['monthly_price_glm'])
         provider['cores'] = float(
