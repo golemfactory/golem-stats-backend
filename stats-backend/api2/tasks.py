@@ -126,7 +126,7 @@ def v2_offer_scraper():
             command = line
     proc = subprocess.Popen(command, shell=True)
     proc.wait()
-    content = r.get("offers")
+    content = r.get("offers_v2")
     serialized = json.loads(content)
     now = datetime.datetime.now()
     days_in_current_month = calendar.monthrange(
