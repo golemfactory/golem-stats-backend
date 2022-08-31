@@ -800,37 +800,43 @@ def offer_scraper():
     proc.wait()
     content = r.get("offers")
     serialized = json.loads(content)
-    for line in serialized:
-        data = json.loads(line)
-        provider = data['id']
-        wallet = data['wallet']
-        obj, created = Node.objects.get_or_create(node_id=provider)
-        if created:
-            obj.data = data
-            obj.wallet = wallet
-            obj.online = True
-            obj.updated_at = timezone.now()
-            obj.save(update_fields=['data', 'wallet', 'online', 'updated_at'])
-        else:
-            obj.data = data
-            obj.wallet = wallet
-            obj.online = True
-            obj.updated_at = timezone.now()
-            obj.save(update_fields=['data', 'wallet', 'online', 'updated_at'])
+    if len(serialized) > 350:
+        for line in serialized:
+            data = json.loads(line)
+            provider = data['id']
+            wallet = data['wallet']
+            obj, created = Node.objects.get_or_create(node_id=provider)
+            if created:
+                obj.data = data
+                obj.wallet = wallet
+                obj.online = True
+                obj.updated_at = timezone.now()
+                obj.save(update_fields=[
+                         'data', 'wallet', 'online', 'updated_at'])
+            else:
+                obj.data = data
+                obj.wallet = wallet
+                obj.online = True
+                obj.updated_at = timezone.now()
+                obj.save(update_fields=[
+                         'data', 'wallet', 'online', 'updated_at'])
     # Find offline providers
-    str1 = ''.join(serialized)
-    fd, path = tempfile.mkstemp()
-    try:
-        with os.fdopen(fd, 'w') as tmp:
-            # do stuff with temp file
-            tmp.write(str1)
-            online_nodes = Node.objects.filter(online=True)
-            for node in online_nodes:
-                if not node.node_id in str1:
-                    node.online = False
-                    node.computing_now = False
-                    node.updated_at = timezone.now()
-                    node.save(update_fields=[
-                              'online', 'updated_at', 'computing_now'])
-    finally:
-        os.remove(path)
+        str1 = ''.join(serialized)
+        fd, path = tempfile.mkstemp()
+        try:
+            with os.fdopen(fd, 'w') as tmp:
+                # do stuff with temp file
+                tmp.write(str1)
+                online_nodes = Node.objects.filter(online=True)
+                for node in online_nodes:
+                    if not node.node_id in str1:
+                        node.online = False
+                        node.computing_now = False
+                        node.updated_at = timezone.now()
+                        node.save(update_fields=[
+                            'online', 'updated_at', 'computing_now'])
+        finally:
+            os.remove(path)
+    else:
+        print(
+            f"Fewer than 350 nodes in the data from the network ({len(serialized)}). We will not update the database.")
