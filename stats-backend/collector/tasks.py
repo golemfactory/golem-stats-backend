@@ -23,7 +23,7 @@ from django.utils import timezone
 # jsonmsg = {"user_id": elem, "path": "/src/data/user_avatars/" + elem + ".png"}
 # r.lpush("image_classifier", json.dumps(jsonmsg))
 
-pool = redis.ConnectionPool(host='redis', port=6379, db=0)
+pool = redis.ConnectionPool(host='redis-cluster-ip-service', port=6379, db=0)
 r = redis.Redis(connection_pool=pool)
 
 

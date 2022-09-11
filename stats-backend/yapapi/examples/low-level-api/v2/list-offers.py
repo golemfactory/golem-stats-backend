@@ -119,7 +119,7 @@ def main():
         pass
     if len(test) > 500:
         serialized = json.dumps(test)
-        r = redis.Redis(host='redis', port=6379, db=0)
+        r = redis.Redis(host='redis-cluster-ip-service', port=6379, db=0)
         content = r.set("offers_v2", serialized)
 
 
