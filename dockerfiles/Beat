@@ -35,4 +35,4 @@ RUN apk add --no-cache --virtual .build-deps \
 
 COPY ./stats-backend/ /stats-backend/
 # CMD will run when this dockerfile is running
-CMD ["bash", "-c", "/wait-for-it.sh postgres:5432 -- celery -A core beat -l INFO"]
+CMD ["bash", "-c", "celery -A core beat -l INFO"]

@@ -1,19 +1,19 @@
-DJANGO   := ghcr.io/golemfactory/golem-stats-backend
+DJANGO   := ghcr.io/golemfactory/golem-stats-backend-kubernetes
 IMG_DJANGO    := golem-stats-backend:${GITHUB_SHA}
 DJANGO_LATEST_LOCAL    := golem-stats-backend:latest
 LATEST_DJANGO := ${DJANGO}:${GITHUB_SHA}
 
-CELERY   := ghcr.io/golemfactory/golem-stats-backend-celery
+CELERY   := ghcr.io/golemfactory/golem-stats-backend-celery-kubernetes
 IMG_CELERY    := golem-stats-backend-celery:${GITHUB_SHA}
 CELERY_LATEST_LOCAL    := golem-stats-backend-celery:latest
 LATEST_CELERY := ${CELERY}:${GITHUB_SHA}
 
-CELERY_BEAT   := ghcr.io/golemfactory/golem-stats-backend-celery-beat
+CELERY_BEAT   := ghcr.io/golemfactory/golem-stats-backend-celery-beat-kubernetes
 IMG_CELERY_BEAT    := golem-stats-backend-celery-beat:${GITHUB_SHA}
 CELERY_BEAT_LATEST_LOCAL    := golem-stats-backend-celery-beat:latest
 LATEST_CELERY_BEAT := ${CELERY_BEAT}:${GITHUB_SHA}
 
-YAGNA   := ghcr.io/golemfactory/golem-stats-backend-celery-yagna
+YAGNA   := ghcr.io/golemfactory/golem-stats-backend-celery-yagna-kubernetes
 IMG_YAGNA    := golem-stats-backend-celery-yagna:${GITHUB_SHA}
 YAGNA_LATEST_LOCAL    := golem-stats-backend-celery-yagna:latest
 LATEST_YAGNA := ${YAGNA}:${GITHUB_SHA}
