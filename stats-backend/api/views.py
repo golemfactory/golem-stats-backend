@@ -22,10 +22,6 @@ import math
 from django.http import JsonResponse, HttpResponse
 
 
-pool = redis.ConnectionPool(host='redis', port=6379, db=0)
-r = redis.Redis(connection_pool=pool)
-
-
 @sync_to_async
 def LogEndpoint(endpoint):
     r.lpush("API", endpoint)
@@ -34,7 +30,7 @@ def LogEndpoint(endpoint):
 async def total_api_calls(request):
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("api_requests")
@@ -49,7 +45,7 @@ async def median_prices(request):
     await LogEndpoint("Network Median Pricing")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("network_median_pricing")
@@ -64,7 +60,7 @@ async def average_pricing(request):
     await LogEndpoint("Network Average Pricing")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("network_average_pricing")
@@ -82,7 +78,7 @@ async def statsmax(request):
     await LogEndpoint("Network Historical Stats")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("stats_max",)
@@ -100,7 +96,7 @@ async def providercomputingmax(request):
     await LogEndpoint("Network Historical Computing")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("providers_computing_max")
@@ -118,7 +114,7 @@ async def avgpricingmax(request):
     await LogEndpoint("Network Historical Average Pricing")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("pricing_average_max")
@@ -136,7 +132,7 @@ async def medianpricingmax(request):
     await LogEndpoint("Network Historical Median Pricing")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("pricing_median_max")
@@ -154,7 +150,7 @@ async def online_nodes(request):
     await LogEndpoint("Network Online")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("online")
@@ -326,7 +322,7 @@ async def stats_30m(request):
     await LogEndpoint("Network Online Stats 30m")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("stats_30m")
@@ -361,7 +357,7 @@ async def general_stats(request):
     await LogEndpoint("Network Online Stats")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("online_stats")
@@ -380,7 +376,7 @@ async def network_utilization(request):
     await LogEndpoint("Network Utilization")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("network_utilization")
@@ -398,7 +394,7 @@ async def network_versions(request):
     await LogEndpoint("Network Versions")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("network_versions")
@@ -416,7 +412,7 @@ async def providers_computing_currently(request):
     await LogEndpoint("Network Computing")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("computing_now")
@@ -434,7 +430,7 @@ async def providers_average_earnings(request):
     await LogEndpoint("Providers Average Earnings")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("provider_average_earnings")
@@ -452,7 +448,7 @@ async def network_earnings_24h(request):
     await LogEndpoint("Network Earnings 24h")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("network_earnings_24h")
@@ -470,7 +466,7 @@ async def network_earnings_90d(request):
     await LogEndpoint("Network Earnings 90d")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("network_earnings_90d")
@@ -488,7 +484,7 @@ async def network_earnings_6h(request):
     await LogEndpoint("Network Earnings 6h")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("network_earnings_6h")
@@ -506,7 +502,7 @@ async def requestors(request):
     await LogEndpoint("Requestors")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("requestors")
@@ -524,7 +520,7 @@ async def market_agreement_termination_reason(request):
     await LogEndpoint("Market Agreement Termination")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("market_agreement_termination_reasons")
@@ -542,7 +538,7 @@ async def paid_invoices_1h(request):
     await LogEndpoint("Paid Invoices 1h")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("paid_invoices_1h")
@@ -560,7 +556,7 @@ async def provider_invoice_accepted_percentage(request):
     await LogEndpoint("Provider Invoice Accepted 1h")
     if request.method == 'GET':
         pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+            "redis://redis-cluster-ip-service:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("provider_accepted_invoice_percentage")
