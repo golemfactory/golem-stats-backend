@@ -44,4 +44,4 @@ COPY /yagna-builds /yagna
 COPY ./stats-backend/ /stats-backend/
 
 # CMD will run when this dockerfile is running
-CMD ["/bin/sh", "-c", "/wait-for-it.sh postgres:5432 -- /stats-backend/start.sh; celery -A core worker -l INFO -Q yagna"]
+CMD ["/bin/sh", "-c", "/stats-backend/start.sh; celery -A core worker -l INFO -Q yagna"]
