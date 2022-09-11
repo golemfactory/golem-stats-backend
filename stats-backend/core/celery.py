@@ -274,7 +274,7 @@ def setup_periodic_tasks(sender, **kwargs):
 
 
 app.conf.task_default_queue = 'default'
-app.conf.broker_url = 'redis://redis:6379/0'
-app.conf.result_backend = 'redis://redis:6379/0'
+app.conf.broker_url = 'redis://redis-cluster-ip-service:6379/0'
+app.conf.result_backend = 'redis://redis-cluster-ip-service:6379/0'
 app.conf.task_routes = {'app.tasks.default': {
     'queue': 'default'}, 'app.tasks.yagna': {'queue': 'yagna'}}

@@ -176,8 +176,8 @@ USE_I18N = True
 
 USE_L10N = True
 
-broker_url = 'redis://redis:6379/0'
-result_backend = 'redis://redis:6379/0'
+broker_url = 'redis://redis-cluster-ip-service:6379/0'
+result_backend = 'redis://redis-cluster-ip-service:6379/0'
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.2/howto/static-files/
