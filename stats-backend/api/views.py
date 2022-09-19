@@ -576,14 +576,17 @@ def store_benchmarks(request):
     Store benchmark results
     """
     if request.method == 'POST':
-        received_json_data = json.loads(request.body)
-        if request.META['HTTP_STATSTOKEN'] == os.getenv("STATS_TOKEN"):
-            for obj in received_json_data:
-                data = Node.objects.get(node_id=obj['provider_id'])
-                benchmark = Benchmark.objects.create(
-                    benchmark_score=obj['score'], provider=data, type=request.META['HTTP_BENCHMARKTYPE'])
-            return HttpResponse(status=200)
-        else:
+        try:
+            received_json_data = json.loads(request.body)
+            if request.META['HTTP_STATSTOKEN'] == os.getenv("STATS_TOKEN"):
+                for obj in received_json_data:
+                    data = Node.objects.get(node_id=obj['provider_id'])
+                    benchmark = Benchmark.objects.create(
+                        benchmark_score=obj['score'], provider=data, type=request.META['HTTP_BENCHMARKTYPE'])
+                return HttpResponse(status=200)
+            else:
+                return HttpResponse(status=400)
+        except:
             return HttpResponse(status=400)
     else:
         return HttpResponse(status=400)
