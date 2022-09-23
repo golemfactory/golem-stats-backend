@@ -827,7 +827,7 @@ def offer_scraper():
             with os.fdopen(fd, 'w') as tmp:
                 # do stuff with temp file
                 tmp.write(str1)
-                online_nodes = Node.objects.filter(online=True)
+                online_nodes = Node.objects.filter(online=True, hybrid=False)
                 for node in online_nodes:
                     if not node.node_id in str1:
                         node.online = False
@@ -840,3 +840,55 @@ def offer_scraper():
     else:
         print(
             f"Fewer than 350 nodes in the data from the network ({len(serialized)}). We will not update the database.")
+
+
+@ app.task
+def v1_offer_scraper_hybrid():
+    os.chdir("/stats-backend/yapapi/examples/low-level-api/hybrid")
+    with open('data.config') as f:
+        for line in f:
+            command = line
+    proc = subprocess.Popen(command, shell=True)
+    proc.wait()
+    content = r.get("v1_offers_hybrid")
+    serialized = json.loads(content)
+    print(serialized)
+    if len(serialized) > 0:
+        for line in serialized:
+            data = json.loads(line)
+            provider = data['id']
+            wallet = data['wallet']
+            obj, created = Node.objects.get_or_create(node_id=provider)
+            if created:
+                obj.data = data
+                obj.wallet = wallet
+                obj.online = True
+                obj.hybrid = True
+                obj.updated_at = timezone.now()
+                obj.save(update_fields=[
+                         'data', 'wallet', 'online', 'updated_at', 'hybrid'])
+            else:
+                obj.data = data
+                obj.wallet = wallet
+                obj.online = True
+                obj.hybrid = True
+                obj.updated_at = timezone.now()
+                obj.save(update_fields=[
+                         'data', 'wallet', 'online', 'updated_at', 'hybrid'])
+    # Find offline providers
+        str1 = ''.join(serialized)
+        fd, path = tempfile.mkstemp()
+        try:
+            with os.fdopen(fd, 'w') as tmp:
+                # do stuff with temp file
+                tmp.write(str1)
+                online_nodes = Node.objects.filter(online=True, hybrid=True)
+                for node in online_nodes:
+                    if not node.node_id in str1:
+                        node.online = False
+                        node.computing_now = False
+                        node.updated_at = timezone.now()
+                        node.save(update_fields=[
+                            'online', 'updated_at', 'computing_now'])
+        finally:
+            os.remove(path)

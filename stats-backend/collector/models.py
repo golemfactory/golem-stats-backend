@@ -12,6 +12,7 @@ class Node(models.Model):
     version = models.CharField(max_length=7)
     updated_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    hybrid = models.BooleanField(default=False)
 
 
 BENCHMARK_CHOICES = (

@@ -175,7 +175,7 @@ def v2_offer_scraper():
         with os.fdopen(fd, 'w') as tmp:
             # do stuff with temp file
             tmp.write(str1)
-            online_nodes = Node.objects.filter(online=True)
+            online_nodes = Node.objects.filter(online=True, hybrid=False)
             for node in online_nodes:
                 if not node.node_id in str1:
                     node.online = False
