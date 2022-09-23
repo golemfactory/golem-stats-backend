@@ -852,7 +852,6 @@ def v1_offer_scraper_hybrid():
     proc.wait()
     content = r.get("v1_offers_hybrid")
     serialized = json.loads(content)
-    print(serialized)
     if len(serialized) > 0:
         for line in serialized:
             data = json.loads(line)
