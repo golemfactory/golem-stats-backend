@@ -301,7 +301,9 @@ def network_utilization_to_redis():
     end = round(time.time())
     start = end - 21600
     domain = os.environ.get(
-        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%22%7D)&start={start}&end={end}&step=30"
+        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%7Ccommunity.hybrid%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%7Ccommunity.hybrid%22%7D)&start={start}&end={end}&step=30"
+    print("WEJIEJIJIEWE DOMAIN")
+    print(domain)
     content = get_stats_data(domain)
     if content[1] == 200:
         serialized = json.dumps(content[0])
@@ -312,7 +314,7 @@ def network_utilization_to_redis():
 def network_node_versions():
     now = round(time.time())
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=yagna_version_major%7Bjob%3D"community.1"%7D*100%2Byagna_version_minor%7Bjob%3D"community.1"%7D*10%2Byagna_version_patch%7Bjob%3D"community.1"%7D&time={now}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=yagna_version_major%7Bjob%3D"community.1%7Ccommunity.hybrid"%7D*100%2Byagna_version_minor%7Bjob%3D"community.1%7Ccommunity.hybrid"%7D*10%2Byagna_version_patch%7Bjob%3D"community.1%7Ccommunity.hybrid"%7D&time={now}'
     data = get_stats_data(domain)
     nodes = data[0]['data']['result']
     for obj in nodes:
@@ -339,7 +341,7 @@ def network_node_versions():
 def network_versions_to_redis():
     now = round(time.time())
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query_range?query=count_values("version"%2C%20yagna_version_major%7Bjob%3D"community.1"%7D*100%2Byagna_version_minor%7Bjob%3D"community.1"%7D*10%2Byagna_version_patch%7Bjob%3D"community.1"%7D)&start={now}&end={now}&step=5'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query_range?query=count_values("version"%2C%20yagna_version_major%7Bjob%3D"community.1%7Ccommunity.hybrid"%7D*100%2Byagna_version_minor%7Bjob%3D"community.1%7Ccommunity.hybrid"%7D*10%2Byagna_version_patch%7Bjob%3D"community.1%7Ccommunity.hybrid"%7D)&start={now}&end={now}&step=5'
     content = get_stats_data(domain)
     if content[1] == 200:
         versions_nonsorted = []
@@ -371,7 +373,7 @@ def network_earnings_6h_to_redis():
     end = round(time.time())
     # ZKSYNC MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B6h%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B6h%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -381,7 +383,7 @@ def network_earnings_6h_to_redis():
             zksync_mainnet_glm = 0.0
     # ERC20 MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B6h%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B6h%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -391,7 +393,7 @@ def network_earnings_6h_to_redis():
             erc20_mainnet_glm = 0.0
     # POLYGON-POLYGON-GLM -- thorg i think
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"polygon-polygon-glm"%7D%5B6h%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"polygon-polygon-glm"%7D%5B6h%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -401,7 +403,7 @@ def network_earnings_6h_to_redis():
             polygon_polygon_glm = 0.0
     # ERC20 POLYGON MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-polygon-glm"%7D%5B6h%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"erc20-polygon-glm"%7D%5B6h%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -420,7 +422,7 @@ def network_earnings_24h_to_redis():
     end = round(time.time())
     # ZKSYNC MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -430,7 +432,7 @@ def network_earnings_24h_to_redis():
             zksync_mainnet_glm = 0.0
     # ERC20 MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -440,7 +442,7 @@ def network_earnings_24h_to_redis():
             erc20_mainnet_glm = 0.0
     # ERC20 POLYGON MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-polygon-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"erc20-polygon-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -449,7 +451,7 @@ def network_earnings_24h_to_redis():
         else:
             erc20_polygon_glm = 0.0
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"polygon-polygon-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"polygon-polygon-glm"%7D%5B24h%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -468,7 +470,7 @@ def network_total_earnings():
     end = round(time.time())
     # ZKSYNC MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B1m%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B1m%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -484,7 +486,7 @@ def network_total_earnings():
 
     # ERC20 MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B1m%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B1m%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -499,7 +501,7 @@ def network_total_earnings():
                 r.set("network_earnings_90d", serialized)
     # POLYGON POLYGON GLM THORG
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"polygon-polygon-glm"%7D%5B1m%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"polygon-polygon-glm"%7D%5B1m%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -514,7 +516,7 @@ def network_total_earnings():
                 r.set("network_earnings_90d", serialized)
     # ERC20 POLYGON MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"erc20-polygon-glm"%7D%5B1m%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"erc20-polygon-glm"%7D%5B1m%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -534,7 +536,7 @@ def computing_now_to_redis():
     end = round(time.time())
     start = round(time.time()) - int(10)
     domain = os.environ.get(
-        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%22%7D)&start={start}&end={end}&step=1"
+        'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%7Ccommunity.hybrid%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%7Ccommunity.hybrid%22%7D)&start={start}&end={end}&step=1"
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -598,7 +600,7 @@ def providers_average_earnings_to_redis():
 def paid_invoices_1h():
     end = round(time.time())
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_invoices_provider_paid%7Bjob%3D~"community.1"%7D%5B1h%5D))%2Fsum(increase(payment_invoices_provider_sent%7Bjob%3D~"community.1"%7D%5B1h%5D))&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_invoices_provider_paid%7Bjob%3D~"community.1%7Ccommunity.hybrid"%7D%5B1h%5D))%2Fsum(increase(payment_invoices_provider_sent%7Bjob%3D~"community.1%7Ccommunity.hybrid"%7D%5B1h%5D))&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -612,7 +614,7 @@ def paid_invoices_1h():
 def provider_accepted_invoices_1h():
     end = round(time.time())
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_invoices_provider_accepted%7Bjob%3D~"community.1"%7D%5B1h%5D))%2Fsum(increase(payment_invoices_provider_sent%7Bjob%3D~"community.1"%7D%5B1h%5D))&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_invoices_provider_accepted%7Bjob%3D~"community.1%7Ccommunity.hybrid"%7D%5B1h%5D))%2Fsum(increase(payment_invoices_provider_sent%7Bjob%3D~"community.1%7Ccommunity.hybrid"%7D%5B1h%5D))&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
@@ -628,7 +630,7 @@ def online_nodes_computing():
     providers = Node.objects.filter(online=True)
     for node in providers:
         domain = os.environ.get(
-            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=round(increase(activity_provider_created%7Bhostname%3D~%22{node.node_id}%22%2C%20job%3D~%22community.1%22%7D%5B1795s%5D%20offset%2010s)%20-%20increase(activity_provider_destroyed%7Bhostname%3D~%22{node.node_id}%22%2C%20job%3D~%22community.1%22%7D%5B1795s%5D%20offset%205s))&time={end}'
+            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=round(increase(activity_provider_created%7Bhostname%3D~%22{node.node_id}%22%2C%20job%3D~%22community.1%7Ccommunity.hybrid%22%7D%5B1795s%5D%20offset%2010s)%20-%20increase(activity_provider_destroyed%7Bhostname%3D~%22{node.node_id}%22%2C%20job%3D~%22community.1%7Ccommunity.hybrid%22%7D%5B1795s%5D%20offset%205s))&time={end}'
         data = get_stats_data(domain)
         if data[1] == 200:
             if data[0]['data']['result']:
@@ -698,7 +700,7 @@ def market_agreement_termination_reasons():
     start = round(time.time()) - int(10)
     content = {}
     domain_success = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"Success"%7D%5B1h%5D))&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1%7Ccommunity.hybrid"%2C%20reason%3D"Success"%7D%5B1h%5D))&time={end}'
     data_success = get_stats_data(domain_success)
     if data_success[1] == 200:
         if data_success[0]['data']['result']:
@@ -706,7 +708,7 @@ def market_agreement_termination_reasons():
                 data_success[0]['data']['result'][0]['value'][1]))
     # Failure
     domain_cancelled = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"Cancelled"%7D%5B6h%5D))&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1%7Ccommunity.hybrid"%2C%20reason%3D"Cancelled"%7D%5B6h%5D))&time={end}'
     data_cancelled = get_stats_data(domain_cancelled)
     if data_cancelled[1] == 200:
         if data_cancelled[0]['data']['result']:
@@ -714,7 +716,7 @@ def market_agreement_termination_reasons():
                 data_cancelled[0]['data']['result'][0]['value'][1]))
     # Expired
     domain_expired = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"Expired"%7D%5B6h%5D))&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1%7Ccommunity.hybrid"%2C%20reason%3D"Expired"%7D%5B6h%5D))&time={end}'
     data_expired = get_stats_data(domain_expired)
     if data_expired[1] == 200:
         if data_expired[0]['data']['result']:
@@ -722,7 +724,7 @@ def market_agreement_termination_reasons():
                 data_expired[0]['data']['result'][0]['value'][1]))
     # RequestorUnreachable
     domain_unreachable = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"RequestorUnreachable"%7D%5B6h%5D))&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1%7Ccommunity.hybrid"%2C%20reason%3D"RequestorUnreachable"%7D%5B6h%5D))&time={end}'
     data_unreachable = get_stats_data(domain_unreachable)
     if data_unreachable[1] == 200:
         if data_unreachable[0]['data']['result']:
@@ -731,7 +733,7 @@ def market_agreement_termination_reasons():
 
     # DebitNotesDeadline
     domain_debitdeadline = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"DebitNotesDeadline"%7D%5B6h%5D))&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1%7Ccommunity.hybrid"%2C%20reason%3D"DebitNotesDeadline"%7D%5B6h%5D))&time={end}'
     data_debitdeadline = get_stats_data(domain_debitdeadline)
     if data_debitdeadline[1] == 200:
         if data_debitdeadline[0]['data']['result']:
@@ -753,7 +755,7 @@ def requestor_scraper():
         hour = 3600
         while ninetydaysago < now:
             domain = os.environ.get(
-                'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=increase(market_agreements_requestor_approved%7Bjob%3D"community.1"%7D%5B{hour}s%5D)&time={ninetydaysago+hour}'
+                'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=increase(market_agreements_requestor_approved%7Bjob%3D"community.1%7Ccommunity.hybrid"%7D%5B{hour}s%5D)&time={ninetydaysago+hour}'
             data = get_stats_data(domain)
             ninetydaysago += hour
             if data[1] == 200:
@@ -773,7 +775,7 @@ def requestor_scraper():
         # Already indexed, we check the last 10 seconds.
         now = round(time.time())
         domain = os.environ.get(
-            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=increase(market_agreements_requestor_approved%7Bjob%3D"community.1"%7D%5B10s%5D)&time={now}'
+            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=increase(market_agreements_requestor_approved%7Bjob%3D"community.1%7Ccommunity.hybrid"%7D%5B10s%5D)&time={now}'
         data = get_stats_data(domain)
         if data[1] == 200:
             if data[0]['data']['result']:
