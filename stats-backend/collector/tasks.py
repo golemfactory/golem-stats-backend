@@ -302,8 +302,6 @@ def network_utilization_to_redis():
     start = end - 21600
     domain = os.environ.get(
         'STATS_URL') + f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%7Ccommunity.hybrid%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%7Ccommunity.hybrid%22%7D)&start={start}&end={end}&step=30"
-    print("WEJIEJIJIEWE DOMAIN")
-    print(domain)
     content = get_stats_data(domain)
     if content[1] == 200:
         serialized = json.dumps(content[0])
@@ -854,7 +852,6 @@ def v1_offer_scraper_hybrid():
     proc.wait()
     content = r.get("v1_offers_hybrid")
     serialized = json.loads(content)
-    print(serialized)
     if len(serialized) > 0:
         for line in serialized:
             data = json.loads(line)
