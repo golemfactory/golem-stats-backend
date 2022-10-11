@@ -51,7 +51,7 @@ def main():
                     Configuration(),
                     subnet_tag="hybrid-mainnet",
                 ),
-                timeout=15,
+                timeout=30,
             )
         )
     except TimeoutError:
