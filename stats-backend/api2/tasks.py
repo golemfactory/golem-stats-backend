@@ -30,7 +30,7 @@ def v2_network_online_to_redis():
 def v2_cheapest_offer():
     recently = timezone.now() - timezone.timedelta(minutes=5)
     data = Offer.objects.filter(runtime="vm",
-                                updated_at__range=(recently, timezone.now())).order_by('-updated_at')
+                                updated_at__range=(recently, timezone.now())).order_by('-monthly_price_glm')
     serializer = OfferSerializer(data, many=True)
     sorted_data = json.dumps(serializer.data, default=str)
 
