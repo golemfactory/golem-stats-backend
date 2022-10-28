@@ -12,6 +12,7 @@ import calendar
 import datetime
 import requests
 
+
 pool = redis.ConnectionPool(host='redis', port=6379, db=0)
 r = redis.Redis(connection_pool=pool)
 
@@ -23,6 +24,17 @@ def v2_network_online_to_redis():
     test = json.dumps(serializer.data, default=str)
 
     r.set("v2_online", test)
+
+
+@ app.task
+def v2_cheapest_offer():
+    recently = timezone.now() - timezone.timedelta(minutes=5)
+    data = Offer.objects.filter(runtime="vm",
+                                updated_at__range=(recently, timezone.now())).order_by('-updated_at')
+    serializer = OfferSerializer(data, many=True)
+    sorted_data = json.dumps(serializer.data, default=str)
+
+    r.set("v2_cheapest_offer", sorted_data)
 
 
 @ app.task
@@ -175,7 +187,7 @@ def v2_offer_scraper():
         with os.fdopen(fd, 'w') as tmp:
             # do stuff with temp file
             tmp.write(str1)
-            online_nodes = Node.objects.filter(online=True, hybrid=False)
+            online_nodes = Node.objects.filter(online=True)
             for node in online_nodes:
                 if not node.node_id in str1:
                     node.online = False

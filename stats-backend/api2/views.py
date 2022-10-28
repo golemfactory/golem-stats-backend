@@ -68,3 +68,17 @@ async def network_online(request):
         return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
+
+
+async def cheapest_offer(request):
+    if request.method == 'GET':
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("v2_cheapest_offer")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
+    else:
+        return HttpResponse(status=400)

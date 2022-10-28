@@ -9,4 +9,5 @@ urlpatterns = [
     path('node/<yagna_id>', views.node),
     path('website/globe_data', views.globe_data),
     path('website/index', views.golem_main_website_index),
+    path('network/offers/cheapest', views.cheapest_offer),
 ]
