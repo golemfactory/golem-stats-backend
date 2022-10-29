@@ -15,7 +15,7 @@ app = Celery('core')
 @app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     from collector.tasks import offer_scraper, v1_offer_scraper_hybrid, online_nodes_computing, network_online_to_redis, network_stats_to_redis, network_utilization_to_redis, computing_now_to_redis, providers_average_earnings_to_redis, network_earnings_6h_to_redis, network_earnings_24h_to_redis, network_total_earnings, network_versions_to_redis, node_earnings_total, stats_snapshot_yesterday, requests_served, network_median_pricing, network_average_pricing, computing_snapshot_yesterday, pricing_snapshot_yesterday, max_stats, networkstats_30m, network_node_versions, requestor_scraper, requestors_to_redis, market_agreement_termination_reasons, paid_invoices_1h, provider_accepted_invoices_1h, save_endpoint_logs_to_db
-    from api2.tasks import v2_offer_scraper, v2_network_online_to_redis, v2_cheapest_provider, latest_blog_posts, v2_cheapest_offer
+    from api2.tasks import v2_offer_scraper, v2_network_online_to_redis, v2_cheapest_provider, latest_blog_posts, v2_cheapest_offer, v2_offer_scraper_hybrid_testnet
     sender.add_periodic_task(
         30.0,
         offer_scraper.s(),
@@ -55,6 +55,14 @@ def setup_periodic_tasks(sender, **kwargs):
         options={
             'queue': 'yagna',
             'routing_key': 'yagna'}
+    )
+    sender.add_periodic_task(
+        30.0,
+        v2_offer_scraper_hybrid_testnet.s(),
+        queue='yagna-hybrid-testnet',
+        options={
+            'queue': 'yagna-hybrid-testnet',
+            'routing_key': 'yagna-hybrid-testnet'}
     )
     sender.add_periodic_task(
         30.0,
@@ -293,4 +301,4 @@ app.conf.task_default_queue = 'default'
 app.conf.broker_url = 'redis://redis:6379/0'
 app.conf.result_backend = 'redis://redis:6379/0'
 app.conf.task_routes = {'app.tasks.default': {
-    'queue': 'default'}, 'app.tasks.yagna': {'queue': 'yagna'}, 'app.tasks.yagnahybrid': {'queue': 'yagna-hybrid'}}
+    'queue': 'default'}, 'app.tasks.yagna': {'queue': 'yagna'}, 'app.tasks.yagnahybrid': {'queue': 'yagna-hybrid'}, 'app.tasks.yagna-hybrid-testnet': {'queue': 'yagna-hybrid-testnet'}}

@@ -1,0 +1,47 @@
+FROM python:3.7-alpine
+ENV PYTHONUNBUFFERED 1
+LABEL org.opencontainers.image.source https://github.com/golemfactory/golem-stats-backend
+# Creating working directory
+RUN mkdir /stats-backend
+RUN mkdir /stats-backend/static
+
+# Creating Work Directory
+WORKDIR /stats-backend
+
+COPY ./requirements.pip /scripts/
+
+
+COPY ./wait-for-it.sh /wait-for-it.sh
+
+
+RUN apk add --no-cache --virtual .build-deps \
+    ca-certificates gcc postgresql-dev linux-headers musl-dev \
+    libffi-dev jpeg-dev zlib-dev \
+    && pip install -r /scripts/requirements.pip \
+    && find /usr/local \
+    \( -type d -a -name test -o -name tests \) \
+    -o \( -type f -a -name '*.pyc' -o -name '*.pyo' \) \
+    -exec rm -rf '{}' + \
+    && runDeps="$( \
+    scanelf --needed --nobanner --recursive /usr/local \
+    | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
+    | sort -u \
+    | xargs -r apk info --installed \
+    | sort -u \
+    )" \
+    && apk add --virtual .rundeps $runDeps \
+    && apk del .build-deps
+
+RUN apk add git jq curl
+
+RUN mkdir -p $HOME/.local/share/ya-installer/terms
+RUN touch $HOME/.local/share/ya-installer/terms/testnet-01.tag
+ENV PATH=${PATH}:/root/.local/bin/:/root/.local/
+RUN mkdir /root/.local/bin
+ENV MARKET_DB_CLEANUP_INTERVAL=10min
+COPY ./check_yagna.sh /check_yagna.sh
+COPY /yagna-builds-hybrid /yagna
+COPY ./stats-backend/ /stats-backend/
+
+# CMD will run when this dockerfile is running
+CMD ["/bin/sh", "-c", "/wait-for-it.sh postgres:5432 -- /stats-backend/starthybridtest.sh; celery -A core worker -l INFO -Q yagna-hybrid-testnet"]
