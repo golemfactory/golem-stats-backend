@@ -200,7 +200,7 @@ def v2_offer_scraper():
 
 @ app.task
 def v2_offer_scraper_hybrid_testnet():
-    os.chdir("/stats-backend/yapapi/examples/low-level-api/v2")
+    os.chdir("/stats-backend/yapapi/examples/low-level-api/hybrid")
     proc = subprocess.Popen(
         'export YAGNA_APPKEY=$(yagna app-key list --json | jq -r .[0].key) && python3 list-offers-testnet.py', shell=True)
     proc.wait()
