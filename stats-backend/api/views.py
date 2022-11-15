@@ -358,7 +358,8 @@ def hybrid_net_winner_indexer(request, wallet):
                      "0x15324a71d71ab7c37552c012101882352290d801",
                      "0x462735c609e564d44287c45757d4a572df6de05c",
                      "0x21d2afd6c7e73d2d211a583be04eebf44f37a59c",
-                     "0xbd61877181ce199dd570a9c421008f13929f5bbd"]
+                     "0xbd61877181ce199dd570a9c421008f13929f5bbd",
+                     "0xphillip"]
         if data:
             eligible_addresses = []
             for node in data:
