@@ -69,6 +69,43 @@ async def network_online(request):
     else:
         return HttpResponse(status=400)
 
+def cheapest_by_cores(request):
+    """ Displays an array of cheapest offers by number of cores that are NOT computing a task right now"""
+    cores = {}
+    for i in range(256):
+        cores[f'cores_{i}'] = []
+    req = requests.get(
+        "https://api.coingecko.com/api/v3/coins/ethereum/contract/0x7DD9c5Cba05E151C895FDe1CF355C9A1D5DA6429")
+    data = req.json()
+    price = data['market_data']['current_price']['usd']
+    obj = Offer.objects.filter(provider__online=True, runtime="vm", provider__computing_now=False).order_by("monthly_price_glm")
+    serializer = OfferSerializer(obj, many=True)
+    mainnet_providers = []
+    for index, provider in enumerate(serializer.data):
+        print(provider['properties'])
+        if "golem.com.payment.platform.erc20-mainnet-glm.address" in provider['properties']:
+            print("TRUEEEE")
+            mainnet_providers.append(provider)
+    sorted_pricing_and_specs = sorted(mainnet_providers, key=lambda element: (
+        float(element['properties']['golem.inf.cpu.threads']), float(element['monthly_price_glm'])))
+    for obj in sorted_pricing_and_specs:
+        provider = {}
+        provider['name'] = obj['properties']['golem.node.id.name']
+        provider['id'] = obj['properties']['id']
+        provider['usd_monthly'] = float(
+            price) * float(obj['monthly_price_glm'])
+        provider['cores'] = float(
+            obj['properties']['golem.inf.cpu.threads'])
+        provider['memory'] = float(obj['properties']['golem.inf.mem.gib'])
+        provider['disk'] = float(
+            obj['properties']['golem.inf.storage.gib'])
+        provider['glm'] = float(obj['monthly_price_glm'])
+        cores_int = int(obj['properties']['golem.inf.cpu.threads'])
+        cores[f'cores_{cores_int}'].append(provider)
+        
+    for i in range(256):
+        cores[f'cores_{i}'] = sorted(cores[f'cores_{i}'], key=lambda element: element['usd_monthly'])
+    return JsonResponse(cores, safe=False, json_dumps_params={'indent': 4})
 
 async def cheapest_offer(request):
     if request.method == 'GET':

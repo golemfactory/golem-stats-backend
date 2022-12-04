@@ -51,7 +51,7 @@ def v2_cheapest_provider():
         "https://api.coingecko.com/api/v3/coins/ethereum/contract/0x7DD9c5Cba05E151C895FDe1CF355C9A1D5DA6429")
     data = req.json()
     price = data['market_data']['current_price']['usd']
-    obj = Offer.objects.filter(runtime="vm").order_by("monthly_price_glm")
+    obj = Offer.objects.filter(runtime="vm", provider__online=True).order_by("monthly_price_glm")
     serializer = OfferSerializer(obj, many=True)
     mainnet_providers = []
     for index, provider in enumerate(serializer.data):
