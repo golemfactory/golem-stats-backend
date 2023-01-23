@@ -49,7 +49,7 @@ def main():
             asyncio.wait_for(
                 list_offers(
                     Configuration(),
-                    subnet_tag="hybrid",
+                    subnet_tag="public",
                 ),
                 timeout=30,
             )
