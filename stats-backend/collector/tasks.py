@@ -800,7 +800,7 @@ def offer_scraper():
     proc.wait()
     content = r.get("offers")
     serialized = json.loads(content)
-    if len(serialized) > 350:
+    if len(serialized) > 0:
         for line in serialized:
             data = json.loads(line)
             provider = data['id']
