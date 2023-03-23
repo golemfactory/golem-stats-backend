@@ -798,48 +798,38 @@ def offer_scraper():
             command = line
     proc = subprocess.Popen(command, shell=True)
     proc.wait()
+
     content = r.get("offers")
     serialized = json.loads(content)
-    if len(serialized) > 350:
-        for line in serialized:
-            data = json.loads(line)
-            provider = data['id']
-            wallet = data['wallet']
-            obj, created = Node.objects.get_or_create(node_id=provider)
-            if created:
-                obj.data = data
-                obj.wallet = wallet
-                obj.online = True
-                obj.updated_at = timezone.now()
-                obj.save(update_fields=[
-                         'data', 'wallet', 'online', 'updated_at'])
-            else:
-                obj.data = data
-                obj.wallet = wallet
-                obj.online = True
-                obj.updated_at = timezone.now()
-                obj.save(update_fields=[
-                         'data', 'wallet', 'online', 'updated_at'])
-    # Find offline providers
-        str1 = ''.join(serialized)
-        fd, path = tempfile.mkstemp()
-        try:
-            with os.fdopen(fd, 'w') as tmp:
-                # do stuff with temp file
-                tmp.write(str1)
-                online_nodes = Node.objects.filter(online=True, hybrid=False)
-                for node in online_nodes:
-                    if not node.node_id in str1:
-                        node.online = False
-                        node.computing_now = False
-                        node.updated_at = timezone.now()
-                        node.save(update_fields=[
-                            'online', 'updated_at', 'computing_now'])
-        finally:
-            os.remove(path)
-    else:
-        print(
-            f"Fewer than 350 nodes in the data from the network ({len(serialized)}). We will not update the database.")
+    nodes_to_create = []
+    nodes_to_update = []
+    offline_nodes = set(Node.objects.filter(
+        online=True, hybrid=False).values_list('node_id', flat=True))
+
+    for line in serialized:
+        data = json.loads(line)
+        provider = data['id']
+        wallet = data['wallet']
+        obj, created = Node.objects.get_or_create(node_id=provider)
+        obj.data = data
+        obj.wallet = wallet
+        obj.online = True
+        obj.updated_at = timezone.now()
+        if created:
+            nodes_to_create.append(obj)
+        else:
+            nodes_to_update.append(obj)
+        if provider in offline_nodes:
+            offline_nodes.remove(provider)
+
+    Node.objects.bulk_create(nodes_to_create)
+    Node.objects.bulk_update(nodes_to_update, fields=[
+                             'data', 'wallet', 'online', 'updated_at', 'hybrid'])
+
+    # mark offline nodes as offline
+
+    Node.objects.filter(node_id__in=offline_nodes, online=True, hybrid=False).update(
+        online=False, computing_now=False, updated_at=timezone.now())
 
 
 @ app.task
@@ -850,44 +840,35 @@ def v1_offer_scraper_hybrid():
             command = line
     proc = subprocess.Popen(command, shell=True)
     proc.wait()
+
     content = r.get("v1_offers_hybrid")
     serialized = json.loads(content)
-    if len(serialized) > 0:
-        for line in serialized:
-            data = json.loads(line)
-            provider = data['id']
-            wallet = data['wallet']
-            obj, created = Node.objects.get_or_create(node_id=provider)
-            if created:
-                obj.data = data
-                obj.wallet = wallet
-                obj.online = True
-                obj.hybrid = True
-                obj.updated_at = timezone.now()
-                obj.save(update_fields=[
-                         'data', 'wallet', 'online', 'updated_at', 'hybrid'])
-            else:
-                obj.data = data
-                obj.wallet = wallet
-                obj.online = True
-                obj.hybrid = True
-                obj.updated_at = timezone.now()
-                obj.save(update_fields=[
-                         'data', 'wallet', 'online', 'updated_at', 'hybrid'])
-    # Find offline providers
-        str1 = ''.join(serialized)
-        fd, path = tempfile.mkstemp()
-        try:
-            with os.fdopen(fd, 'w') as tmp:
-                # do stuff with temp file
-                tmp.write(str1)
-                online_nodes = Node.objects.filter(online=True, hybrid=True)
-                for node in online_nodes:
-                    if not node.node_id in str1:
-                        node.online = False
-                        node.computing_now = False
-                        node.updated_at = timezone.now()
-                        node.save(update_fields=[
-                            'online', 'updated_at', 'computing_now'])
-        finally:
-            os.remove(path)
+    nodes_to_create = []
+    nodes_to_update = []
+    offline_nodes = set(Node.objects.filter(
+        online=True, hybrid=True).values_list('node_id', flat=True))
+
+    for line in serialized:
+        data = json.loads(line)
+        provider = data['id']
+        wallet = data['wallet']
+        obj, created = Node.objects.get_or_create(node_id=provider)
+        obj.data = data
+        obj.wallet = wallet
+        obj.online = True
+        obj.hybrid = True
+        obj.updated_at = timezone.now()
+        if created:
+            nodes_to_create.append(obj)
+        else:
+            nodes_to_update.append(obj)
+        if provider in offline_nodes:
+            offline_nodes.remove(provider)
+
+    Node.objects.bulk_create(nodes_to_create)
+    Node.objects.bulk_update(nodes_to_update, fields=[
+                             'data', 'wallet', 'online', 'updated_at', 'hybrid'])
+
+    # mark offline nodes as offline
+    Node.objects.filter(node_id__in=offline_nodes, online=True, hybrid=True).update(
+        online=False, computing_now=False, updated_at=timezone.now())

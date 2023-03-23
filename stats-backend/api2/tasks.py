@@ -51,7 +51,8 @@ def v2_cheapest_provider():
         "https://api.coingecko.com/api/v3/coins/ethereum/contract/0x7DD9c5Cba05E151C895FDe1CF355C9A1D5DA6429")
     data = req.json()
     price = data['market_data']['current_price']['usd']
-    obj = Offer.objects.filter(runtime="vm", provider__online=True).order_by("monthly_price_glm")
+    obj = Offer.objects.filter(
+        runtime="vm", provider__online=True).order_by("monthly_price_glm")
     serializer = OfferSerializer(obj, many=True)
     mainnet_providers = []
     for index, provider in enumerate(serializer.data):
@@ -205,30 +206,38 @@ def v2_offer_scraper_hybrid_testnet():
         'export YAGNA_APPKEY=$(yagna app-key list --json | jq -r .[0].key) && python3 list-offers-testnet.py', shell=True)
     proc.wait()
     content = r.get("v2_offers_hybrid_testnet")
+
     serialized = json.loads(content)
     now = datetime.datetime.now()
     days_in_current_month = calendar.monthrange(
         now.year, now.month)[1]
     seconds_current_month = days_in_current_month*24*60*60
+    nodes_to_create = []
+    nodes_to_update = []
+    offers_to_create = []
+    offer_to_update = []
+    offline_nodes = set(Node.objects.filter(
+        online=True).values_list('node_id', flat=True))
+
     for line in serialized:
         data = json.loads(line)
         provider = data['id']
         wallet = data['wallet']
         obj, created = Node.objects.get_or_create(node_id=provider)
         if created:
-            offerobj = Offer.objects.create(properties=data, provider=obj,
-                                            runtime=data['golem.runtime.name'])
             if data['golem.runtime.name'] == 'vm':
                 vectors = {}
                 for key, value in enumerate(data['golem.com.usage.vector']):
                     vectors[value] = key
                 monthly_pricing = (data['golem.com.pricing.model.linear.coeffs'][vectors['golem.usage.duration_sec']] * seconds_current_month) + (
                     data['golem.com.pricing.model.linear.coeffs'][vectors['golem.usage.cpu_sec']] * seconds_current_month * data['golem.inf.cpu.cores']) + data['golem.com.pricing.model.linear.coeffs'][-1]
-                offerobj.monthly_price_glm = monthly_pricing
-                offerobj.save()
-            obj.wallet = wallet
-            obj.online = True
-            obj.save()
+                offers_to_create.append(
+                    Offer(properties=data, provider=obj, runtime=data['golem.runtime.name'], monthly_price_glm=monthly_pricing))
+            offers_to_create.append(
+                Offer(properties=data, provider=obj, runtime=data['golem.runtime.name']))
+            nodeobj = Node(node_id=provider, wallet=wallet, online=True)
+            nodes_to_create.append(
+                nodeobj)
         else:
             offerobj, offercreated = Offer.objects.get_or_create(
                 provider=obj, runtime=data['golem.runtime.name'])
@@ -239,26 +248,26 @@ def v2_offer_scraper_hybrid_testnet():
                 monthly_pricing = (data['golem.com.pricing.model.linear.coeffs'][vectors['golem.usage.duration_sec']] * seconds_current_month) + (
                     data['golem.com.pricing.model.linear.coeffs'][vectors['golem.usage.cpu_sec']] * seconds_current_month * data['golem.inf.cpu.cores']) + data['golem.com.pricing.model.linear.coeffs'][-1]
                 offerobj.monthly_price_glm = monthly_pricing
-                offerobj.save()
+
             offerobj.properties = data
-            offerobj.save()
-            obj.runtime = data['golem.runtime.name']
+            offerobj.runtime = data['golem.runtime.name']
+            if offercreated:
+                offers_to_create.append(offerobj)
+            else:
+                offer_to_update.append(offerobj)
             obj.wallet = wallet
             obj.online = True
-            obj.save()
-    # Find offline providers
-    str1 = ''.join(serialized)
-    fd, path = tempfile.mkstemp()
-    try:
-        with os.fdopen(fd, 'w') as tmp:
-            # do stuff with temp file
-            tmp.write(str1)
-            online_nodes = Node.objects.filter(online=True)
-            for node in online_nodes:
-                if not node.node_id in str1:
-                    node.online = False
-                    node.computing_now = False
-                    node.save(update_fields=[
-                              'online', 'computing_now'])
-    finally:
-        os.remove(path)
+            obj.updated_at = timezone.now()
+            nodes_to_update.append(obj)
+        if provider in offline_nodes:
+            offline_nodes.remove(provider)
+
+    Node.objects.bulk_create(nodes_to_create)
+    Node.objects.bulk_update(nodes_to_update, fields=[
+        'wallet', 'online', 'updated_at',])
+    Offer.objects.bulk_create(offers_to_create)
+    Offer.objects.bulk_update(offer_to_update, fields=[
+        'properties', 'monthly_price_glm'])
+    # mark offline nodes as offline
+    Node.objects.filter(node_id__in=offline_nodes, online=True).update(
+        online=False, computing_now=False, updated_at=timezone.now())
