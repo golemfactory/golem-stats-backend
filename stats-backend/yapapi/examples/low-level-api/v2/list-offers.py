@@ -117,7 +117,8 @@ def main():
         )
     except TimeoutError:
         pass
-    if len(test) > 500:
+    print(len(test))
+    if len(test) > 0:
         serialized = json.dumps(test)
         r = redis.Redis(host='redis', port=6379, db=0)
         content = r.set("offers_v2", serialized)
