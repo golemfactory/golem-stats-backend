@@ -56,14 +56,14 @@ def setup_periodic_tasks(sender, **kwargs):
             'queue': 'yagna',
             'routing_key': 'yagna'}
     )
-    sender.add_periodic_task(
-        30.0,
-        v2_offer_scraper_hybrid_testnet.s(),
-        queue='yagna-hybrid-testnet',
-        options={
-            'queue': 'yagna-hybrid-testnet',
-            'routing_key': 'yagna-hybrid-testnet'}
-    )
+    # sender.add_periodic_task(
+    #     30.0,
+    #     v2_offer_scraper_hybrid_testnet.s(),
+    #     queue='yagna-hybrid-testnet',
+    #     options={
+    #         'queue': 'yagna-hybrid-testnet',
+    #         'routing_key': 'yagna-hybrid-testnet'}
+    # )
     sender.add_periodic_task(
         30.0,
         v1_offer_scraper_hybrid.s(),
