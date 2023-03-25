@@ -865,32 +865,33 @@ def v1_offer_scraper_hybrid():
 
     content = r.get("v1_offers_hybrid")
     serialized = json.loads(content)
-    nodes_to_create = []
-    nodes_to_update = []
-    offline_nodes = set(Node.objects.filter(
-        online=True, hybrid=True).values_list('node_id', flat=True))
+    if len(serialized) > 350:
+        nodes_to_create = []
+        nodes_to_update = []
+        offline_nodes = set(Node.objects.filter(
+            online=True, hybrid=True).values_list('node_id', flat=True))
 
-    for line in serialized:
-        data = json.loads(line)
-        provider = data['id']
-        wallet = data['wallet']
-        obj, created = Node.objects.get_or_create(node_id=provider)
-        obj.data = data
-        obj.wallet = wallet
-        obj.online = True
-        obj.hybrid = True
-        obj.updated_at = timezone.now()
-        if created:
-            nodes_to_create.append(obj)
-        else:
-            nodes_to_update.append(obj)
-        if provider in offline_nodes:
-            offline_nodes.remove(provider)
+        for line in serialized:
+            data = json.loads(line)
+            provider = data['id']
+            wallet = data['wallet']
+            obj, created = Node.objects.get_or_create(node_id=provider)
+            obj.data = data
+            obj.wallet = wallet
+            obj.online = True
+            obj.hybrid = True
+            obj.updated_at = timezone.now()
+            if created:
+                nodes_to_create.append(obj)
+            else:
+                nodes_to_update.append(obj)
+            if provider in offline_nodes:
+                offline_nodes.remove(provider)
 
-    Node.objects.bulk_create(nodes_to_create)
-    Node.objects.bulk_update(nodes_to_update, fields=[
-                             'data', 'wallet', 'online', 'updated_at', 'hybrid'])
+        Node.objects.bulk_create(nodes_to_create)
+        Node.objects.bulk_update(nodes_to_update, fields=[
+            'data', 'wallet', 'online', 'updated_at', 'hybrid'])
 
-    # mark offline nodes as offline
-    Node.objects.filter(node_id__in=offline_nodes, online=True, hybrid=True).update(
-        online=False, computing_now=False, updated_at=timezone.now())
+        # mark offline nodes as offline
+        Node.objects.filter(node_id__in=offline_nodes, online=True, hybrid=True).update(
+            online=False, computing_now=False, updated_at=timezone.now())
