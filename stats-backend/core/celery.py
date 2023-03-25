@@ -273,7 +273,7 @@ def setup_periodic_tasks(sender, **kwargs):
             'routing_key': 'default'}
     )
     sender.add_periodic_task(
-        crontab(minute="*/1"),
+        110,
         network_total_earnings.s(),
         queue='default',
         options={

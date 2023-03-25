@@ -468,15 +468,21 @@ def network_total_earnings():
     end = round(time.time())
     # ZKSYNC MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B1m%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"zksync-mainnet-glm"%7D%5B2m%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
-            zksync_mainnet_glm = round(
-                float(data[0]['data']['result'][0]['value'][1]), 2)
+            zksync_mainnet_glm = float(
+                data[0]['data']['result'][0]['value'][1])
             if zksync_mainnet_glm > 0:
                 db, created = Network.objects.get_or_create(id=1)
-                db.total_earnings = db.total_earnings + zksync_mainnet_glm
+                if created:
+                    db.total_earnings = zksync_mainnet_glm
+                else:
+                    if db.total_earnings is not None:
+                        db.total_earnings += zksync_mainnet_glm
+                    else:
+                        db.total_earnings = zksync_mainnet_glm
                 db.save()
                 content = {'total_earnings': db.total_earnings}
                 serialized = json.dumps(content)
@@ -484,45 +490,61 @@ def network_total_earnings():
 
     # ERC20 MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B1m%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"erc20-mainnet-glm"%7D%5B2m%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
-            erc20_mainnet_glm = round(
-                float(data[0]['data']['result'][0]['value'][1]), 2)
+            erc20_mainnet_glm = float(data[0]['data']['result'][0]['value'][1])
             if erc20_mainnet_glm > 0:
                 db, created = Network.objects.get_or_create(id=1)
-                db.total_earnings = db.total_earnings + erc20_mainnet_glm
+                if created:
+                    db.total_earnings = erc20_mainnet_glm
+                else:
+                    if db.total_earnings is not None:
+                        db.total_earnings += erc20_mainnet_glm
+                    else:
+                        db.total_earnings = erc20_mainnet_glm
                 db.save()
                 content = {'total_earnings': db.total_earnings}
                 serialized = json.dumps(content)
                 r.set("network_earnings_90d", serialized)
     # POLYGON POLYGON GLM THORG
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"polygon-polygon-glm"%7D%5B1m%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"polygon-polygon-glm"%7D%5B2m%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
-            polygon_polygon_glm = round(
-                float(data[0]['data']['result'][0]['value'][1]), 2)
+            polygon_polygon_glm = float(
+                data[0]['data']['result'][0]['value'][1])
             if polygon_polygon_glm > 0:
                 db, created = Network.objects.get_or_create(id=1)
-                db.total_earnings = db.total_earnings + polygon_polygon_glm
+                if created:
+                    db.total_earnings = polygon_polygon_glm
+                else:
+                    if db.total_earnings is not None:
+                        db.total_earnings += polygon_polygon_glm
+                    else:
+                        db.total_earnings = polygon_polygon_glm
                 db.save()
                 content = {'total_earnings': db.total_earnings}
                 serialized = json.dumps(content)
                 r.set("network_earnings_90d", serialized)
     # ERC20 POLYGON MAINNET GLM
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"erc20-polygon-glm"%7D%5B1m%5D)%2F10%5E9)&time={end}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1%7Ccommunity.hybrid"%2C%20platform%3D"erc20-polygon-glm"%7D%5B2m%5D)%2F10%5E9)&time={end}'
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]['data']['result']:
-            erc20_polygon_glm = round(
-                float(data[0]['data']['result'][0]['value'][1]), 2)
+            erc20_polygon_glm = float(data[0]['data']['result'][0]['value'][1])
             if erc20_polygon_glm > 0:
                 db, created = Network.objects.get_or_create(id=1)
-                db.total_earnings = db.total_earnings + erc20_polygon_glm
+                if created:
+                    db.total_earnings = erc20_polygon_glm
+                else:
+                    if db.total_earnings is not None:
+                        db.total_earnings += erc20_polygon_glm
+                    else:
+                        db.total_earnings = erc20_polygon_glm
                 db.save()
                 content = {'total_earnings': db.total_earnings}
                 serialized = json.dumps(content)
