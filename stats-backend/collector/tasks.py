@@ -1,3 +1,5 @@
+from django.db.models import DateField
+from django.db.models.functions import TruncDay
 from core.celery import app
 from celery import Celery
 import json
@@ -113,53 +115,25 @@ def computing_snapshot_yesterday():
 @app.task
 def pricing_snapshot_yesterday():
     start_date = date.today() - timedelta(days=1)
-    averagestart = NetworkAveragePricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(start=Avg('start'))
-    averagecpuh = NetworkAveragePricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(cpuh=Avg('cpuh'))
-    averageperh = NetworkAveragePricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(perh=Avg('perh'))
-    medianstart = NetworkMedianPricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(start=Min('start'))
-    mediancpuh = NetworkMedianPricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(cpuh=Min('cpuh'))
-    medianperh = NetworkMedianPricing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(perh=Min('perh'))
+    date_trunc_day = TruncDay('date', output_field=DateField())
 
-    test2 = NetworkAveragePricingMax.objects.all()
-    for obj in averagestart:
-        if obj['day'].date() not in test2:
-            avgstartmax = obj['start']
-    for obj in averagecpuh:
-        if obj['day'].date() not in test2:
-            avgcpuhmax = obj['cpuh']
-    for obj in averageperh:
-        if obj['day'].date() not in test2:
-            avgperhmax = obj['perh']
+    avg_prices = NetworkAveragePricing.objects.filter(date__gte=start_date).annotate(
+        day=date_trunc_day).values('day').annotate(start=Avg('start'), cpuh=Avg('cpuh'), perh=Avg('perh'))
+    median_prices = NetworkMedianPricing.objects.filter(date__gte=start_date).annotate(
+        day=date_trunc_day).values('day').annotate(start=Min('start'), cpuh=Min('cpuh'), perh=Min('perh'))
 
-    test3 = NetworkMedianPricingMax.objects.all()
-    for obj in medianstart:
-        if obj['day'].date() not in test3:
-            medianstartmax = obj['start']
-    for obj in mediancpuh:
-        if obj['day'].date() not in test3:
-            mediancpuhmax = obj['cpuh']
-    for obj in medianperh:
-        if obj['day'].date() not in test3:
-            medianperhmax = obj['perh']
+    existing_avg_dates = NetworkAveragePricingMax.objects.all().values_list('date',
+                                                                            flat=True)
+    existing_median_dates = NetworkMedianPricingMax.objects.all().values_list('date',
+                                                                              flat=True)
 
-    days = []
-    days2 = []
-    for obj in test2:
-        days.append(obj.date.strftime('%Y-%m-%d'))
-    for obj in test3:
-        days2.append(obj.date.strftime('%Y-%m-%d'))
-    if not str(start_date) in str(days):
-        NetworkAveragePricingMax.objects.create(
-            start=avgstartmax, cpuh=avgcpuhmax, perh=avgperhmax, date=date.today())
-    if not str(start_date) in str(days2):
-        NetworkMedianPricingMax.objects.create(
-            start=medianstartmax, cpuh=mediancpuhmax, perh=medianperhmax, date=date.today())
+    for avg_obj, median_obj in zip(avg_prices, median_prices):
+        if avg_obj['day'] not in existing_avg_dates:
+            NetworkAveragePricingMax.objects.create(
+                start=avg_obj['start'], cpuh=avg_obj['cpuh'], perh=avg_obj['perh'], date=avg_obj['day'])
+        if median_obj['day'] not in existing_median_dates:
+            NetworkMedianPricingMax.objects.create(
+                start=median_obj['start'], cpuh=median_obj['cpuh'], perh=median_obj['perh'], date=median_obj['day'])
 
 
 @app.task
@@ -206,29 +180,44 @@ def network_median_pricing():
     startprice = []
     data = Node.objects.filter(online=True)
     for obj in data:
+        print("in for")
         if str(obj.data['golem.runtime.name']) == "vm" or str(obj.data['golem.runtime.name']) == "wasmtime":
+            print("in if")
             pricing_vector = {obj.data['golem.com.usage.vector'][0]: obj.data['golem.com.pricing.model.linear.coeffs']
                               [0], obj.data['golem.com.usage.vector'][1]: obj.data['golem.com.pricing.model.linear.coeffs'][1]}
             if len(str(pricing_vector["golem.usage.duration_sec"])) < 5:
+                print("in if 2")
                 perhour.append(
                     pricing_vector["golem.usage.duration_sec"])
             else:
+                print("in else 2")
                 perhour.append(
                     pricing_vector["golem.usage.duration_sec"] * 3600)
 
                 startprice.append(
                     (obj.data['golem.com.pricing.model.linear.coeffs'][2]))
             if len(str(pricing_vector["golem.usage.cpu_sec"])) < 5:
+                print("in if 3")
                 cpuhour.append(
                     pricing_vector["golem.usage.cpu_sec"])
             else:
+                print("in else 3")
                 cpuhour.append(
                     pricing_vector["golem.usage.cpu_sec"] * 3600)
+
+    if not perhour:
+        return
+    if not cpuhour:
+        return
+    if not startprice:
+        return
+
     content = {
         "cpuhour": statistics.median(cpuhour),
         "perhour": statistics.median(perhour),
         "start": statistics.median(startprice)
     }
+    print("content", content)
     serialized = json.dumps(content)
     NetworkMedianPricing.objects.create(start=statistics.median(
         startprice), cpuh=statistics.median(cpuhour), perh=statistics.median(perhour))
