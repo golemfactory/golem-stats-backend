@@ -64,52 +64,45 @@ def requestors_to_redis():
 @app.task
 def stats_snapshot_yesterday():
     start_date = date.today() - timedelta(days=1)
-    online = NetworkStats.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(online=Max('online'))
-    cores = NetworkStats.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(cores=Max("cores"))
-    memory = NetworkStats.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(memory=Max("memory"))
-    disk = NetworkStats.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(disk=Max("disk"))
-    test2 = NetworkStatsMax.objects.all()
-    for obj in online:
-        if obj['day'].date() not in test2:
-            online_max = obj['online']
-    for obj in cores:
-        if obj['day'].date() not in test2:
-            cores_max = obj['cores']
-    for obj in memory:
-        if obj['day'].date() not in test2:
-            memory_max = obj['memory']
-    for obj in disk:
-        if obj['day'].date() not in test2:
-            disk_max = obj['disk']
+    date_trunc_day = TruncDay('date', output_field=DateField())
 
-    days = []
-    for obj in test2:
-        days.append(obj.date.strftime('%Y-%m-%d'))
-    if not str(start_date) in str(days):
-        NetworkStatsMax.objects.create(
-            online=online_max, cores=cores_max, memory=memory_max, disk=disk_max, date=date.today())
+    online = NetworkStats.objects.filter(date__gte=start_date).annotate(
+        day=date_trunc_day).values('day').annotate(online=Max('online'))
+    cores = NetworkStats.objects.filter(date__gte=start_date).annotate(
+        day=date_trunc_day).values('day').annotate(cores=Max("cores"))
+    memory = NetworkStats.objects.filter(date__gte=start_date).annotate(
+        day=date_trunc_day).values('day').annotate(memory=Max("memory"))
+    disk = NetworkStats.objects.filter(date__gte=start_date).annotate(
+        day=date_trunc_day).values('day').annotate(disk=Max("disk"))
+
+    existing_dates = NetworkStatsMax.objects.all().values_list('date', flat=True)
+
+    for online_obj, cores_obj, memory_obj, disk_obj in zip(online, cores, memory, disk):
+        current_date = online_obj['day']
+        if current_date not in existing_dates:
+            NetworkStatsMax.objects.create(
+                online=online_obj['online'],
+                cores=cores_obj['cores'],
+                memory=memory_obj['memory'],
+                disk=disk_obj['disk'],
+                date=current_date
+            )
 
 
 @app.task
 def computing_snapshot_yesterday():
     start_date = date.today() - timedelta(days=1)
-    computing = ProvidersComputing.objects.filter(date__gte=start_date).extra(select={'day': connection.ops.date_trunc_sql(
-        'day', 'date')}).values('day').annotate(total=Max('total'))
-    test2 = ProvidersComputingMax.objects.all()
-    for obj in computing:
-        if obj['day'].date() not in test2:
-            total_max = obj['total']
+    date_trunc_day = TruncDay('date', output_field=DateField())
 
-    days = []
-    for obj in test2:
-        days.append(obj.date.strftime('%Y-%m-%d'))
-    if not str(start_date) in str(days):
-        ProvidersComputingMax.objects.create(
-            total=total_max, date=date.today())
+    computing = ProvidersComputing.objects.filter(date__gte=start_date).annotate(
+        day=date_trunc_day).values('day').annotate(total=Max('total'))
+
+    existing_dates = ProvidersComputingMax.objects.all().values_list('date', flat=True)
+
+    for obj in computing:
+        if obj['day'] not in existing_dates:
+            ProvidersComputingMax.objects.create(
+                total=obj['total'], date=obj['day'])
 
 
 @app.task
@@ -180,28 +173,22 @@ def network_median_pricing():
     startprice = []
     data = Node.objects.filter(online=True)
     for obj in data:
-        print("in for")
         if str(obj.data['golem.runtime.name']) == "vm" or str(obj.data['golem.runtime.name']) == "wasmtime":
-            print("in if")
             pricing_vector = {obj.data['golem.com.usage.vector'][0]: obj.data['golem.com.pricing.model.linear.coeffs']
                               [0], obj.data['golem.com.usage.vector'][1]: obj.data['golem.com.pricing.model.linear.coeffs'][1]}
             if len(str(pricing_vector["golem.usage.duration_sec"])) < 5:
-                print("in if 2")
                 perhour.append(
                     pricing_vector["golem.usage.duration_sec"])
             else:
-                print("in else 2")
                 perhour.append(
                     pricing_vector["golem.usage.duration_sec"] * 3600)
 
                 startprice.append(
                     (obj.data['golem.com.pricing.model.linear.coeffs'][2]))
             if len(str(pricing_vector["golem.usage.cpu_sec"])) < 5:
-                print("in if 3")
                 cpuhour.append(
                     pricing_vector["golem.usage.cpu_sec"])
             else:
-                print("in else 3")
                 cpuhour.append(
                     pricing_vector["golem.usage.cpu_sec"] * 3600)
 
@@ -217,7 +204,6 @@ def network_median_pricing():
         "perhour": statistics.median(perhour),
         "start": statistics.median(startprice)
     }
-    print("content", content)
     serialized = json.dumps(content)
     NetworkMedianPricing.objects.create(start=statistics.median(
         startprice), cpuh=statistics.median(cpuhour), perh=statistics.median(perhour))
