@@ -287,7 +287,7 @@ def network_utilization_to_redis():
 def network_node_versions():
     now = round(time.time())
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=yagna_version_major%7Bjob%3D"community.1%7Ccommunity.hybrid"%7D*100%2Byagna_version_minor%7Bjob%3D"community.1%7Ccommunity.hybrid"%7D*10%2Byagna_version_patch%7Bjob%3D"community.1%7Ccommunity.hybrid"%7D&time={now}'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=yagna_version_major%7Bjob%3D"community.1"%7D*100%2Byagna_version_minor%7Bjob%3D"community.1"%7D*10%2Byagna_version_patch%7Bjob%3D"community.1"%7D&time={now}'
     data = get_stats_data(domain)
     nodes = data[0]['data']['result']
     for obj in nodes:
@@ -306,7 +306,8 @@ def network_node_versions():
                 Node.objects.filter(node_id=node).update(version=concatinated)
                 Nodev2.objects.filter(node_id=node).update(
                     version=concatinated)
-        except:
+        except Exception as e:
+            print(e)
             continue
 
 
