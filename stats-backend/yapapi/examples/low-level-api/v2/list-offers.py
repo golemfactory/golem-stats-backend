@@ -35,6 +35,8 @@ async def list_offers(conf: Configuration, subnet_tag: str):
                     data['wallet'] = event.props['golem.com.payment.platform.erc20-mainnet-glm.address']
                 elif "golem.com.payment.platform.erc20-polygon-glm.address" in str(event.props):
                     data['wallet'] = event.props['golem.com.payment.platform.erc20-polygon-glm.address']
+                elif "golem.com.payment.platform.erc20-goerli-tglm.address" in str(event.props):
+                    data['wallet'] = event.props['golem.com.payment.platform.erc20-goerli-tglm.address']
                 elif "golem.com.payment.platform.erc20-rinkeby-tglm.address" in str(event.props):
                     data['wallet'] = event.props['golem.com.payment.platform.erc20-rinkeby-tglm.address']
                 elif "golem.com.payment.platform.polygon-polygon-glm.address" in str(event.props):
