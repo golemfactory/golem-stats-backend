@@ -195,6 +195,27 @@ async def payments_last_n_hours_provider(request, yagna_id, hours):
         return JsonResponse(content, json_dumps_params={'indent': 4})
 
 
+async def payments_earnings_provider(request, yagna_id):
+    await LogEndpoint("Node Earnings")
+    now = round(time.time())
+    time_intervals = ["24", "168", "720", "2160"]
+
+    earnings = {}
+    base_url = os.environ.get('STATS_URL') + \
+        'api/datasources/proxy/40/api/v1/query'
+
+    for interval in time_intervals:
+        query_url = f'{base_url}?query=sum(increase(payment_amount_received%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{interval}h%5D)%2F10%5E9)&time={now}'
+        data = await get_yastats_data(query_url)
+
+        if data[1] == 200 and data[0]['data']['result']:
+            earnings[interval] = data[0]['data']['result'][0]['value'][1]
+        else:
+            earnings[interval] = []
+
+    return JsonResponse(earnings, json_dumps_params={'indent': 4})
+
+
 async def total_tasks_computed(request, yagna_id):
     await LogEndpoint("Node Tasks Computed")
     now = round(time.time())
