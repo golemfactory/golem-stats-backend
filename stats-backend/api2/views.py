@@ -1,3 +1,5 @@
+from collector.models import Node as NodeV1
+from api.serializers import FlatNodeSerializer
 from django.shortcuts import render
 from .models import Node, Offer
 from .serializers import NodeSerializer, OfferSerializer
@@ -37,6 +39,22 @@ async def golem_main_website_index(request):
 
         pool.disconnect()
         return JsonResponse({'blogs': blogs, 'stats': stats, 'providers': cheapest_providers}, safe=False, json_dumps_params={'indent': 4})
+    else:
+        return HttpResponse(status=400)
+
+
+async def node_wallet(request, wallet):
+    """
+    Returns all the nodes with the specified wallet address.
+    """
+    if request.method == 'GET':
+        data = NodeV1.objects.filter(wallet=wallet)
+        if data != None:
+            serializer = FlatNodeSerializer(data, many=True)
+            return JsonResponse(serializer.data, safe=False, json_dumps_params={'indent': 4})
+        else:
+            return HttpResponse(status=404)
+
     else:
         return HttpResponse(status=400)
 
