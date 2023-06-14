@@ -6,6 +6,7 @@ app_name = 'api'
 
 urlpatterns = [
     path('network/online', views.network_online),
+    path('network/online/flatmap', views.network_online_flatmap),
     path('network/offers/cheapest/cores', views.cheapest_by_cores),
     path('node/<yagna_id>', views.node),
     path('website/globe_data', views.globe_data),

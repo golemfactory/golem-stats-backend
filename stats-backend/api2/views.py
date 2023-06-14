@@ -69,6 +69,21 @@ async def network_online(request):
     else:
         return HttpResponse(status=400)
 
+
+async def network_online_flatmap(request):
+    if request.method == 'GET':
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("v2_online_flatmap")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
+    else:
+        return HttpResponse(status=400)
+
+
 def cheapest_by_cores(request):
     """ Displays an array of cheapest offers by number of cores that are NOT computing a task right now"""
     cores = {}
@@ -78,7 +93,8 @@ def cheapest_by_cores(request):
         "https://api.coingecko.com/api/v3/coins/ethereum/contract/0x7DD9c5Cba05E151C895FDe1CF355C9A1D5DA6429")
     data = req.json()
     price = data['market_data']['current_price']['usd']
-    obj = Offer.objects.filter(provider__online=True, runtime="vm", provider__computing_now=False).order_by("monthly_price_glm")
+    obj = Offer.objects.filter(provider__online=True, runtime="vm",
+                               provider__computing_now=False).order_by("monthly_price_glm")
     serializer = OfferSerializer(obj, many=True)
     mainnet_providers = []
     for index, provider in enumerate(serializer.data):
@@ -102,10 +118,12 @@ def cheapest_by_cores(request):
         provider['glm'] = float(obj['monthly_price_glm'])
         cores_int = int(obj['properties']['golem.inf.cpu.threads'])
         cores[f'cores_{cores_int}'].append(provider)
-        
+
     for i in range(256):
-        cores[f'cores_{i}'] = sorted(cores[f'cores_{i}'], key=lambda element: element['usd_monthly'])
+        cores[f'cores_{i}'] = sorted(
+            cores[f'cores_{i}'], key=lambda element: element['usd_monthly'])
     return JsonResponse(cores, safe=False, json_dumps_params={'indent': 4})
+
 
 async def cheapest_offer(request):
     if request.method == 'GET':

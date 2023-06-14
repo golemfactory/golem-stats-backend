@@ -11,6 +11,8 @@ from .serializers import NodeSerializer, OfferSerializer
 import calendar
 import datetime
 import requests
+from api.serializers import FlatNodeSerializer
+from collector.models import Node as NodeV1
 
 
 pool = redis.ConnectionPool(host='redis', port=6379, db=0)
@@ -24,6 +26,14 @@ def v2_network_online_to_redis():
     test = json.dumps(serializer.data, default=str)
 
     r.set("v2_online", test)
+
+
+@app.task
+def v2_network_online_to_redis_flatmap():
+    data = NodeV1.objects.filter(online=True)
+    serializer = FlatNodeSerializer(data, many=True)
+    test = json.dumps(serializer.data)
+    r.set("v2_online_flatmap", test)
 
 
 @ app.task
@@ -264,7 +274,7 @@ def v2_offer_scraper_hybrid_testnet():
 
     Node.objects.bulk_create(nodes_to_create)
     Node.objects.bulk_update(nodes_to_update, fields=[
-        'wallet', 'online', 'updated_at',])
+        'wallet', 'online', 'updated_at', ])
     Offer.objects.bulk_create(offers_to_create)
     Offer.objects.bulk_update(offer_to_update, fields=[
         'properties', 'monthly_price_glm'])

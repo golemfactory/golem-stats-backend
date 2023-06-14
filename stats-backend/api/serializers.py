@@ -17,6 +17,15 @@ class NodeSerializer(serializers.ModelSerializer):
                   'online', 'version', 'updated_at', 'created_at', 'computing_now']
 
 
+class FlatNodeSerializer(NodeSerializer):
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        data = representation.pop('data', {})
+        for key, value in data.items():
+            representation[key] = value
+        return representation
+
+
 class RequestorSerializer(serializers.ModelSerializer):
 
     class Meta:
