@@ -1,3 +1,4 @@
+import requests
 from django.db.models import DateField
 from django.db.models.functions import TruncDay
 from core.celery import app
@@ -389,6 +390,32 @@ def network_earnings_6h_to_redis():
                erc20_mainnet_glm + erc20_polygon_glm + polygon_polygon_glm), 2)}
     serialized = json.dumps(content)
     r.set("network_earnings_6h", serialized)
+
+
+@ app.task
+def fetch_yagna_release():
+
+    url = "https://api.github.com/repos/golemfactory/yagna/releases"
+    headers = {'Accept': 'application/vnd.github.v3+json'}
+    releases_info = []
+
+    while url:
+        response = requests.get(url, headers=headers)
+        releases = response.json()
+        for release in releases:
+            if not release['prerelease']:
+                release_data = {
+                    'tag_name': release['tag_name'],
+                    'published_at': release['published_at'],
+                }
+                releases_info.append(release_data)
+        if 'next' in response.links:
+            url = response.links['next']['url']
+        else:
+            url = None
+
+    serialized = json.dumps(releases_info)
+    r.set("yagna_releases", serialized)
 
 
 @ app.task

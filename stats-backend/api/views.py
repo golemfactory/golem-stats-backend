@@ -194,6 +194,19 @@ async def payments_last_n_hours_provider(request, yagna_id, hours):
         content = {'earnings': []}
         return JsonResponse(content, json_dumps_params={'indent': 4})
 
+async def yagna_releases(request):
+    await LogEndpoint("Yagna Releases")
+    if request.method == 'GET':
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("yagna_releases")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
+    else:
+        return HttpResponse(status=400)
 
 async def payments_earnings_provider(request, yagna_id):
     await LogEndpoint("Node Earnings")
