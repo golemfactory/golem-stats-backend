@@ -10,16 +10,12 @@ import statistics
 from api.utils import get_stats_data
 import time
 import redis
-from django.db import transaction
 from datetime import datetime, timedelta, date
 from .models import Node, NetworkStats, NetworkStatsMax, ProvidersComputing, NetworkAveragePricing, NetworkMedianPricing, NetworkAveragePricingMax, NetworkMedianPricingMax, ProvidersComputingMax, Network, Requestors, requestor_scraper_check
 from api2.models import Node as Nodev2
-from django.db import connection
-from django.db.models import Count, Max, Avg, Min
+from django.db.models import Max, Avg, Min
 from api.models import APIHits
 from api.serializers import NodeSerializer, NetworkMedianPricingMaxSerializer, NetworkAveragePricingMaxSerializer, ProvidersComputingMaxSerializer, NetworkStatsMaxSerializer, NetworkStatsSerializer, RequestorSerializer
-from django.core import serializers
-import tempfile
 from django.utils import timezone
 
 
@@ -650,22 +646,21 @@ def provider_accepted_invoices_1h():
 @ app.task
 def online_nodes_computing():
     end = round(time.time())
+    start = end - 60
     providers = Node.objects.filter(online=True)
+    computing_node_ids = []
+
     for node in providers:
-        domain = os.environ.get(
-            'STATS_URL') + f'api/datasources/proxy/40/api/v1/query?query=round(increase(activity_provider_created%7Bhostname%3D~%22{node.node_id}%22%2C%20job%3D~%22community.1%22%7D%5B1795s%5D%20offset%2010s)%20-%20increase(activity_provider_destroyed%7Bhostname%3D~%22{node.node_id}%22%2C%20job%3D~%22community.1%22%7D%5B1795s%5D%20offset%205s))&time={end}'
+        url = f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%22%2C%20hostname%3D~%22{node.node_id}%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%22%2C%20hostname%3D~%22{node.node_id}%22%7D)&start={start}&end={end}&step=30"
+        domain = os.environ.get('STATS_URL') + url
         data = get_stats_data(domain)
-        if data[1] == 200:
-            if data[0]['data']['result']:
-                try:
-                    if int(data[0]['data']['result'][0]['value'][1]) >= 1:
-                        node.computing_now = True
-                        node.save()
-                    else:
-                        node.computing_now = False
-                        node.save()
-                except:
-                    continue
+        if data[1] == 200 and data[0]['status'] == 'success' and data[0]['data']['result']:
+            values = data[0]['data']['result'][0]['values']
+            if any(value[1] == '1' for value in values):
+                computing_node_ids.append(node.pk)
+
+    Node.objects.filter(pk__in=computing_node_ids).update(computing_now=True)
+    Node.objects.exclude(pk__in=computing_node_ids).update(computing_now=False)
 
 
 @ app.task
