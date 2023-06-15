@@ -252,9 +252,18 @@ def network_stats_to_redis():
         disk.append(obj.data['golem.inf.storage.gib'])
     content = {'online': len(query), 'cores': sum(
         cores), 'threads': sum(threads), 'memory': sum(memory), 'disk': sum(disk)}
+
+    mainnet = query.filter(
+        data__has_key="golem.com.payment.platform.erc20-mainnet-glm.address")
+    testnet = query.exclude(
+        data__has_key="golem.com.payment.platform.erc20-mainnet-glm.address")
+
+    content['mainnet'] = mainnet.count()
+    content['testnet'] = testnet.count()
     serialized = json.dumps(content)
     NetworkStats.objects.create(online=len(query), cores=sum(
         threads), memory=sum(memory), disk=sum(disk))
+
     r.set("online_stats", serialized)
 
 
