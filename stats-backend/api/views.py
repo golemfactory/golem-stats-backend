@@ -169,8 +169,9 @@ async def activity_graph_provider(request, yagna_id):
     await LogEndpoint("Node Activity")
     end = round(time.time())
     start = end - 86400
+
     domain = os.environ.get(
-        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query_range?query=sum(changes(activity_provider_usage_0%7Bjob%3D~"community.1"%2C%20instance%3D~"{yagna_id}"%7D%5B60s%5D))&start={start}&end={end}&step=120'
+        'STATS_URL') + f'api/datasources/proxy/40/api/v1/query_range?query=sum(changes(activity_provider_created%7Bjob%3D~"community.1"%2C%20instance%3D~"{yagna_id}"%7D%5B60m%5D))&start={start}&end={end}&step=120'
     data = await get_yastats_data(domain)
     if data[1] == 200:
         return JsonResponse(data[0], json_dumps_params={'indent': 4})
@@ -194,6 +195,7 @@ async def payments_last_n_hours_provider(request, yagna_id, hours):
         content = {'earnings': []}
         return JsonResponse(content, json_dumps_params={'indent': 4})
 
+
 async def yagna_releases(request):
     await LogEndpoint("Yagna Releases")
     if request.method == 'GET':
@@ -207,6 +209,7 @@ async def yagna_releases(request):
         return JsonResponse(data, safe=False, json_dumps_params={'indent': 4})
     else:
         return HttpResponse(status=400)
+
 
 async def payments_earnings_provider(request, yagna_id):
     await LogEndpoint("Node Earnings")
