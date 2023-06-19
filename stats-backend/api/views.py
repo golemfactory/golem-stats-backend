@@ -476,11 +476,10 @@ async def stats_30m(request):
         return HttpResponse(status=400)
 
 
-async def node_wallet(request, wallet):
+def node_wallet(request, wallet):
     """
     Returns all the nodes with the specified wallet address.
     """
-    await LogEndpoint("Node Operator")
     if request.method == 'GET':
         data = Node.objects.filter(wallet=wallet)
         if data != None:
