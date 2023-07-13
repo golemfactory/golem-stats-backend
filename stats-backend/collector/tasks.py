@@ -872,7 +872,7 @@ def v1_offer_scraper_hybrid():
 
     content = r.get("v1_offers_hybrid")
     serialized = json.loads(content)
-    if len(serialized) > 350:
+    if len(serialized) > 100:
         nodes_to_create = []
         nodes_to_update = []
         offline_nodes = set(Node.objects.filter(
