@@ -831,16 +831,12 @@ def online_nodes_computing():
     computing_node_ids = []
 
     for node in providers:
-        url = f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%22%2C%20hostname%3D~%22{node.node_id}%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%22%2C%20hostname%3D~%22{node.node_id}%22%7D)&start={start}&end={end}&step=30"
+        url = f"api/datasources/proxy/40/api/v1/query_range?query=sum(changes(activity_provider_created%7Bjob%3D~%22community.1%22%2C%20instance%3D~%22{node.node_id}%22%7D[60m]))&start={start}&end={end}&step=30"
         domain = os.environ.get("STATS_URL") + url
         data = get_stats_data(domain)
-        if (
-            data[1] == 200
-            and data[0]["status"] == "success"
-            and data[0]["data"]["result"]
-        ):
+        if data[1] == 200 and data[0]["status"] == "success" and data[0]["data"]["result"]:
             values = data[0]["data"]["result"][0]["values"]
-            if any(value[1] == "1" for value in values):
+            if values[-1][1] != "0":
                 computing_node_ids.append(node.pk)
 
     Node.objects.filter(pk__in=computing_node_ids).update(computing_now=True)
