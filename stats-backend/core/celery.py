@@ -50,7 +50,7 @@ def setup_periodic_tasks(sender, **kwargs):
             'routing_key': 'default'}
     )
     sender.add_periodic_task(
-        30.0,
+        240.0,
         latest_blog_posts.s(),
         queue='default',
         options={
