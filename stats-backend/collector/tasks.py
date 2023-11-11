@@ -1095,7 +1095,7 @@ def v1_offer_scraper_hybrid():
     serialized = json.loads(content)
     online_node_count = Node.objects.filter(online=True, hybrid=True).count()
     # Stabilize the chart when running multiple scanners by checking if its atleast 90% of the nodes online before updating. There's a risk that it won't update if more than 10% of the network drops within a single minute.
-    if len(serialized) >= online_node_count * 0.90:
+    if len(serialized) >= online_node_count * 0.70:
         print(f"Updating database with {len(serialized)} nodes.")
         nodes_to_update = []
         offline_nodes = set(
