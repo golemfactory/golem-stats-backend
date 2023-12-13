@@ -38,7 +38,7 @@ RUN mkdir -p $HOME/.local/share/ya-installer/terms
 RUN touch $HOME/.local/share/ya-installer/terms/testnet-01.tag
 ENV PATH=${PATH}:/root/.local/bin/:/root/.local/
 RUN mkdir /root/.local/bin
-ENV MARKET_DB_CLEANUP_INTERVAL=10min
+ENV MARKET_DB_CLEANUP_INTERVAL=60min
 COPY ./check_yagna.sh /check_yagna.sh
 COPY /yagna-builds /yagna
 COPY ./stats-backend/ /stats-backend/

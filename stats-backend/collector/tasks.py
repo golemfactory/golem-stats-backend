@@ -137,8 +137,7 @@ def computing_snapshot_yesterday():
 
     for obj in computing:
         if obj["day"] not in existing_dates:
-            ProvidersComputingMax.objects.create(
-                total=obj["total"], date=obj["day"])
+            ProvidersComputingMax.objects.create(total=obj["total"], date=obj["day"])
 
 
 @app.task
@@ -205,11 +204,9 @@ def network_average_pricing():
             if len(str(pricing_vector["golem.usage.duration_sec"])) < 5:
                 perhour.append(pricing_vector["golem.usage.duration_sec"])
             else:
-                perhour.append(
-                    pricing_vector["golem.usage.duration_sec"] * 3600)
+                perhour.append(pricing_vector["golem.usage.duration_sec"] * 3600)
 
-                start.append(
-                    (obj.data["golem.com.pricing.model.linear.coeffs"][2]))
+                start.append((obj.data["golem.com.pricing.model.linear.coeffs"][2]))
             if len(str(pricing_vector["golem.usage.cpu_sec"])) < 5:
                 cpuhour.append(pricing_vector["golem.usage.cpu_sec"])
             else:
@@ -251,8 +248,7 @@ def network_median_pricing():
             if len(str(pricing_vector["golem.usage.duration_sec"])) < 5:
                 perhour.append(pricing_vector["golem.usage.duration_sec"])
             else:
-                perhour.append(
-                    pricing_vector["golem.usage.duration_sec"] * 3600)
+                perhour.append(pricing_vector["golem.usage.duration_sec"] * 3600)
 
                 startprice.append(
                     (obj.data["golem.com.pricing.model.linear.coeffs"][2])
@@ -355,8 +351,7 @@ def network_stats_to_redis():
 def networkstats_30m():
     now = datetime.now()
     before = now - timedelta(minutes=30)
-    data = NetworkStats.objects.filter(
-        date__range=(before, now)).order_by("date")
+    data = NetworkStats.objects.filter(date__range=(before, now)).order_by("date")
     serializer = NetworkStatsSerializer(data, many=True)
     r.set("stats_30m", json.dumps(serializer.data))
 
@@ -391,15 +386,12 @@ def network_node_versions():
                 version = "0" + obj["value"][1]
                 concatinated = version[0] + "." + version[1] + "." + version[2]
                 Node.objects.filter(node_id=node).update(version=concatinated)
-                Nodev2.objects.filter(node_id=node).update(
-                    version=concatinated)
+                Nodev2.objects.filter(node_id=node).update(version=concatinated)
             elif len(obj["value"][1]) == 3:
                 version = obj["value"][1]
-                concatinated = "0." + version[0] + \
-                    version[1] + "." + version[2]
+                concatinated = "0." + version[0] + version[1] + "." + version[2]
                 Node.objects.filter(node_id=node).update(version=concatinated)
-                Nodev2.objects.filter(node_id=node).update(
-                    version=concatinated)
+                Nodev2.objects.filter(node_id=node).update(version=concatinated)
         except Exception as e:
             print(e)
             continue
@@ -420,8 +412,7 @@ def network_versions_to_redis():
         # Append to array so we can sort
         for obj in data:
             versions_nonsorted.append(
-                {"version": int(obj["metric"]["version"]),
-                 "count": obj["values"][0][1]}
+                {"version": int(obj["metric"]["version"]), "count": obj["values"][0][1]}
             )
         versions_nonsorted.sort(key=lambda x: x["version"], reverse=False)
         for obj in versions_nonsorted:
@@ -430,8 +421,7 @@ def network_versions_to_redis():
             if len(version) == 2:
                 concatinated = "0." + version[0] + "." + version[1]
             elif len(version) == 3:
-                concatinated = "0." + version[0] + \
-                    version[1] + "." + version[2]
+                concatinated = "0." + version[0] + version[1] + "." + version[2]
             versions.append(
                 {
                     "version": concatinated,
@@ -617,8 +607,7 @@ def network_total_earnings():
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]["data"]["result"]:
-            zksync_mainnet_glm = float(
-                data[0]["data"]["result"][0]["value"][1])
+            zksync_mainnet_glm = float(data[0]["data"]["result"][0]["value"][1])
             if zksync_mainnet_glm > 0:
                 db, created = Network.objects.get_or_create(id=1)
                 if created:
@@ -663,8 +652,7 @@ def network_total_earnings():
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]["data"]["result"]:
-            polygon_polygon_glm = float(
-                data[0]["data"]["result"][0]["value"][1])
+            polygon_polygon_glm = float(data[0]["data"]["result"][0]["value"][1])
             if polygon_polygon_glm > 0:
                 db, created = Network.objects.get_or_create(id=1)
                 if created:
@@ -713,8 +701,7 @@ def computing_now_to_redis():
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]["data"]["result"]:
-            content = {"computing_now": data[0]
-                       ["data"]["result"][0]["values"][-1][1]}
+            content = {"computing_now": data[0]["data"]["result"][0]["values"][-1][1]}
             ProvidersComputing.objects.create(
                 total=data[0]["data"]["result"][0]["values"][-1][1]
             )
@@ -834,7 +821,11 @@ def online_nodes_computing():
         url = f"api/datasources/proxy/40/api/v1/query_range?query=sum(changes(activity_provider_created%7Bjob%3D~%22community.1%22%2C%20instance%3D~%22{node.node_id}%22%7D[60m]))&start={start}&end={end}&step=30"
         domain = os.environ.get("STATS_URL") + url
         data = get_stats_data(domain)
-        if data[1] == 200 and data[0]["status"] == "success" and data[0]["data"]["result"]:
+        if (
+            data[1] == 200
+            and data[0]["status"] == "success"
+            and data[0]["data"]["result"]
+        ):
             values = data[0]["data"]["result"][0]["values"]
             if values[-1][1] != "0":
                 computing_node_ids.append(node.pk)
@@ -1039,98 +1030,52 @@ def requestor_scraper():
 def offer_scraper():
     os.chdir("/stats-backend/yapapi/examples/low-level-api")
     with open("data.config") as f:
-        for line in f:
-            command = line
+        command = f.readline().strip()
+
     proc = subprocess.Popen(command, shell=True)
     proc.wait()
-
-    content = r.get("offers")
+    content = r.get("v1_offers")
     serialized = json.loads(content)
+
+    existing_nodes = {node.node_id: node for node in Node.objects.filter(hybrid=True)}
     nodes_to_update = []
-    offline_nodes = set(
-        Node.objects.filter(online=True, hybrid=False).values_list(
-            "node_id", flat=True)
-    )
+    new_nodes = []
 
     for line in serialized:
         data = json.loads(line)
-        provider = data["id"]
+        provider_id = data["id"]
 
-        obj, created = Node.objects.get_or_create(node_id=provider)
-        obj.data = data
-        try:
-            wallet = data["wallet"]
-            obj.wallet = wallet
-        except KeyError:
-            print("No wallet found for node", data)
-            pass
-        obj.online = True
-        obj.updated_at = timezone.now()
-        nodes_to_update.append(obj)
-        if provider in offline_nodes:
-            offline_nodes.remove(provider)
-
-    Node.objects.bulk_update(
-        nodes_to_update, fields=["data", "wallet",
-                                 "online", "updated_at", "hybrid"]
-    )
-
-    # mark offline nodes as offline
-
-    Node.objects.filter(node_id__in=offline_nodes, online=True, hybrid=False).update(
-        online=False, computing_now=False, updated_at=timezone.now()
-    )
-
-
-@app.task
-def v1_offer_scraper_hybrid():
-    os.chdir("/stats-backend/yapapi/examples/low-level-api/hybrid")
-    with open("data.config") as f:
-        for line in f:
-            command = line
-    proc = subprocess.Popen(command, shell=True)
-    proc.wait()
-
-    content = r.get("v1_offers_hybrid")
-    serialized = json.loads(content)
-    online_node_count = Node.objects.filter(online=True, hybrid=True).count()
-    # Stabilize the chart when running multiple scanners by checking if its atleast 90% of the nodes online before updating. There's a risk that it won't update if more than 10% of the network drops within a single minute.
-    if len(serialized) >= online_node_count * 0.70:
-        print(f"Updating database with {len(serialized)} nodes.")
-        nodes_to_update = []
-        offline_nodes = set(
-            Node.objects.filter(online=True, hybrid=True).values_list(
-                "node_id", flat=True
-            )
-        )
-
-        for line in serialized:
-            data = json.loads(line)
-            provider = data["id"]
-
-            obj, created = Node.objects.get_or_create(node_id=provider)
-            obj.data = data
+        # Check if the node already exists
+        if provider_id in existing_nodes:
+            node = existing_nodes[provider_id]
+            node.data = data
             try:
                 wallet = data["wallet"]
-                obj.wallet = wallet
+                node.wallet = wallet
             except KeyError:
                 print("No wallet found for node", data)
                 pass
-            obj.online = True
-            obj.hybrid = True
-            obj.updated_at = timezone.now()
-            nodes_to_update.append(obj)
-            if provider in offline_nodes:
-                offline_nodes.remove(provider)
+            node.updated_at = timezone.now()
+            nodes_to_update.append(node)
+        else:
+            new_node = Node(
+                node_id=provider_id,
+                data=data,
+                wallet=data.get("wallet"),
+                hybrid=True,
+                updated_at=timezone.now(),
+            )
+            new_nodes.append(new_node)
 
-        Node.objects.bulk_update(
-            nodes_to_update, fields=["data", "wallet",
-                                     "online", "updated_at", "hybrid"]
-        )
+    # Verify online status for both existing and new nodes
+    for node in nodes_to_update + new_nodes:
+        command = f"yagna net find {node.node_id}"
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        is_online = "Exiting..., error details: Request failed" not in result.stderr
+        node.online = is_online
 
-        # mark offline nodes as offline
-        Node.objects.filter(node_id__in=offline_nodes, online=True, hybrid=True).update(
-            online=False, computing_now=False, updated_at=timezone.now()
-        )
-    else:
-        print(f"Only {len(serialized)} nodes are online, which is not equal to 90% of the online nodes. Skipping database update.")
+    # Bulk update and create
+    Node.objects.bulk_update(
+        nodes_to_update, fields=["data", "wallet", "online", "updated_at"]
+    )
+    Node.objects.bulk_create(new_nodes)
