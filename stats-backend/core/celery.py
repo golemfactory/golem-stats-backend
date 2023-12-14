@@ -22,8 +22,7 @@ def setup_periodic_tasks(sender, **kwargs):
         network_utilization_to_redis,
         computing_now_to_redis,
         providers_average_earnings_to_redis,
-        network_earnings_6h_to_redis,
-        network_earnings_24h_to_redis,
+        network_earnings,
         network_total_earnings,
         network_versions_to_redis,
         node_earnings_total,
@@ -50,7 +49,6 @@ def setup_periodic_tasks(sender, **kwargs):
         v2_cheapest_provider,
         latest_blog_posts,
         v2_cheapest_offer,
-        
         v2_network_online_to_redis_flatmap,
     )
 
@@ -247,7 +245,7 @@ def setup_periodic_tasks(sender, **kwargs):
     )
     sender.add_periodic_task(
         10.0,
-        network_earnings_24h_to_redis.s(),
+        network_earnings.s(hours="6h"),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
@@ -259,7 +257,7 @@ def setup_periodic_tasks(sender, **kwargs):
     )
     sender.add_periodic_task(
         10.0,
-        network_earnings_6h_to_redis.s(),
+        network_earnings.s(hours="24h"),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
