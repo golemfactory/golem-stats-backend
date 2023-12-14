@@ -27,7 +27,7 @@ async def list_offers(conf: Configuration, subnet_tag: str):
             dbuild.properties, dbuild.constraints
         ) as subscription:
             async for event in subscription.events():
-                if event.props["golem.runtime.name"] != "wasmtimee":
+                if event.props["golem.runtime.name"] != "wasmtime":
                     if event.issuer in str(test):
                         continue
                     else:
