@@ -785,53 +785,66 @@ def offer_scraper():
         with open("data.config") as f:
             command = f.readline().strip()
 
-        proc = subprocess.run(
-            command, shell=True, capture_output=True, text=True, check=True
-        )
+        subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
         content = r.get("v1_offers")
-        serialized = json.loads(content)
+        serialized_content = json.loads(content) if content else []
 
-        nodes_to_update = []
-        nodes_to_create = []
+        serialized_ids = {json.loads(offer)["id"] for offer in serialized_content}
+        recent_nodes_qs = Node.objects.filter(
+            updated_at__gte=timezone.now() - timezone.timedelta(hours=1)
+        )
+        recent_nodes = {node.node_id: node for node in recent_nodes_qs}
 
-        # Retrieving existing Node objects for comparison
-        existing_nodes = {node.node_id: node for node in Node.objects.all()}
+        nodes_to_update, nodes_to_create = [], []
 
-        for offer in serialized:
-            data = json.loads(offer)
-            provider_id = data["id"]
-            try:
-                wallet = data["wallet"]
-            except:
-                continue
-            node_data = {
-                "data": data,
-                "wallet": data.get("wallet"),
-                "updated_at": timezone.now(),
-                "hybrid": True,
-            }
-            node = existing_nodes.get(provider_id)
-
-            # Verify online status with 'yagna net find'
-            online_command = f"yagna net find {provider_id}"
+        for node_id in recent_nodes:
+            node = recent_nodes[node_id]
+            online = False
+            if node_id in serialized_ids:
+                node_data = next(
+                    (
+                        json.loads(offer)
+                        for offer in serialized_content
+                        if json.loads(offer)["id"] == node_id
+                    ),
+                    None,
+                )
+                if node_data:
+                    node.data = node_data
+                    node.wallet = node_data.get("wallet")
+                online = True
+            node.updated_at = timezone.now()
+            online_command = f"yagna net find {node_id}"
             online_proc = subprocess.run(
                 online_command, shell=True, capture_output=True, text=True
             )
-            node_data["online"] = "Request failed" not in online_proc.stderr
+            node.online = online and "Request failed" not in online_proc.stderr
+            nodes_to_update.append(node)
 
-            if node:
-                for key, value in node_data.items():
-                    setattr(node, key, value)
-                nodes_to_update.append(node)
-            else:
-                node_data["node_id"] = provider_id
-                nodes_to_create.append(Node(**node_data))
+        for offer in serialized_content:
+            data = json.loads(offer)
+            provider_id = data["id"]
+            if provider_id not in recent_nodes:
+                online_command = f"yagna net find {provider_id}"
+                online_proc = subprocess.run(
+                    online_command, shell=True, capture_output=True, text=True
+                )
+                online = "Request failed" not in online_proc.stderr
+                if online:
+                    nodes_to_create.append(
+                        Node(
+                            node_id=provider_id,
+                            data=data,
+                            wallet=data.get("wallet"),
+                            updated_at=timezone.now(),
+                            online=online,
+                            hybrid=True,
+                        )
+                    )
 
-        # Bulk update for existing nodes
         Node.objects.bulk_update(
             nodes_to_update, fields=["data", "wallet", "online", "updated_at"]
         )
-        # Bulk create for new nodes
         Node.objects.bulk_create(nodes_to_create)
 
     except Exception as e:
