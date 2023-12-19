@@ -795,9 +795,7 @@ def offer_scraper():
         nodes_to_create = []
 
         # Retrieving existing Node objects for comparison
-        existing_nodes = {
-            node.node_id: node for node in Node.objects.filter(hybrid=True)
-        }
+        existing_nodes = {node.node_id: node for node in Node.objects.all()}
 
         for offer in serialized:
             data = json.loads(offer)
@@ -810,7 +808,7 @@ def offer_scraper():
                 "data": data,
                 "wallet": data.get("wallet"),
                 "updated_at": timezone.now(),
-                "hybrid": True,  # Assuming all nodes in offers are hybrid
+                "hybrid": True,
             }
             node = existing_nodes.get(provider_id)
 
