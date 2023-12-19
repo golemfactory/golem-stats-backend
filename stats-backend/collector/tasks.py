@@ -781,6 +781,7 @@ def requestor_scraper():
 def offer_scraper():
     try:
         os.chdir("/stats-backend/yapapi/examples/low-level-api")
+
         with open("data.config") as f:
             command = f.readline().strip()
 
@@ -790,106 +791,50 @@ def offer_scraper():
         content = r.get("v1_offers")
         serialized = json.loads(content)
 
+        nodes_to_update = []
+        nodes_to_create = []
+
+        # Retrieving existing Node objects for comparison
         existing_nodes = {
             node.node_id: node for node in Node.objects.filter(hybrid=True)
         }
-        nodes_to_update = []
-        new_node_data = []
 
-        for line in serialized:
-            data = json.loads(line)
+        for offer in serialized:
+            data = json.loads(offer)
             provider_id = data["id"]
             try:
-                # Check if the node has a wallet... previously this has broken it when some node didnt
                 wallet = data["wallet"]
             except:
                 continue
+            node_data = {
+                "data": data,
+                "wallet": data.get("wallet"),
+                "updated_at": timezone.now(),
+                "hybrid": True,  # Assuming all nodes in offers are hybrid
+            }
+            node = existing_nodes.get(provider_id)
 
-            if provider_id in existing_nodes:
-                node = existing_nodes[provider_id]
-                node.data = data
-                node.wallet = data.get("wallet")
-                node.updated_at = timezone.now()
+            # Verify online status with 'yagna net find'
+            online_command = f"yagna net find {provider_id}"
+            online_proc = subprocess.run(
+                online_command, shell=True, capture_output=True, text=True
+            )
+            node_data["online"] = "Request failed" not in online_proc.stderr
+
+            if node:
+                for key, value in node_data.items():
+                    setattr(node, key, value)
                 nodes_to_update.append(node)
             else:
-                new_node_data.append(data)
+                node_data["node_id"] = provider_id
+                nodes_to_create.append(Node(**node_data))
 
+        # Bulk update for existing nodes
         Node.objects.bulk_update(
             nodes_to_update, fields=["data", "wallet", "online", "updated_at"]
         )
+        # Bulk create for new nodes
+        Node.objects.bulk_create(nodes_to_create)
 
-        for data in new_node_data:
-            Node.objects.get_or_create(
-                node_id=data["id"],
-                defaults={
-                    "data": data,
-                    "wallet": data.get("wallet"),
-                    "hybrid": True,
-                    "updated_at": timezone.now(),
-                },
-            )
-
-        all_nodes = nodes_to_update + [
-            Node(node_id=data["id"]) for data in new_node_data
-        ]
-        for node in all_nodes:
-            command = f"yagna net find {node.node_id}"
-            result = subprocess.run(
-                command, shell=True, capture_output=True, text=True, check=False
-            )
-            node.online = "Request failed" not in result.stderr
-
-        Node.objects.bulk_update(all_nodes, fields=["online"])
     except Exception as e:
         logging.error(f"An error occurred in offer_scraper: {e}", exc_info=True)
-    os.chdir("/stats-backend/yapapi/examples/low-level-api")
-    with open("data.config") as f:
-        command = f.readline().strip()
-
-    proc = subprocess.Popen(command, shell=True)
-    proc.wait()
-    content = r.get("v1_offers")
-    serialized = json.loads(content)
-
-    existing_nodes = {node.node_id: node for node in Node.objects.all()}
-    nodes_to_update = []
-    new_nodes = []
-
-    for line in serialized:
-        data = json.loads(line)
-        provider_id = data["id"]
-
-        # Check if the node already exists
-        if provider_id in existing_nodes:
-            node = existing_nodes[provider_id]
-            node.data = data
-            try:
-                wallet = data["wallet"]
-                node.wallet = wallet
-            except KeyError:
-                print("No wallet found for node", data)
-                pass
-            node.updated_at = timezone.now()
-            nodes_to_update.append(node)
-        else:
-            new_node = Node(
-                node_id=provider_id,
-                data=data,
-                wallet=data.get("wallet"),
-                hybrid=True,
-                updated_at=timezone.now(),
-            )
-            new_nodes.append(new_node)
-
-    # Verify online status for both existing and new nodes
-    for node in nodes_to_update + new_nodes:
-        command = f"yagna net find {node.node_id}"
-        result = subprocess.run(command, shell=True, capture_output=True, text=True)
-        is_online = "Exiting..., error details: Request failed" not in result.stderr
-        node.online = is_online
-
-    # Bulk update and create
-    Node.objects.bulk_update(
-        nodes_to_update, fields=["data", "wallet", "online", "updated_at"]
-    )
-    Node.objects.bulk_create(new_nodes)
