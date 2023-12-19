@@ -39,7 +39,7 @@ from api.serializers import (
     RequestorSerializer,
 )
 from django.utils import timezone
-
+import logging
 
 # jsonmsg = {"user_id": elem, "path": "/src/data/user_avatars/" + elem + ".png"}
 # r.lpush("image_classifier", json.dumps(jsonmsg))
@@ -779,6 +779,69 @@ def requestor_scraper():
 
 @app.task
 def offer_scraper():
+    try:
+        os.chdir("/stats-backend/yapapi/examples/low-level-api")
+        with open("data.config") as f:
+            command = f.readline().strip()
+
+        proc = subprocess.run(
+            command, shell=True, capture_output=True, text=True, check=True
+        )
+        content = r.get("v1_offers")
+        serialized = json.loads(content)
+
+        existing_nodes = {
+            node.node_id: node for node in Node.objects.filter(hybrid=True)
+        }
+        nodes_to_update = []
+        new_node_data = []
+
+        for line in serialized:
+            data = json.loads(line)
+            provider_id = data["id"]
+            try:
+                # Check if the node has a wallet... previously this has broken it when some node didnt
+                wallet = data["wallet"]
+            except:
+                continue
+
+            if provider_id in existing_nodes:
+                node = existing_nodes[provider_id]
+                node.data = data
+                node.wallet = data.get("wallet")
+                node.updated_at = timezone.now()
+                nodes_to_update.append(node)
+            else:
+                new_node_data.append(data)
+
+        Node.objects.bulk_update(
+            nodes_to_update, fields=["data", "wallet", "online", "updated_at"]
+        )
+
+        for data in new_node_data:
+            Node.objects.get_or_create(
+                node_id=data["id"],
+                defaults={
+                    "data": data,
+                    "wallet": data.get("wallet"),
+                    "hybrid": True,
+                    "updated_at": timezone.now(),
+                },
+            )
+
+        all_nodes = nodes_to_update + [
+            Node(node_id=data["id"]) for data in new_node_data
+        ]
+        for node in all_nodes:
+            command = f"yagna net find {node.node_id}"
+            result = subprocess.run(
+                command, shell=True, capture_output=True, text=True, check=False
+            )
+            node.online = "Request failed" not in result.stderr
+
+        Node.objects.bulk_update(all_nodes, fields=["online"])
+    except Exception as e:
+        logging.error(f"An error occurred in offer_scraper: {e}", exc_info=True)
     os.chdir("/stats-backend/yapapi/examples/low-level-api")
     with open("data.config") as f:
         command = f.readline().strip()
@@ -788,7 +851,7 @@ def offer_scraper():
     content = r.get("v1_offers")
     serialized = json.loads(content)
 
-    existing_nodes = {node.node_id: node for node in Node.objects.filter(hybrid=True)}
+    existing_nodes = {node.node_id: node for node in Node.objects.all()}
     nodes_to_update = []
     new_nodes = []
 
