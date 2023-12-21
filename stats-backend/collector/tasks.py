@@ -26,7 +26,8 @@ from .models import (
     Requestors,
     requestor_scraper_check,
 )
-from api2.models import Node as Nodev2
+
+from api2.models import Node as Nodev2, Offer
 from django.db.models import Max, Avg, Min
 from api.models import APIHits
 from api.serializers import (
@@ -317,32 +318,50 @@ def network_stats_to_redis():
     threads = []
     memory = []
     disk = []
-    query = Node.objects.filter(online=True)
-    for obj in query:
-        cores.append(obj.data["golem.inf.cpu.cores"])
-        threads.append(obj.data["golem.inf.cpu.threads"])
-        memory.append(obj.data["golem.inf.mem.gib"])
-        disk.append(obj.data["golem.inf.storage.gib"])
+
+    # Filter Offers with runtime 'vm' and related online Nodes
+    vm_offers_query = Offer.objects.filter(
+        runtime="vm",
+        provider__online=True,  # Accessing related Node instances that are online
+    )
+
+    for offer in vm_offers_query:
+        properties = offer.properties
+
+        if properties:
+            # Extracting the required properties from the JSON field
+            cores.append(properties.get("golem.inf.cpu.cores", 0))
+            threads.append(properties.get("golem.inf.cpu.threads", 0))
+            memory.append(properties.get("golem.inf.mem.gib", 0.0))
+            disk.append(properties.get("golem.inf.storage.gib", 0.0))
+
+    # Filtering for mainnet and testnet
+    mainnet_offers = vm_offers_query.filter(
+        properties__has_key="golem.com.payment.platform.erc20-mainnet-glm.address"
+    )
+    testnet_offers = vm_offers_query.exclude(
+        properties__has_key="golem.com.payment.platform.erc20-mainnet-glm.address"
+    )
+
     content = {
-        "online": len(query),
+        "online": vm_offers_query.count(),
         "cores": sum(cores),
         "threads": sum(threads),
         "memory": sum(memory),
         "disk": sum(disk),
+        "mainnet": mainnet_offers.count(),
+        "testnet": testnet_offers.count(),
     }
 
-    mainnet = query.filter(
-        data__has_key="golem.com.payment.platform.erc20-mainnet-glm.address"
-    )
-    testnet = query.exclude(
-        data__has_key="golem.com.payment.platform.erc20-mainnet-glm.address"
-    )
+    # Further analysis and serialization
+    # (The mainnet and testnet logic might need to be revised based on how they relate to the Offer model)
 
-    content["mainnet"] = mainnet.count()
-    content["testnet"] = testnet.count()
     serialized = json.dumps(content)
     NetworkStats.objects.create(
-        online=len(query), cores=sum(threads), memory=sum(memory), disk=sum(disk)
+        online=vm_offers_query.count(),
+        cores=sum(cores),
+        memory=sum(memory),
+        disk=sum(disk),
     )
 
     r.set("online_stats", serialized)
