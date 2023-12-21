@@ -48,9 +48,9 @@ async def node_wallet(request, wallet):
     Returns all the nodes with the specified wallet address.
     """
     if request.method == 'GET':
-        data = NodeV1.objects.filter(wallet=wallet)
+        data = Node.objects.filter(wallet=wallet)
         if data != None:
-            serializer = FlatNodeSerializer(data, many=True)
+            serializer = NodeSerializer(data, many=True)
             return JsonResponse(serializer.data, safe=False, json_dumps_params={'indent': 4})
         else:
             return HttpResponse(status=404)
