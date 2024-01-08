@@ -190,7 +190,7 @@ def setup_periodic_tasks(sender, **kwargs):
         options={"queue": "default", "routing_key": "default"},
     )
     sender.add_periodic_task(
-        crontab(minute="*/1"),
+        crontab(minute="*/10"),
         node_earnings_total.s(node_version="v2"),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
