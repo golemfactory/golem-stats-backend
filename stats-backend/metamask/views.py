@@ -10,11 +10,16 @@ from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from .jwt import CustomToken
 from django.contrib.auth.models import User
 
+from django.shortcuts import get_object_or_404
+
 
 @api_view(["GET"])
 def find_user_by_wallet_address(request):
     wallet_address = request.GET.get("walletAddress")
-    user_profile = UserProfile.objects.get(wallet_address=wallet_address)
+
+    # Use get_object_or_404 instead of objects.get for handling non-existent cases
+    user_profile = get_object_or_404(UserProfile, wallet_address=wallet_address)
+
     user = user_profile.user
     return Response(
         {
