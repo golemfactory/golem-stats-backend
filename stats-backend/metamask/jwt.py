@@ -5,5 +5,5 @@ class CustomToken(RefreshToken):
     def for_user(cls, user):
         token = super().for_user(user)
         # Add custom claims
-        token['wallet_address'] = user.wallet_address
+        token['wallet_address'] = user.userprofile.wallet_address
         return token

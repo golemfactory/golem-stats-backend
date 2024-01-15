@@ -196,7 +196,7 @@ def verify_provider_is_working(request):
             {"error": "node_id is required"}, status=status.HTTP_400_BAD_REQUEST
         )
 
-    checksum_address_user = Web3.to_checksum_address(request.user.wallet_address)
+    checksum_address_user = Web3.to_checksum_address(request.user.userprofile.wallet_address)
     checksum_address_provider = Web3.to_checksum_address(provider.wallet)
     if checksum_address_user != checksum_address_provider:
         return Response(
