@@ -26,12 +26,26 @@ sleep 5
 cd /stats-backend/ && cd yapapi && git checkout b0.5
 
 #key=$(/root/.local/bin/yagna app-key create requester) && export YAGNA_APPKEY=$key && npm run ts:low -- --subnet-tag public-beta
-if [ -f "/key.json" ]; then
-    echo "Restoring wallet from /key.json"
-    address=$(jq -r '.address' /key.json)
+# Define the base file name
+BASE_KEY_FILE="key"
+
+# Check if REPLICA is set and non-empty
+if [ -n "$REPLICA" ]; then
+    KEY_FILE="${BASE_KEY_FILE}-${REPLICA}.json"
+else
+    KEY_FILE="${BASE_KEY_FILE}.json"
+fi
+
+# Path to the key file
+KEY_PATH="/${KEY_FILE}"
+
+# Check if the key file exists
+if [ -f "$KEY_PATH" ]; then
+    echo "Restoring wallet from $KEY_PATH"
+    address=$(jq -r '.address' "$KEY_PATH")
     echo "Found wallet with address: 0x${address}"
-    yagna id create --from-keystore /key.json
-    /root/.local/bin/yagna id update --set-default 0x${address}
+    yagna id create --from-keystore "$KEY_PATH"
+    /root/.local/bin/yagna id update --set-default "0x${address}"
     killall yagna
     sleep 5
     rm $HOME/.local/share/yagna/accounts.json
