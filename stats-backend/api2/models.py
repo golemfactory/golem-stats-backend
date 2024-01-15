@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
-
+from django.db.models.functions import Extract, Coalesce, Lag
+from metamask.models import User
 
 # Create your models here.
 
@@ -25,4 +26,15 @@ class Offer(models.Model):
     monthly_price_glm = models.FloatField(null=True, blank=True)
 
     class Meta:
-        unique_together = ('runtime', 'provider',)
+        unique_together = (
+            "runtime",
+            "provider",
+        )
+
+
+class HealtcheckTask(models.Model):
+    provider = models.ForeignKey(Node, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    status = models.TextField()
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)

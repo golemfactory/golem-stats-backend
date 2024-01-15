@@ -10,6 +10,7 @@ from yapapi.log import enable_default_logger
 from yapapi.props.builder import DemandBuilder
 from yapapi.rest import Configuration, Market, Activity, Payment  # noqa
 import redis
+from yapapi.config import ApiConfig
 
 
 data = []
@@ -131,7 +132,7 @@ def main():
         asyncio.get_event_loop().run_until_complete(
             asyncio.wait_for(
                 list_offers(
-                    Configuration(),
+                    Configuration(api_config=ApiConfig()),  # YAGNA_APPKEY will be loaded from env
                     subnet_tag="public",
                 ),
                 timeout=60,

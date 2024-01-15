@@ -47,7 +47,7 @@ ALLOWED_HOSTS = json.loads(os.environ["ALLOWED_HOSTS"])
 
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
-USE_TZ = True
+USE_TZ = False
 
 TIME_ZONE = "Europe/Copenhagen"
 
@@ -68,7 +68,15 @@ INSTALLED_APPS = [
     "celery",
     "corsheaders",
     "collector",
+    "metamask",
 ]
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}
+
+AUTH_USER_MODEL = 'metamask.User'
 
 
 MIDDLEWARE = [
@@ -130,6 +138,16 @@ if (
     DATABASES["default"]["ENGINE"] = "django.db.backends.sqlite3"
     DATABASES["default"]["NAME"] = ":memory:"
 
+
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': True,
+
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
