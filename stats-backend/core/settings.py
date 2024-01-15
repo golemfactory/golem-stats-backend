@@ -68,7 +68,7 @@ INSTALLED_APPS = [
     "celery",
     "corsheaders",
     "collector",
-    "metamask",
+    # "metamask",
 ]
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -76,7 +76,7 @@ REST_FRAMEWORK = {
     )
 }
 
-AUTH_USER_MODEL = 'metamask.User'
+# AUTH_USER_MODEL = 'metamask.User'
 
 
 MIDDLEWARE = [
