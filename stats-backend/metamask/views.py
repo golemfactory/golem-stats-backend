@@ -34,22 +34,18 @@ def find_user_by_wallet_address(request):
 def create_user_on_backend(request):
     wallet_address = request.data.get("walletAddress")
 
-    # Check if a UserProfile with this wallet_address already exists
-    profile, profile_created = UserProfile.objects.get_or_create(
-        wallet_address=wallet_address
-    )
-
-    if profile_created:
-        # Create a new User instance with an unusable password
+    # First, check if a UserProfile with this wallet_address already exists
+    try:
+        profile = UserProfile.objects.get(wallet_address=wallet_address)
+        user = profile.user
+    except UserProfile.DoesNotExist:
+        # If not, create a new User and UserProfile
         user = User.objects.create_user(
             username=wallet_address, password=None
-        )  # Generate or define a unique username
-        profile.user = user
-        profile.web3_nonce = generate_nonce()
-        profile.save()
-    else:
-        # If UserProfile exists, get the associated User
-        user = profile.user
+        )  # Generate a unique username
+        profile = UserProfile.objects.create(
+            user=user, wallet_address=wallet_address, web3_nonce=generate_nonce()
+        )
 
     return Response(
         {
