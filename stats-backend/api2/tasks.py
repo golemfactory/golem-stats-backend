@@ -406,6 +406,8 @@ def v2_offer_scraper():
                         offerobj.times_more_expensive = offerobj.monthly_price_usd / (float(closest_ec2.price_usd) * 730)
                     else:
                         offerobj.overpriced_compared_to = None
+                        offerobj.suggest_env_per_hour_price = None
+                        offerobj.times_more_expensive = None
                     
                 else:
                     print("No matching EC2Instance found or monthly pricing is not available.")
@@ -470,6 +472,9 @@ def v2_offer_scraper():
                         offerobj.times_more_expensive = offerobj.monthly_price_usd / (float(closest_ec2.price_usd) * 730)
                     else:
                         offerobj.overpriced_compared_to = None
+                        offerobj.suggest_env_per_hour_price = None
+                        offerobj.times_more_expensive = None
+                        
                     
                 else:
                     print("No matching EC2Instance found or monthly pricing is not available.")
