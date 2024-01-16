@@ -8,14 +8,15 @@ class EC2InstanceSerializer(serializers.ModelSerializer):
 
 class OfferSerializer(serializers.ModelSerializer):
     overpriced_compared_to = EC2InstanceSerializer(read_only=True)
-
+    cheaper_than = EC2InstanceSerializer(read_only=True)  # Serialize the cheaper_than field
 
     class Meta:
         model = Offer
         fields = [
             "runtime", "monthly_price_glm", "properties",
             "updated_at", "monthly_price_usd", "is_overpriced",
-            "overpriced_compared_to", "suggest_env_per_hour_price", "times_more_expensive"
+            "overpriced_compared_to", "suggest_env_per_hour_price", "times_more_expensive",
+            "cheaper_than", "times_cheaper",
         ]
 
 class NodeSerializer(serializers.ModelSerializer):

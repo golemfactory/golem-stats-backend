@@ -38,7 +38,8 @@ class Offer(models.Model):
     overpriced_compared_to = models.ForeignKey(EC2Instance, on_delete=models.CASCADE, null=True)
     suggest_env_per_hour_price = models.FloatField(null=True)
     times_more_expensive = models.FloatField(null=True)
-
+    cheaper_than = models.ForeignKey(EC2Instance, on_delete=models.CASCADE, null=True, related_name='cheaper_offers')
+    times_cheaper = models.FloatField(null=True)
     class Meta:
         unique_together = (
             "runtime",

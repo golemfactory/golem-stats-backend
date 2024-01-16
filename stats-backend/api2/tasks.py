@@ -396,18 +396,20 @@ def v2_offer_scraper():
 
                 # Compare and update the Offer object
                 if closest_ec2 and monthly_pricing:
-                    offer_is_more_expensive = offerobj.monthly_price_usd > closest_ec2.price_usd * 730
+                    offer_price_usd = monthly_pricing * glm_usd_value.current_price
+                    ec2_monthly_price = closest_ec2.price_usd * 730
 
-                    # Update Offer object fields
+                    offer_is_more_expensive = offer_price_usd > ec2_monthly_price
+                    offer_is_cheaper = offer_price_usd < ec2_monthly_price
+
+                    # Update Offer object fields for expensive comparison
                     offerobj.is_overpriced = offer_is_more_expensive
-                    if offer_is_more_expensive:
-                        offerobj.overpriced_compared_to = closest_ec2
-                        offerobj.suggest_env_per_hour_price = round_to_three_decimals(closest_ec2.price_usd / Decimal(glm_usd_value.current_price))
-                        offerobj.times_more_expensive = offerobj.monthly_price_usd / (float(closest_ec2.price_usd) * 730)
-                    else:
-                        offerobj.overpriced_compared_to = None
-                        offerobj.suggest_env_per_hour_price = None
-                        offerobj.times_more_expensive = None
+                    offerobj.overpriced_compared_to = closest_ec2 if offer_is_more_expensive else None
+                    offerobj.times_more_expensive = offer_price_usd / float(ec2_monthly_price) if offer_is_more_expensive else None
+
+                    # Update Offer object fields for cheaper comparison
+                    offerobj.cheaper_than = closest_ec2 if offer_is_cheaper else None
+                    offerobj.times_cheaper = float(ec2_monthly_price) / offer_price_usd if offer_is_cheaper else None
                     
                 else:
                     print("No matching EC2Instance found or monthly pricing is not available.")
@@ -461,19 +463,20 @@ def v2_offer_scraper():
 
                 # Compare and update the Offer object
                 if closest_ec2 and monthly_pricing:
-                    offer_is_more_expensive = offerobj.monthly_price_usd > closest_ec2.price_usd * 730
+                    offer_price_usd = monthly_pricing * glm_usd_value.current_price
+                    ec2_monthly_price = closest_ec2.price_usd * 730
 
-                    # Update Offer object fields
+                    offer_is_more_expensive = offer_price_usd > ec2_monthly_price
+                    offer_is_cheaper = offer_price_usd < ec2_monthly_price
+
+                    # Update Offer object fields for expensive comparison
                     offerobj.is_overpriced = offer_is_more_expensive
-                    if offer_is_more_expensive:
-                        offerobj.overpriced_compared_to = closest_ec2
-                        offerobj.suggest_env_per_hour_price = round_to_three_decimals(closest_ec2.price_usd / Decimal(glm_usd_value.current_price))
-                        
-                        offerobj.times_more_expensive = offerobj.monthly_price_usd / (float(closest_ec2.price_usd) * 730)
-                    else:
-                        offerobj.overpriced_compared_to = None
-                        offerobj.suggest_env_per_hour_price = None
-                        offerobj.times_more_expensive = None
+                    offerobj.overpriced_compared_to = closest_ec2 if offer_is_more_expensive else None
+                    offerobj.times_more_expensive = offer_price_usd / float(ec2_monthly_price) if offer_is_more_expensive else None
+
+                    # Update Offer object fields for cheaper comparison
+                    offerobj.cheaper_than = closest_ec2 if offer_is_cheaper else None
+                    offerobj.times_cheaper = float(ec2_monthly_price) / offer_price_usd if offer_is_cheaper else None
                         
                     
                 else:
