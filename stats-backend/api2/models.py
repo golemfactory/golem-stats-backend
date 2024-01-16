@@ -17,6 +17,15 @@ class Node(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
+class EC2Instance(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    vcpu = models.IntegerField(null=True)
+    memory = models.FloatField(null=True)  # Assuming memory is in GB
+    price_usd = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+
+    def __str__(self):
+        return self.name
+
 class Offer(models.Model):
     properties = models.JSONField(null=True)
     runtime = models.CharField(max_length=42)
@@ -24,6 +33,11 @@ class Offer(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
     monthly_price_glm = models.FloatField(null=True, blank=True)
+    monthly_price_usd = models.FloatField(null=True, blank=True)
+    is_overpriced = models.BooleanField(default=False)
+    overpriced_compared_to = models.ForeignKey(EC2Instance, on_delete=models.CASCADE, null=True)
+    suggest_env_per_hour_price = models.FloatField(null=True)
+    times_more_expensive = models.FloatField(null=True)
 
     class Meta:
         unique_together = (
@@ -38,3 +52,10 @@ class HealtcheckTask(models.Model):
     status = models.TextField()
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class GLM(models.Model):
+    current_price = models.FloatField(null=True)
+
+
+

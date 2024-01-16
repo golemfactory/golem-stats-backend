@@ -50,6 +50,8 @@ def setup_periodic_tasks(sender, **kwargs):
         latest_blog_posts,
         v2_cheapest_offer,
         v2_network_online_to_redis_flatmap,
+        get_current_glm_price,
+        store_ec2_info
     )
 
     sender.add_periodic_task(
@@ -57,6 +59,12 @@ def setup_periodic_tasks(sender, **kwargs):
         offer_scraper.s(),
         queue="yagna",
         options={"queue": "yagna", "routing_key": "yagna"},
+    )
+    sender.add_periodic_task(
+        crontab(hour="*/24"),
+        store_ec2_info.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
     )
     sender.add_periodic_task(
         crontab(minute="*/60"),
@@ -110,6 +118,12 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         10.0,
         requestor_scraper.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        60.0,
+        get_current_glm_price.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )

@@ -3,7 +3,7 @@ from celery import Celery
 import json
 import subprocess
 import os
-from .models import Node, Offer
+from .models import Node, Offer, GLM, EC2Instance
 from django.utils import timezone
 import tempfile
 import redis
@@ -13,7 +13,10 @@ import datetime
 import requests
 from api.serializers import FlatNodeSerializer
 from collector.models import Node as NodeV1
-
+from django.db.models import F
+from django.db.models.functions import Abs
+from decimal import Decimal
+from .utils import get_pricing, get_ec2_products, find_cheapest_price, has_vcpu_memory, round_to_three_decimals
 
 pool = redis.ConnectionPool(host="redis", port=6379, db=0)
 r = redis.Redis(connection_pool=pool)
@@ -324,6 +327,20 @@ def v2_cheapest_provider():
 
 
 @app.task
+def get_current_glm_price():
+    url = "https://api.coingecko.com/api/v3/coins/ethereum/contract/0x7DD9c5Cba05E151C895FDe1CF355C9A1D5DA6429"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        price = str(data['market_data']['current_price']['usd'])[0:5]
+        obj, created = GLM.objects.get_or_create(id=1)
+        obj.current_price = price
+        obj.save()
+    else:
+        print("Failed to retrieve data")
+
+
+@app.task
 def v2_offer_scraper():
     os.chdir("/stats-backend/yapapi/examples/low-level-api/v2")
     with open("data.config") as f:
@@ -336,6 +353,7 @@ def v2_offer_scraper():
     now = datetime.datetime.now()
     days_in_current_month = calendar.monthrange(now.year, now.month)[1]
     seconds_current_month = days_in_current_month * 24 * 60 * 60
+    glm_usd_value = GLM.objects.get(id=1)
     for line in serialized:
         data = json.loads(line)
         provider = data["id"]
@@ -361,11 +379,43 @@ def v2_offer_scraper():
                             vectors["golem.usage.cpu_sec"]
                         ]
                         * seconds_current_month
-                        * data["golem.inf.cpu.cores"]
+                        * data["golem.inf.cpu.threads"]
                     )
                     + data["golem.com.pricing.model.linear.coeffs"][-1]
                 )
+                if not monthly_pricing:
+                    print(f"Monthly price is {monthly_pricing}")
                 offerobj.monthly_price_glm = monthly_pricing
+                offerobj.monthly_price_usd = monthly_pricing * glm_usd_value.current_price
+                vcpu_needed = data.get("golem.inf.cpu.threads", 0)
+                memory_needed = data.get("golem.inf.mem.gib", 0.0)
+                closest_ec2 = EC2Instance.objects.annotate(
+                    cpu_diff=Abs(F('vcpu') - vcpu_needed),
+                    memory_diff=Abs(F('memory') - memory_needed)
+                ).order_by('cpu_diff', 'memory_diff', 'price_usd').first()
+
+                # Compare and update the Offer object
+                if closest_ec2 and monthly_pricing:
+                    offer_is_more_expensive = offerobj.monthly_price_usd > closest_ec2.price_usd
+                    comparison_result = "more expensive" if offer_is_more_expensive else "cheaper"
+
+                    # Update Offer object fields
+                    offerobj.is_overpriced = offer_is_more_expensive
+                    if offer_is_more_expensive:
+                        offerobj.overpriced_compared_to = closest_ec2
+                        offerobj.suggest_env_per_hour_price = round_to_three_decimals((
+                        closest_ec2.price_usd /
+                        Decimal(glm_usd_value.current_price) /
+                        (seconds_current_month / Decimal(3600))
+                        ))
+                        offerobj.times_more_expensive = offerobj.monthly_price_usd / closest_ec2.price_usd
+                    else:
+                        offerobj.overpriced_compared_to = None
+                    
+                else:
+                    print("No matching EC2Instance found or monthly pricing is not available.")
+                    offerobj.is_overpriced = False
+                    offerobj.overpriced_compared_to = None
                 offerobj.save()
             obj.wallet = wallet
             # Verify each node's status
@@ -395,12 +445,46 @@ def v2_offer_scraper():
                             vectors["golem.usage.cpu_sec"]
                         ]
                         * seconds_current_month
-                        * data["golem.inf.cpu.cores"]
+                        * data["golem.inf.cpu.threads"]
                     )
                     + data["golem.com.pricing.model.linear.coeffs"][-1]
                 )
+                if not monthly_pricing:
+                    print(f"Monthly price is {monthly_pricing}")
                 offerobj.monthly_price_glm = monthly_pricing
-                offerobj.save()
+                offerobj.monthly_price_usd = monthly_pricing * glm_usd_value.current_price
+                
+                
+                vcpu_needed = data.get("golem.inf.cpu.threads", 0)
+                memory_needed = data.get("golem.inf.mem.gib", 0.0)
+                closest_ec2 = EC2Instance.objects.annotate(
+                    cpu_diff=Abs(F('vcpu') - vcpu_needed),
+                    memory_diff=Abs(F('memory') - memory_needed)
+                ).order_by('cpu_diff', 'memory_diff', 'price_usd').first()
+
+                # Compare and update the Offer object
+                if closest_ec2 and monthly_pricing:
+                    offer_is_more_expensive = offerobj.monthly_price_usd > closest_ec2.price_usd
+                    comparison_result = "more expensive" if offer_is_more_expensive else "cheaper"
+
+                    # Update Offer object fields
+                    offerobj.is_overpriced = offer_is_more_expensive
+                    if offer_is_more_expensive:
+                        offerobj.overpriced_compared_to = closest_ec2
+                        offerobj.suggest_env_per_hour_price = round_to_three_decimals((
+                        closest_ec2.price_usd /
+                        Decimal(glm_usd_value.current_price) /
+                        (seconds_current_month / Decimal(3600))
+                        ))
+                        offerobj.times_more_expensive = offerobj.monthly_price_usd / closest_ec2.price_usd
+                    else:
+                        offerobj.overpriced_compared_to = None
+                    
+                else:
+                    print("No matching EC2Instance found or monthly pricing is not available.")
+                    offerobj.is_overpriced = False
+                    offerobj.overpriced_compared_to = None
+                    
             offerobj.properties = data
             offerobj.save()
             obj.runtime = data["golem.runtime.name"]
@@ -450,3 +534,43 @@ def healthcheck_provider(node_id, network, taskId):
 
     rc = proc.poll()
     return rc
+
+
+
+
+
+@app.task
+def store_ec2_info():
+    ec2_info = {}
+    products_data = get_ec2_products()
+
+    for product in products_data:
+        details = product.get('details', {})
+        if not has_vcpu_memory(details):
+            continue
+        print(product)
+        product_id = product['id']
+        category = product.get('category')
+        name = product.get('name')
+
+        pricing_data = get_pricing(product_id)
+        cheapest_price = find_cheapest_price(pricing_data['prices'])
+
+        # Convert memory to float and price to Decimal
+        memory_gb = float(details['memory'])
+        price = cheapest_price['amount'] if cheapest_price else None
+
+        # Use get_or_create to store or update the instance in the database
+        instance, created = EC2Instance.objects.get_or_create(
+            name=name,
+            defaults={'vcpu': details['vcpu'], 'memory': memory_gb, 'price_usd': price}
+        )
+
+        ec2_info[product_id] = {
+            'category': category,
+            'name': name,
+            'details': details,
+            'cheapest_price': cheapest_price
+        }
+
+    return ec2_info
