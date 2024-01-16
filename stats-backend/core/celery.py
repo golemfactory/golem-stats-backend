@@ -61,7 +61,8 @@ def setup_periodic_tasks(sender, **kwargs):
         options={"queue": "yagna", "routing_key": "yagna"},
     )
     sender.add_periodic_task(
-        crontab(hour="*/24"),
+        # crontab(hour="*/24"),
+        60,
         store_ec2_info.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
