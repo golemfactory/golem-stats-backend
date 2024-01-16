@@ -408,7 +408,7 @@ def v2_offer_scraper():
                         Decimal(glm_usd_value.current_price) /
                         (seconds_current_month / Decimal(3600))
                         ))
-                        offerobj.times_more_expensive = offerobj.monthly_price_usd / closest_ec2.price_usd
+                        offerobj.times_more_expensive = offerobj.monthly_price_usd / float(closest_ec2.price_usd)
                     else:
                         offerobj.overpriced_compared_to = None
                     
@@ -476,7 +476,7 @@ def v2_offer_scraper():
                         Decimal(glm_usd_value.current_price) /
                         (seconds_current_month / Decimal(3600))
                         ))
-                        offerobj.times_more_expensive = offerobj.monthly_price_usd / closest_ec2.price_usd
+                        offerobj.times_more_expensive = offerobj.monthly_price_usd / float(closest_ec2.price_usd)
                     else:
                         offerobj.overpriced_compared_to = None
                     
