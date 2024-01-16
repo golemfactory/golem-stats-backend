@@ -15,7 +15,7 @@ class OfferSerializer(serializers.ModelSerializer):
         fields = [
             "runtime", "monthly_price_glm", "properties",
             "updated_at", "monthly_price_usd", "is_overpriced",
-            "overpriced_compared_to", "suggest_env_per_hour_price"
+            "overpriced_compared_to", "suggest_env_per_hour_price", "times_more_expensive"
         ]
 
 class NodeSerializer(serializers.ModelSerializer):
