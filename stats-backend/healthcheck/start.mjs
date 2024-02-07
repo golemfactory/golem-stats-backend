@@ -43,6 +43,7 @@ const taskId = process.argv[4] // Second argument as the network key
             network: networkKey, // Use networkKey from the arguments
         },
         budget: "0.000001",
+        taskTimeout: 10 * 60 * 1000,
     })
     await submitStatus("Scanning the market for your provider...", taskId)
 
