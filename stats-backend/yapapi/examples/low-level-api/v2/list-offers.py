@@ -13,7 +13,6 @@ import redis
 from yapapi.config import ApiConfig
 
 
-
 data = []
 
 test = []
@@ -114,7 +113,7 @@ def main():
     except TimeoutError:
         pass
 
-    print(len(test))
+    print(f"TOTAL COUNT Offers: {len(test)}")
     if len(test) > 0:
         serialized = json.dumps(test)
         r = redis.Redis(host="redis", port=6379, db=0)

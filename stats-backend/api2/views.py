@@ -13,6 +13,107 @@ from django.http import JsonResponse, HttpResponse
 pool = redis.ConnectionPool(host="redis", port=6379, db=0)
 r = redis.Redis(connection_pool=pool)
 
+from datetime import timedelta
+from typing import List
+from .models import Node, NodeStatusHistory
+from django.utils import timezone
+
+# from ninja import NinjaAPI, Schema
+
+# api = NinjaAPI()
+
+
+# class TrackerSchema(Schema):
+#     color: str
+#     tooltip: str
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from django.db import models
+
+
+from django.utils.timesince import timesince
+from django.db.models.functions import Coalesce
+from math import ceil
+from .scoring import calculate_uptime_percentage
+
+
+@api_view(["GET"])
+def node_uptime(request, yagna_id):
+    node = Node.objects.filter(node_id=yagna_id).first()
+    if not node:
+        return Response({"first_seen": None, "data": []})
+
+    statuses = NodeStatusHistory.objects.filter(provider=node).order_by("timestamp")
+    response_data = []
+
+    total_span_seconds = (timezone.now() - node.uptime_created_at).total_seconds()
+    minimum_data_points = 90
+
+    # Calculating granularity to achieve more granular data points.
+    granularity_options = [
+        60,
+        300,
+        600,
+        1800,
+        3600,
+        86400,
+        604800,
+    ]  # 1 min, 5 mins, 10 mins, 30 mins, 1 hour, 1 day, 1 week
+    granularity = max(
+        60, ceil(total_span_seconds / minimum_data_points)
+    )  # Ensuring minimum granularity of 1 minute.
+    for g in granularity_options:
+        if granularity <= g:
+            granularity = g
+            break
+    else:
+        granularity = granularity_options[-1]
+
+    next_check_time = node.uptime_created_at
+    while next_check_time < timezone.now():
+        end_time = next_check_time + timedelta(seconds=granularity)
+        window_statuses = statuses.filter(
+            timestamp__gte=next_check_time, timestamp__lt=end_time
+        )
+
+        has_offline = window_statuses.filter(is_online=False).exists()
+
+        # Improved time difference message
+        if granularity >= 86400:  # More than or equal to 1 day
+            time_diff = f"{(next_check_time - node.uptime_created_at).days} days ago"
+        elif granularity >= 3600:  # More than or equal to 1 hour but less than 1 day
+            hours_ago = int((timezone.now() - next_check_time).total_seconds() / 3600)
+            time_diff = f"{hours_ago} hours ago" if hours_ago > 1 else "1 hour ago"
+        else:  # Less than an hour
+            minutes_ago = int((timezone.now() - next_check_time).total_seconds() / 60)
+            time_diff = (
+                f"{minutes_ago} minutes ago" if minutes_ago > 1 else "1 minute ago"
+            )
+
+        if has_offline:
+            response_data.append(
+                {
+                    "tooltip": time_diff,
+                    "status": "Issue Detected",
+                }
+            )
+        else:
+            response_data.append(
+                {
+                    "tooltip": time_diff,
+                    "status": "Operational",
+                }
+            )
+        next_check_time = end_time
+
+    return Response(
+        {
+            "first_seen": node.uptime_created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "uptime_percentage": calculate_uptime_percentage(yagna_id, node),
+            "data": response_data,
+        }
+    )
+
 
 def globe_data(request):
     # open json file and return data

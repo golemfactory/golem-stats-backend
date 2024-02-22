@@ -51,7 +51,7 @@ def setup_periodic_tasks(sender, **kwargs):
         v2_cheapest_offer,
         v2_network_online_to_redis_flatmap,
         get_current_glm_price,
-        store_ec2_info
+        store_ec2_info,
     )
 
     sender.add_periodic_task(
@@ -92,7 +92,7 @@ def setup_periodic_tasks(sender, **kwargs):
         options={"queue": "default", "routing_key": "default"},
     )
     sender.add_periodic_task(
-        30.0,
+        60.0,
         v2_offer_scraper.s(),
         queue="yagna",
         options={"queue": "yagna", "routing_key": "yagna"},
@@ -130,10 +130,8 @@ def setup_periodic_tasks(sender, **kwargs):
     # sender.add_periodic_task(
     #     10.0,
     #     save_endpoint_logs_to_db.s(),
-    #     queue='default',
-    #     options={
-    #         'queue': 'default',
-    #         'routing_key': 'default'}
+    #     queue="default",
+    #     options={"queue": "default", "routing_key": "default"},
     # )
     sender.add_periodic_task(
         60,
@@ -144,10 +142,8 @@ def setup_periodic_tasks(sender, **kwargs):
     # sender.add_periodic_task(
     #     10.0,
     #     requests_served.s(),
-    #     queue='default',
-    #     options={
-    #         'queue': 'default',
-    #         'routing_key': 'default'}
+    #     queue="default",
+    #     options={"queue": "default", "routing_key": "default"},
     # )
     sender.add_periodic_task(
         15.0,

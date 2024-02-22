@@ -86,4 +86,4 @@ eth-account
 eth-tester
 PyJWT
 djangorestframework-simplejwt
-hcloud
+django-ninja

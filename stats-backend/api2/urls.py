@@ -15,6 +15,7 @@ urlpatterns = [
     path("network/offers/cheapest/cores", views.cheapest_by_cores),
     path("provider/wallet/<wallet>", views.node_wallet),
     path("provider/node/<yagna_id>", views.node),
+    path("provider/uptime/<yagna_id>", views.node_uptime),
     path("website/globe_data", views.globe_data),
     path("website/index", views.golem_main_website_index),
     path("network/offers/cheapest", views.cheapest_offer),

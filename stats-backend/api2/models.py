@@ -15,6 +15,7 @@ class Node(models.Model):
     version = models.CharField(max_length=7)
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    uptime_created_at = models.DateTimeField(auto_now_add=True)
 
 
 class EC2Instance(models.Model):
@@ -26,6 +27,7 @@ class EC2Instance(models.Model):
     def __str__(self):
         return self.name
 
+
 class Offer(models.Model):
     properties = models.JSONField(null=True)
     runtime = models.CharField(max_length=42)
@@ -35,11 +37,16 @@ class Offer(models.Model):
     monthly_price_glm = models.FloatField(null=True, blank=True)
     monthly_price_usd = models.FloatField(null=True, blank=True)
     is_overpriced = models.BooleanField(default=False)
-    overpriced_compared_to = models.ForeignKey(EC2Instance, on_delete=models.CASCADE, null=True)
+    overpriced_compared_to = models.ForeignKey(
+        EC2Instance, on_delete=models.CASCADE, null=True
+    )
     suggest_env_per_hour_price = models.FloatField(null=True)
     times_more_expensive = models.FloatField(null=True)
-    cheaper_than = models.ForeignKey(EC2Instance, on_delete=models.CASCADE, null=True, related_name='cheaper_offers')
+    cheaper_than = models.ForeignKey(
+        EC2Instance, on_delete=models.CASCADE, null=True, related_name="cheaper_offers"
+    )
     times_cheaper = models.FloatField(null=True)
+
     class Meta:
         unique_together = (
             "runtime",
@@ -59,4 +66,10 @@ class GLM(models.Model):
     current_price = models.FloatField(null=True)
 
 
+class NodeStatusHistory(models.Model):
+    provider = models.ForeignKey(Node, on_delete=models.CASCADE)
+    is_online = models.BooleanField()
+    timestamp = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f"{self.provider.node_id} - {'Online' if self.is_online else 'Offline'} at {self.timestamp}"
