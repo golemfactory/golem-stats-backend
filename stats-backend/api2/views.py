@@ -41,76 +41,94 @@ from .scoring import calculate_uptime_percentage
 def node_uptime(request, yagna_id):
     node = Node.objects.filter(node_id=yagna_id).first()
     if not node:
-        return Response({"first_seen": None, "data": []})
+        return Response(
+            {
+                "first_seen": None,
+                "data": [],
+                "downtime_periods": [],
+                "status": "offline",
+            }
+        )
 
     statuses = NodeStatusHistory.objects.filter(provider=node).order_by("timestamp")
-    response_data = []
-
+    response_data, downtime_periods = [], []
     total_span_seconds = (timezone.now() - node.uptime_created_at).total_seconds()
-    minimum_data_points = 90
-
-    # Calculating granularity to achieve more granular data points.
-    granularity_options = [
-        60,
-        300,
-        600,
-        1800,
-        3600,
-        86400,
+    granularity = max(60, ceil(total_span_seconds / 90))
+    granularity = next(
+        (g for g in [60, 300, 600, 1800, 3600, 86400, 604800] if granularity <= g),
         604800,
-    ]  # 1 min, 5 mins, 10 mins, 30 mins, 1 hour, 1 day, 1 week
-    granularity = max(
-        60, ceil(total_span_seconds / minimum_data_points)
-    )  # Ensuring minimum granularity of 1 minute.
-    for g in granularity_options:
-        if granularity <= g:
-            granularity = g
-            break
-    else:
-        granularity = granularity_options[-1]
+    )
 
-    next_check_time = node.uptime_created_at
+    next_check_time, downtime_start = node.uptime_created_at, None
     while next_check_time < timezone.now():
         end_time = next_check_time + timedelta(seconds=granularity)
         window_statuses = statuses.filter(
             timestamp__gte=next_check_time, timestamp__lt=end_time
         )
-
         has_offline = window_statuses.filter(is_online=False).exists()
 
-        # Improved time difference message
-        if granularity >= 86400:  # More than or equal to 1 day
+        # Adjust tooltip calculation to display meaningful information
+        if granularity >= 86400:
             time_diff = f"{(next_check_time - node.uptime_created_at).days} days ago"
-        elif granularity >= 3600:  # More than or equal to 1 hour but less than 1 day
+        elif granularity >= 3600:
             hours_ago = int((timezone.now() - next_check_time).total_seconds() / 3600)
             time_diff = f"{hours_ago} hours ago" if hours_ago > 1 else "1 hour ago"
-        else:  # Less than an hour
+        else:
             minutes_ago = int((timezone.now() - next_check_time).total_seconds() / 60)
             time_diff = (
                 f"{minutes_ago} minutes ago" if minutes_ago > 1 else "1 minute ago"
             )
 
         if has_offline:
-            response_data.append(
-                {
-                    "tooltip": time_diff,
-                    "status": "Issue Detected",
-                }
-            )
+            response_data.append({"tooltip": time_diff, "status": "offline"})
+            if downtime_start is None:
+                downtime_start = next_check_time
         else:
-            response_data.append(
-                {
-                    "tooltip": time_diff,
-                    "status": "Operational",
-                }
-            )
+            response_data.append({"tooltip": time_diff, "status": "online"})
+            if downtime_start:
+                downtime_end = next_check_time
+                duration = (downtime_end - downtime_start).total_seconds()
+                hours, remainder = divmod(duration, 3600)
+                minutes = remainder // 60
+                downtimestamp = f"From {downtime_start.strftime('%I:%M %p')} to {downtime_end.strftime('%I:%M %p')} on {downtime_start.strftime('%B %d, %Y')}"
+                human_readable = (
+                    f"Down for {int(hours)} hour{'s' if hours != 1 else ''}"
+                    + (
+                        f" and {int(minutes)} minute{'s' if minutes != 1 else ''}"
+                        if minutes
+                        else ""
+                    )
+                )
+                downtime_periods.append(
+                    {"timestamp": downtimestamp, "human_period": human_readable}
+                )
+                downtime_start = None
         next_check_time = end_time
+
+    if downtime_start:
+        downtime_end = timezone.now()
+        duration = (downtime_end - downtime_start).total_seconds()
+        hours, remainder = divmod(duration, 3600)
+        minutes = remainder // 60
+        downtimestamp = f"From {downtime_start.strftime('%I:%M %p')} to now on {downtime_start.strftime('%B %d, %Y')}"
+        human_readable = f"Down for {int(hours)} hour{'s' if hours != 1 else ''}" + (
+            f" and {int(minutes)} minute{'s' if minutes != 1 else ''}"
+            if minutes
+            else ""
+        )
+        downtime_periods.append(
+            {"timestamp": downtimestamp, "human_readable": human_readable}
+        )
+
+    latest_status = "online" if statuses.last().is_online else "offline"
 
     return Response(
         {
             "first_seen": node.uptime_created_at.strftime("%Y-%m-%d %H:%M:%S"),
             "uptime_percentage": calculate_uptime_percentage(yagna_id, node),
-            "data": response_data,
+            "data": response_data[::-1],
+            "downtime_periods": downtime_periods,
+            "current_status": latest_status,
         }
     )
 
