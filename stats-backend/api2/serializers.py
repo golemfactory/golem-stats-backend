@@ -23,6 +23,8 @@ class OfferSerializer(serializers.ModelSerializer):
             "properties",
             "updated_at",
             "monthly_price_usd",
+            "hourly_price_usd",
+            "hourly_price_glm",
             "is_overpriced",
             "overpriced_compared_to",
             "suggest_env_per_hour_price",

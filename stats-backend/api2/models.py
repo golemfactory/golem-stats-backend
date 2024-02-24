@@ -36,6 +36,8 @@ class Offer(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     monthly_price_glm = models.FloatField(null=True, blank=True)
     monthly_price_usd = models.FloatField(null=True, blank=True)
+    hourly_price_glm = models.FloatField(null=True, blank=True)
+    hourly_price_usd = models.FloatField(null=True, blank=True)
     is_overpriced = models.BooleanField(default=False)
     overpriced_compared_to = models.ForeignKey(
         EC2Instance, on_delete=models.CASCADE, null=True

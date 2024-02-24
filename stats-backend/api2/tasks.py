@@ -30,11 +30,38 @@ r = redis.Redis(connection_pool=pool)
 
 @app.task
 def v2_network_online_to_redis():
-    data = Node.objects.filter(online=True)
-    serializer = NodeSerializer(data, many=True)
-    test = json.dumps(serializer.data, default=str)
+    # Fetch and process data from the external domain
+    response = requests.get(
+        "https://reputation.dev-test.golem.network/v1/providers/scores"
+    )
+    if response.status_code == 200:
+        external_data = response.json()
+        success_rate_mapping = {
+            provider["providerId"]: provider["scores"]["successRate"]
+            for provider in external_data["providers"]
+        }
 
-    r.set("v2_online", test)
+        # Fetch your existing nodes
+        data = Node.objects.filter(online=True)
+        serializer = NodeSerializer(data, many=True)
+        serialized_data = serializer.data
+
+        # Attach successRate to each node if the providerId matches
+        for node in serialized_data:
+            node_id = node["node_id"]
+            if node_id in success_rate_mapping:
+                node["taskReputation"] = success_rate_mapping[node_id]
+            else:
+                node["taskReputation"] = None
+
+        # Serialize and save to Redis
+        test = json.dumps(serialized_data, default=str)
+        r.set("v2_online", test)
+    else:
+        print(
+            "Failed to retrieve data from the reputation system!", response.status_code
+        )
+        pass
 
 
 @app.task
