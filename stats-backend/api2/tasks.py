@@ -27,6 +27,77 @@ from .utils import (
 pool = redis.ConnectionPool(host="redis", port=6379, db=0)
 r = redis.Redis(connection_pool=pool)
 
+from django.db.models.functions import TruncHour, TruncDay
+from collections import defaultdict
+import json
+from collector.models import NetworkStats
+from django.db.models import Avg
+from datetime import datetime, timedelta
+
+
+@app.task
+def network_historical_stats_to_redis_v2():
+    now = datetime.now()
+    four_weeks_ago = now - timedelta(weeks=4)
+    one_week_ago = now - timedelta(weeks=1)
+
+    # Data for the last 4 weeks with daily granularity
+    data_last_4_weeks = (
+        NetworkStats.objects.filter(date__range=(four_weeks_ago, one_week_ago))
+        .annotate(day=TruncDay("date"))
+        .values("day")
+        .annotate(
+            online=Avg("online"),
+            cores=Avg("cores"),
+            memory=Avg("memory"),
+            disk=Avg("disk"),
+        )
+        .order_by("day")
+    )
+
+    # Data for the last week with hourly granularity
+    data_last_week = (
+        NetworkStats.objects.filter(date__range=(one_week_ago, now))
+        .annotate(hour=TruncHour("date"))
+        .values("hour")
+        .annotate(
+            online=Avg("online"),
+            cores=Avg("cores"),
+            memory=Avg("memory"),
+            disk=Avg("disk"),
+        )
+        .order_by("hour")
+    )
+
+    formatted_data = {"1w": [], "2w": [], "4w": [], "All": []}
+
+    def append_data(data, key, hour=False):
+        for entry in data:
+            date_key = "hour" if hour else "day"
+            formatted_data[key].append(
+                {
+                    "date": entry[date_key].strftime(
+                        "%b %d %H:%M" if hour else "%b %d"
+                    ),
+                    "online": round(entry["online"]),
+                    "cores": round(entry["cores"]),
+                    "memory": round(entry["memory"] / 1024, 2),
+                    "disk": round(entry["disk"] / 1024, 2),
+                }
+            )
+
+    # Correcting data population for '1w'
+    append_data(data_last_4_weeks, "4w")
+    formatted_data["2w"] = formatted_data["4w"][-14:]
+
+    # Append data for the last week with hourly granularity correctly
+    append_data(data_last_week, "1w", hour=True)
+
+    # Concatenation for 'All'
+    formatted_data["All"] = formatted_data["4w"] + formatted_data["1w"]
+
+    r.set("network_historical_stats_v2", json.dumps(formatted_data))
+
 
 @app.task
 def v2_network_online_to_redis():

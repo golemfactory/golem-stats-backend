@@ -37,6 +37,23 @@ from math import ceil
 from .scoring import calculate_uptime_percentage
 
 
+async def network_historical_stats(request):
+    """
+    Network stats past 30 minutes.
+    """
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("network_historical_stats_v2")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
+
+
 @api_view(["GET"])
 def node_uptime(request, yagna_id):
     node = Node.objects.filter(node_id=yagna_id).first()

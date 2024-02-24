@@ -52,6 +52,7 @@ def setup_periodic_tasks(sender, **kwargs):
         v2_network_online_to_redis_flatmap,
         get_current_glm_price,
         store_ec2_info,
+        network_historical_stats_to_redis_v2,
     )
 
     sender.add_periodic_task(
@@ -136,6 +137,12 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         60,
         networkstats_30m.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        60,
+        network_historical_stats_to_redis_v2.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
@@ -254,8 +261,29 @@ def setup_periodic_tasks(sender, **kwargs):
         options={"queue": "default", "routing_key": "default"},
     )
     sender.add_periodic_task(
-        10.0,
+        30.0,
         network_earnings.s(hours="6h"),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        30.0,
+        # 90 days
+        network_earnings.s(hours="2160h"),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        30.0,
+        # 30 days
+        network_earnings.s(hours="720h"),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        30.0,
+        # 7 days
+        network_earnings.s(hours="168h"),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
@@ -266,7 +294,7 @@ def setup_periodic_tasks(sender, **kwargs):
         options={"queue": "default", "routing_key": "default"},
     )
     sender.add_periodic_task(
-        10.0,
+        30.0,
         network_earnings.s(hours="24h"),
         queue="default",
         options={"queue": "default", "routing_key": "default"},

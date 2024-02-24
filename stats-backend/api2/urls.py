@@ -18,6 +18,7 @@ urlpatterns = [
     path("provider/uptime/<yagna_id>", views.node_uptime),
     path("website/globe_data", views.globe_data),
     path("website/index", views.golem_main_website_index),
+    path("network/historical/stats", views.network_historical_stats),
     path("network/offers/cheapest", views.cheapest_offer),
     path(
         "healthcheck/start",

@@ -367,6 +367,11 @@ def network_stats_to_redis():
     r.set("online_stats", serialized)
 
 
+from django.db.models.functions import TruncHour, TruncDay
+from collections import defaultdict
+import json
+
+
 @app.task
 def networkstats_30m():
     now = datetime.now()
@@ -515,10 +520,10 @@ def network_total_earnings():
             os.environ.get("STATS_URL")
             + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"{network}"%7D%5B2m%5D)%2F10%5E9)&time={end}'
         )
-        process_data(domain)
+        update_total_earnings(domain)
 
 
-def process_data(domain):
+def update_total_earnings(domain):
     data = get_stats_data(domain)
     if data[1] == 200 and data[0]["data"]["result"]:
         network_value = float(data[0]["data"]["result"][0]["value"][1])
@@ -532,7 +537,7 @@ def process_data(domain):
             db.save()
             content = {"total_earnings": db.total_earnings}
             serialized = json.dumps(content)
-            r.set("network_earnings_90d", serialized)
+            r.set("network_total_earnings", serialized)
 
 
 @app.task
@@ -649,6 +654,7 @@ def get_earnings_for_node_on_platform(user_node_id, platform):
     if data[0]["data"]["result"]:
         return round(float(data[0]["data"]["result"][0]["value"][1]), 2)
     else:
+        print(f"No data for {user_node_id} on {platform}", data)
         return 0.0
 
 
