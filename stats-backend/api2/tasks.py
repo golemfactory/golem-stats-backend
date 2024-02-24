@@ -39,62 +39,53 @@ from datetime import datetime, timedelta
 def network_historical_stats_to_redis_v2():
     now = datetime.now()
     four_weeks_ago = now - timedelta(weeks=4)
-    one_week_ago = now - timedelta(weeks=1)
 
-    # Data for the last 4 weeks with daily granularity
-    data_last_4_weeks = (
-        NetworkStats.objects.filter(date__range=(four_weeks_ago, one_week_ago))
-        .annotate(day=TruncDay("date"))
-        .values("day")
-        .annotate(
-            online=Avg("online"),
-            cores=Avg("cores"),
-            memory=Avg("memory"),
-            disk=Avg("disk"),
+    # Data granularity setup
+    def data_with_granularity(start_date, end_date, granularity):
+        return (
+            NetworkStats.objects.filter(date__range=(start_date, end_date))
+            .annotate(timestamp=granularity('date'))
+            .values('timestamp')
+            .annotate(
+                online=Avg('online'),
+                cores=Avg('cores'),
+                memory=Avg('memory'),
+                disk=Avg('disk')
+            )
+            .order_by('timestamp')
         )
-        .order_by("day")
-    )
 
-    # Data for the last week with hourly granularity
-    data_last_week = (
-        NetworkStats.objects.filter(date__range=(one_week_ago, now))
-        .annotate(hour=TruncHour("date"))
-        .values("hour")
-        .annotate(
-            online=Avg("online"),
-            cores=Avg("cores"),
-            memory=Avg("memory"),
-            disk=Avg("disk"),
-        )
-        .order_by("hour")
-    )
+    # Daily granularity data for the past 4 weeks
+    daily_data_past_4_weeks = data_with_granularity(four_weeks_ago, now, TruncDay)
+
+    # Hourly granularity data for the last week
+    hourly_data_past_week = data_with_granularity(now - timedelta(weeks=1), now, TruncHour)
 
     formatted_data = {"1w": [], "2w": [], "4w": [], "All": []}
 
-    def append_data(data, key, hour=False):
-        for entry in data:
-            date_key = "hour" if hour else "day"
-            formatted_data[key].append(
-                {
-                    "date": entry[date_key].strftime(
-                        "%b %d %H:%M" if hour else "%b %d"
-                    ),
-                    "online": round(entry["online"]),
-                    "cores": round(entry["cores"]),
-                    "memory": round(entry["memory"] / 1024, 2),
-                    "disk": round(entry["disk"] / 1024, 2),
-                }
-            )
+    # Format and insert data
+    def append_data(data_source, key, use_timestamp=False):
+        for entry in data_source:
+            formatted_entry = {
+                "date": entry['timestamp'].timestamp() if use_timestamp else entry['timestamp'].strftime("%b %d"),
+                "online": round(entry["online"]),
+                "cores": round(entry["cores"]),
+                "memory": round(entry["memory"] / 1024, 2),
+                "disk": round(entry["disk"] / 1024, 2),
+            }
+            formatted_data[key].append(formatted_entry)
 
-    # Correcting data population for '1w'
-    append_data(data_last_4_weeks, "4w")
-    formatted_data["2w"] = formatted_data["4w"][-14:]
+    # Populate data by granularity
+    append_data(hourly_data_past_week, "1w", True)
+    append_data(daily_data_past_4_weeks, "4w")
 
-    # Append data for the last week with hourly granularity correctly
-    append_data(data_last_week, "1w", hour=True)
+    # Filter 2-week data from 4-week dataset
+    filtered_2w_data = [d for d in daily_data_past_4_weeks if d['timestamp'] >= (now - timedelta(weeks=2))]
+    append_data(filtered_2w_data, "2w")
 
-    # Concatenation for 'All'
-    formatted_data["All"] = formatted_data["4w"] + formatted_data["1w"]
+    # Data for all time with daily granularity
+    all_time_data = data_with_granularity(NetworkStats.objects.earliest('date').date, now, TruncDay)
+    append_data(all_time_data, "All")
 
     r.set("network_historical_stats_v2", json.dumps(formatted_data))
 
