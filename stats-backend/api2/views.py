@@ -32,9 +32,12 @@ from .scoring import calculate_uptime_percentage
 
 
 def list_ec2_instances_comparison(request):
-    ec2_instances = EC2Instance.objects.all()
-    results = [_compare_ec2_and_golem(ec2) for ec2 in ec2_instances]
-    return JsonResponse({"comparison_overview": results}, safe=False)
+    try:
+        ec2_instances = EC2Instance.objects.all()
+        results = [_compare_ec2_and_golem(ec2) for ec2 in ec2_instances]
+        return JsonResponse({"comparison_overview": results}, safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 def _compare_ec2_and_golem(ec2):
@@ -47,16 +50,16 @@ def _compare_ec2_and_golem(ec2):
         .order_by("hourly_price_usd")
         .first()
     )
-    if cheapest_offer:
+    if (
+        cheapest_offer
+        and cheapest_offer.hourly_price_usd
+        and ec2.price_usd
+        and ec2.price_usd > 0
+    ):
         percentage_cheaper = (
-            (
-                (float(ec2.price_usd) - cheapest_offer.hourly_price_usd)
-                / float(ec2.price_usd)
-            )
-            * 100
-            if ec2.price_usd and ec2.price_usd > 0
-            else None
-        )
+            (float(ec2.price_usd) - cheapest_offer.hourly_price_usd)
+            / float(ec2.price_usd)
+        ) * 100
         node_id = cheapest_offer.provider.node_id
     else:
         percentage_cheaper = node_id = None
@@ -66,7 +69,7 @@ def _compare_ec2_and_golem(ec2):
         "ec2_memory": ec2.memory,
         "ec2_hourly_price_usd": ec2.price_usd,
         "cheapest_golem_hourly_price_usd": (
-            cheapest_offer.hourly_price_usd if cheapest_offer else 0
+            cheapest_offer.hourly_price_usd if cheapest_offer else None
         ),
         "golem_node_id": node_id,
         "golem_percentage_cheaper": (
