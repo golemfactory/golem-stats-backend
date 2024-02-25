@@ -46,7 +46,9 @@ def _compare_ec2_and_golem(ec2):
             vcpu=Cast("properties__golem.inf.cpu.threads", FloatField()),
             memory=Cast("properties__golem.inf.mem.gib", FloatField()),
         )
-        .filter(runtime="vm", vcpu=ec2.vcpu, memory__gte=ec2.memory)
+        .filter(
+            runtime="vm", vcpu=ec2.vcpu, memory__gte=ec2.memory, provider__online=True
+        )
         .order_by("hourly_price_usd")
         .first()
     )
