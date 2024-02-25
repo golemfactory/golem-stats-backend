@@ -30,8 +30,8 @@ r = redis.Redis(connection_pool=pool)
 from django.db.models.functions import TruncHour, TruncDay
 from collections import defaultdict
 import json
-from collector.models import NetworkStats
-from django.db.models import Avg
+from collector.models import NetworkStats, ProvidersComputingMax
+from django.db.models import Avg, Max
 from datetime import datetime, timedelta
 
 
@@ -41,7 +41,7 @@ def network_historical_stats_to_redis_v2():
     four_weeks_ago = now - timedelta(weeks=4)
 
     def data_with_granularity(start_date, end_date, granularity):
-        return (
+        stats = (
             NetworkStats.objects.filter(date__range=(start_date, end_date))
             .annotate(timestamp=granularity("date"))
             .values("timestamp")
@@ -53,11 +53,16 @@ def network_historical_stats_to_redis_v2():
             )
             .order_by("timestamp")
         )
+        if granularity == TruncDay:
+            for stat in stats:
+                stat_date = stat['timestamp']
+                computing_total = ProvidersComputingMax.objects.filter(
+                    date__date=stat_date).aggregate(Max('total'))['total__max'] or 0
+                stat['computing'] = computing_total
+        return stats
 
     daily_data_past_4_weeks = data_with_granularity(four_weeks_ago, now, TruncDay)
-    hourly_data_past_week = data_with_granularity(
-        now - timedelta(weeks=1), now, TruncHour
-    )
+    hourly_data_past_week = data_with_granularity(now - timedelta(weeks=1), now, TruncHour)
 
     formatted_data = {"1w": [], "2w": [], "4w": [], "All": []}
 
@@ -70,21 +75,18 @@ def network_historical_stats_to_redis_v2():
                 "memory": round(entry["memory"] / 1024, 2),
                 "disk": round(entry["disk"] / 1024, 2),
             }
+            if 'computing' in entry:
+                formatted_entry['computing'] = entry['computing']
             formatted_data[key].append(formatted_entry)
 
     append_data(hourly_data_past_week, "1w")
     append_data(daily_data_past_4_weeks, "4w")
 
     filtered_2w_data = [
-        d
-        for d in daily_data_past_4_weeks
-        if d["timestamp"] >= (now - timedelta(weeks=2))
-    ]
+        d for d in daily_data_past_4_weeks if d["timestamp"] >= (now - timedelta(weeks=2))]
     append_data(filtered_2w_data, "2w")
 
-    all_time_data = data_with_granularity(
-        NetworkStats.objects.earliest("date").date, now, TruncDay
-    )
+    all_time_data = data_with_granularity(NetworkStats.objects.earliest("date").date, now, TruncDay)
     append_data(all_time_data, "All")
 
     r.set("network_historical_stats_v2", json.dumps(formatted_data))

@@ -15,26 +15,67 @@ r = redis.Redis(connection_pool=pool)
 
 from datetime import timedelta
 from typing import List
-from .models import Node, NodeStatusHistory
+from .models import Node, NodeStatusHistory, Offer, EC2Instance
 from django.utils import timezone
 
-# from ninja import NinjaAPI, Schema
 
-# api = NinjaAPI()
-
-
-# class TrackerSchema(Schema):
-#     color: str
-#     tooltip: str
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from django.db import models
 
-
-from django.utils.timesince import timesince
-from django.db.models.functions import Coalesce
+from django.db.models import (
+    FloatField,
+)
+from django.db.models.functions import Cast
+from .models import EC2Instance, Offer, Node
 from math import ceil
 from .scoring import calculate_uptime_percentage
+
+
+def list_ec2_instances_comparison(request):
+    try:
+        ec2_instances = EC2Instance.objects.all()
+        results = [_compare_ec2_and_golem(ec2) for ec2 in ec2_instances]
+        return JsonResponse({"comparison_overview": results}, safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+def _compare_ec2_and_golem(ec2):
+    cheapest_offer = (
+        Offer.objects.annotate(
+            vcpu=Cast("properties__golem.inf.cpu.threads", FloatField()),
+            memory=Cast("properties__golem.inf.mem.gib", FloatField()),
+        )
+        .filter(runtime="vm", vcpu=ec2.vcpu, memory__gte=ec2.memory)
+        .order_by("hourly_price_usd")
+        .first()
+    )
+    if cheapest_offer:
+        percentage_cheaper = (
+            (
+                (float(ec2.price_usd) - cheapest_offer.hourly_price_usd)
+                / float(ec2.price_usd)
+            )
+            * 100
+            if ec2.price_usd and ec2.price_usd > 0
+            else None
+        )
+        node_id = cheapest_offer.provider.node_id
+    else:
+        percentage_cheaper = node_id = None
+    return {
+        "ec2_instance_name": ec2.name,
+        "ec2_vcpu": ec2.vcpu,
+        "ec2_memory": ec2.memory,
+        "ec2_hourly_price_usd": ec2.price_usd,
+        "cheapest_golem_hourly_price_usd": (
+            cheapest_offer.hourly_price_usd if cheapest_offer else 0
+        ),
+        "golem_node_id": node_id,
+        "golem_percentage_cheaper": (
+            round(percentage_cheaper, 2) if percentage_cheaper is not None else None
+        ),
+    }
 
 
 async def network_historical_stats(request):
