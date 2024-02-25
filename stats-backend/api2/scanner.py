@@ -40,7 +40,7 @@ def update_providers_info(node_props):
             provider=obj, runtime=data["golem.runtime.name"]
         )
         vectors = {}
-        if data["golem.runtime.name"] == "vm":
+        if data["golem.runtime.name"] == "vm" or data["golem.runtime.name"] == "vm-nvidia":
             for key, value in enumerate(data["golem.com.usage.vector"]):
                 vectors[value] = key
             monthly_pricing = (
