@@ -22,62 +22,24 @@ from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from django.db.models import (
-    FloatField,
-)
-from django.db.models.functions import Cast
+
 from .models import EC2Instance, Offer, Node
 from math import ceil
 from .scoring import calculate_uptime_percentage
 
 
-def list_ec2_instances_comparison(request):
-    try:
-        ec2_instances = EC2Instance.objects.all()
-        results = [_compare_ec2_and_golem(ec2) for ec2 in ec2_instances]
-        return JsonResponse({"comparison_overview": results}, safe=False)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
-
-def _compare_ec2_and_golem(ec2):
-    cheapest_offer = (
-        Offer.objects.annotate(
-            vcpu=Cast("properties__golem.inf.cpu.threads", FloatField()),
-            memory=Cast("properties__golem.inf.mem.gib", FloatField()),
+async def list_ec2_instances_comparison(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
         )
-        .filter(
-            runtime="vm", vcpu=ec2.vcpu, memory__gte=ec2.memory, provider__online=True
-        )
-        .order_by("hourly_price_usd")
-        .first()
-    )
-    if (
-        cheapest_offer
-        and cheapest_offer.hourly_price_usd
-        and ec2.price_usd
-        and ec2.price_usd > 0
-    ):
-        percentage_cheaper = (
-            (float(ec2.price_usd) - cheapest_offer.hourly_price_usd)
-            / float(ec2.price_usd)
-        ) * 100
-        node_id = cheapest_offer.provider.node_id
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("ec2_comparison")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
     else:
-        percentage_cheaper = node_id = None
-    return {
-        "ec2_instance_name": ec2.name,
-        "ec2_vcpu": ec2.vcpu,
-        "ec2_memory": ec2.memory,
-        "ec2_hourly_price_usd": ec2.price_usd,
-        "cheapest_golem_hourly_price_usd": (
-            cheapest_offer.hourly_price_usd if cheapest_offer else None
-        ),
-        "golem_node_id": node_id,
-        "golem_percentage_cheaper": (
-            round(percentage_cheaper, 2) if percentage_cheaper is not None else None
-        ),
-    }
+        return HttpResponse(status=400)
 
 
 async def network_historical_stats(request):

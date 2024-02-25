@@ -34,6 +34,77 @@ from collector.models import NetworkStats, ProvidersComputingMax
 from django.db.models import Avg, Max
 from datetime import datetime, timedelta
 
+from django.db.models import (
+    FloatField,
+)
+from django.db.models.functions import Cast
+
+
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return super().default(obj)
+
+
+@app.task
+def compare_ec2_and_golem():
+    try:
+        ec2_instances = EC2Instance.objects.all()
+        comparison_results = []
+
+        for ec2 in ec2_instances:
+            cheapest_offer = (
+                Offer.objects.annotate(
+                    vcpu=Cast("properties__golem.inf.cpu.threads", FloatField()),
+                    memory=Cast("properties__golem.inf.mem.gib", FloatField()),
+                )
+                .filter(
+                    runtime="vm",
+                    vcpu=ec2.vcpu,
+                    memory__gte=ec2.memory,
+                    provider__online=True,
+                )
+                .order_by("hourly_price_usd")
+                .first()
+            )
+
+            if (
+                cheapest_offer
+                and cheapest_offer.hourly_price_usd
+                and ec2.price_usd
+                and ec2.price_usd > 0
+            ):
+                percentage_cheaper = (
+                    (float(ec2.price_usd) - cheapest_offer.hourly_price_usd)
+                    / float(ec2.price_usd)
+                ) * 100
+                node_id = cheapest_offer.provider.node_id
+            else:
+                percentage_cheaper = node_id = None
+
+            comparison_results.append(
+                {
+                    "ec2_instance_name": ec2.name,
+                    "ec2_vcpu": ec2.vcpu,
+                    "ec2_memory": ec2.memory,
+                    "ec2_hourly_price_usd": ec2.price_usd,
+                    "cheapest_golem_hourly_price_usd": (
+                        cheapest_offer.hourly_price_usd if cheapest_offer else None
+                    ),
+                    "golem_node_id": node_id,
+                    "golem_percentage_cheaper": (
+                        round(percentage_cheaper, 2)
+                        if percentage_cheaper is not None
+                        else None
+                    ),
+                }
+            )
+
+        r.set("ec2_comparison", json.dumps(comparison_results, cls=DecimalEncoder))
+    except Exception as e:
+        print(f"Error: {e}")
+
 
 @app.task
 def network_historical_stats_to_redis_v2():
@@ -55,14 +126,20 @@ def network_historical_stats_to_redis_v2():
         )
         if granularity == TruncDay:
             for stat in stats:
-                stat_date = stat['timestamp']
-                computing_total = ProvidersComputingMax.objects.filter(
-                    date__date=stat_date).aggregate(Max('total'))['total__max'] or 0
-                stat['computing'] = computing_total
+                stat_date = stat["timestamp"]
+                computing_total = (
+                    ProvidersComputingMax.objects.filter(
+                        date__date=stat_date
+                    ).aggregate(Max("total"))["total__max"]
+                    or 0
+                )
+                stat["computing"] = computing_total
         return stats
 
     daily_data_past_4_weeks = data_with_granularity(four_weeks_ago, now, TruncDay)
-    hourly_data_past_week = data_with_granularity(now - timedelta(weeks=1), now, TruncHour)
+    hourly_data_past_week = data_with_granularity(
+        now - timedelta(weeks=1), now, TruncHour
+    )
 
     formatted_data = {"1w": [], "2w": [], "4w": [], "All": []}
 
@@ -75,18 +152,23 @@ def network_historical_stats_to_redis_v2():
                 "memory": round(entry["memory"] / 1024, 2),
                 "disk": round(entry["disk"] / 1024, 2),
             }
-            if 'computing' in entry:
-                formatted_entry['computing'] = entry['computing']
+            if "computing" in entry:
+                formatted_entry["computing"] = entry["computing"]
             formatted_data[key].append(formatted_entry)
 
     append_data(hourly_data_past_week, "1w")
     append_data(daily_data_past_4_weeks, "4w")
 
     filtered_2w_data = [
-        d for d in daily_data_past_4_weeks if d["timestamp"] >= (now - timedelta(weeks=2))]
+        d
+        for d in daily_data_past_4_weeks
+        if d["timestamp"] >= (now - timedelta(weeks=2))
+    ]
     append_data(filtered_2w_data, "2w")
 
-    all_time_data = data_with_granularity(NetworkStats.objects.earliest("date").date, now, TruncDay)
+    all_time_data = data_with_granularity(
+        NetworkStats.objects.earliest("date").date, now, TruncDay
+    )
     append_data(all_time_data, "All")
 
     r.set("network_historical_stats_v2", json.dumps(formatted_data))
