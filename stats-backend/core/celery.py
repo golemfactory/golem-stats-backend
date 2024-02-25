@@ -56,12 +56,12 @@ def setup_periodic_tasks(sender, **kwargs):
         compare_ec2_and_golem,
     )
 
-    sender.add_periodic_task(
-        30.0,
-        offer_scraper.s(),
-        queue="yagna",
-        options={"queue": "yagna", "routing_key": "yagna"},
-    )
+    # sender.add_periodic_task(
+    #     30.0,
+    #     offer_scraper.s(),
+    #     queue="yagna",
+    #     options={"queue": "yagna", "routing_key": "yagna"},
+    # )
     sender.add_periodic_task(
         crontab(hour="*/24"),
         store_ec2_info.s(),

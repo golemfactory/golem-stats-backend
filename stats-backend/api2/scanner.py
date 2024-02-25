@@ -39,8 +39,8 @@ def update_providers_info(node_props):
         offerobj, offercreated = Offer.objects.get_or_create(
             provider=obj, runtime=data["golem.runtime.name"]
         )
+        vectors = {}
         if data["golem.runtime.name"] == "vm":
-            vectors = {}
             for key, value in enumerate(data["golem.com.usage.vector"]):
                 vectors[value] = key
             monthly_pricing = (
@@ -64,9 +64,7 @@ def update_providers_info(node_props):
             offerobj.monthly_price_glm = monthly_pricing
             offerobj.monthly_price_usd = monthly_pricing * glm_usd_value.current_price
             offerobj.hourly_price_glm = monthly_pricing / hours_in_current_month
-            offerobj.hourly_price_usd = (
-                offerobj.monthly_price_usd / hours_in_current_month
-            )
+            offerobj.hourly_price_usd = offerobj.monthly_price_usd / hours_in_current_month
             vcpu_needed = data.get("golem.inf.cpu.threads", 0)
             memory_needed = data.get("golem.inf.mem.gib", 0.0)
             closest_ec2 = (
@@ -100,17 +98,15 @@ def update_providers_info(node_props):
                 # Update Offer object fields for cheaper comparison
                 offerobj.cheaper_than = closest_ec2 if offer_is_cheaper else None
                 offerobj.times_cheaper = (
-                    float(ec2_monthly_price) / offer_price_usd
-                    if offer_is_cheaper
-                    else None
+                    float(ec2_monthly_price) / offer_price_usd if offer_is_cheaper else None
                 )
 
-            else:
-                # print(
-                #     "No matching EC2Instance found or monthly pricing is not available."
-                # )
-                offerobj.is_overpriced = False
-                offerobj.overpriced_compared_to = None
+        else:
+            # print(
+            #     "No matching EC2Instance found or monthly pricing is not available."
+            # )
+            offerobj.is_overpriced = False
+            offerobj.overpriced_compared_to = None
 
             offerobj.properties = data
             offerobj.save()
