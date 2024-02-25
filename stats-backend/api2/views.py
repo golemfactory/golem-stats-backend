@@ -142,7 +142,10 @@ def node_uptime(request, yagna_id):
             {"timestamp": downtimestamp, "human_readable": human_readable}
         )
 
-    latest_status = "online" if statuses.last().is_online else "offline"
+    if node.online:
+        latest_status = "online"
+    else:
+        latest_status = "offline"
 
     return Response(
         {
