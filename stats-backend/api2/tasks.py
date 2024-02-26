@@ -109,7 +109,10 @@ def compare_ec2_and_golem():
 @app.task
 def network_historical_stats_to_redis_v2():
     now = datetime.now()
-    four_weeks_ago = now - timedelta(weeks=4)
+    one_day_ago = now - timedelta(days=1)
+    seven_days_ago = now - timedelta(days=7)
+    one_month_ago = now - timedelta(days=30)
+    one_year_ago = now - timedelta(days=365)
 
     def data_with_granularity(start_date, end_date, granularity):
         stats = (
@@ -124,7 +127,7 @@ def network_historical_stats_to_redis_v2():
             )
             .order_by("timestamp")
         )
-        if granularity == TruncDay:
+        if granularity in [TruncDay, TruncHour]:
             for stat in stats:
                 stat_date = stat["timestamp"]
                 computing_total = (
@@ -136,12 +139,12 @@ def network_historical_stats_to_redis_v2():
                 stat["computing"] = computing_total
         return stats
 
-    daily_data_past_4_weeks = data_with_granularity(four_weeks_ago, now, TruncDay)
-    hourly_data_past_week = data_with_granularity(
-        now - timedelta(weeks=1), now, TruncHour
-    )
+    hourly_data_past_day = data_with_granularity(one_day_ago, now, TruncHour)
+    daily_data_past_7_days = data_with_granularity(seven_days_ago, now, TruncDay)
+    daily_data_past_month = data_with_granularity(one_month_ago, now, TruncDay)
+    daily_data_past_year = data_with_granularity(one_year_ago, now, TruncDay)
 
-    formatted_data = {"1w": [], "2w": [], "4w": [], "All": []}
+    formatted_data = {"1d": [], "7d": [], "1m": [], "1y": [], "All": []}
 
     def append_data(data_source, key):
         for entry in data_source:
@@ -156,15 +159,10 @@ def network_historical_stats_to_redis_v2():
                 formatted_entry["computing"] = entry["computing"]
             formatted_data[key].append(formatted_entry)
 
-    append_data(hourly_data_past_week, "1w")
-    append_data(daily_data_past_4_weeks, "4w")
-
-    filtered_2w_data = [
-        d
-        for d in daily_data_past_4_weeks
-        if d["timestamp"] >= (now - timedelta(weeks=2))
-    ]
-    append_data(filtered_2w_data, "2w")
+    append_data(hourly_data_past_day, "1d")
+    append_data(daily_data_past_7_days, "7d")
+    append_data(daily_data_past_month, "1m")
+    append_data(daily_data_past_year, "1y")
 
     all_time_data = data_with_granularity(
         NetworkStats.objects.earliest("date").date, now, TruncDay
@@ -749,10 +747,16 @@ def chart_pricing_data_for_frontend():
         return data
 
     now = datetime.now()
+    seven_days_ago = now - timedelta(days=7)
+    one_month_ago = now - timedelta(days=30)
+    six_months_ago = now - timedelta(days=30 * 6)
+    one_year_ago = now - timedelta(days=365)
+
     data = {
-        "1w": pricing_snapshot_stats_with_dates(now - timedelta(weeks=1), now),
-        "2w": pricing_snapshot_stats_with_dates(now - timedelta(weeks=2), now),
-        "4w": pricing_snapshot_stats_with_dates(now - timedelta(weeks=4), now),
+        "7d": pricing_snapshot_stats_with_dates(seven_days_ago, now),
+        "1m": pricing_snapshot_stats_with_dates(one_month_ago, now),
+        "6m": pricing_snapshot_stats_with_dates(six_months_ago, now),
+        "1y": pricing_snapshot_stats_with_dates(one_year_ago, now),
         "All": pricing_snapshot_stats_with_dates(
             PricingSnapshot.objects.earliest("created_at").created_at, now
         ),
