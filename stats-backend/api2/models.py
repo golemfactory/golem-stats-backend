@@ -91,3 +91,14 @@ class ProviderWithTask(models.Model):
     start_price = models.FloatField(null=True, blank=True)  # Static start price
     created_at = models.DateTimeField(auto_now_add=True)
     network = models.CharField(max_length=42, default="mainnet")
+
+
+class PricingSnapshot(models.Model):
+    average_cpu_price = models.FloatField(default=0)
+    median_cpu_price = models.FloatField(default=0)
+    average_env_price = models.FloatField(default=0)
+    median_env_price = models.FloatField(default=0)
+    average_start_price = models.FloatField(default=0)
+    median_start_price = models.FloatField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    date = models.DateField(null=True, blank=True)

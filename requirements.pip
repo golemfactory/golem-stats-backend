@@ -87,3 +87,4 @@ eth-tester
 PyJWT
 djangorestframework-simplejwt
 django-ninja
+numpy

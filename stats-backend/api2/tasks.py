@@ -585,7 +585,7 @@ def store_ec2_info():
 
 import time
 from api.utils import get_stats_data
-from .models import ProviderWithTask, Node, Offer
+from .models import ProviderWithTask, Node, Offer, PricingSnapshot
 from .utils import identify_network_by_offer
 
 
@@ -633,3 +633,55 @@ def providers_who_received_tasks():
             except Offer.DoesNotExist:
                 print(f"Offer for node {node.node_id} not found")
                 pass  # If no VM runtime offer found for node, continue with next
+
+
+from django.db.models import Avg
+from numpy import median
+
+
+@app.task
+def create_pricing_snapshot():
+    try:
+        last_24_hours = timezone.now() - timedelta(days=1)
+        data_date = last_24_hours.date()  # Store the date when the data was collected
+        cpu_prices = ProviderWithTask.objects.filter(
+            created_at__gte=last_24_hours
+        ).values_list("cpu_per_hour", flat=True)
+        env_prices = ProviderWithTask.objects.filter(
+            created_at__gte=last_24_hours
+        ).values_list("env_per_hour", flat=True)
+        start_prices = ProviderWithTask.objects.filter(
+            created_at__gte=last_24_hours
+        ).values_list("start_price", flat=True)
+
+        cpu_prices_cleaned = [price for price in cpu_prices if price is not None]
+        env_prices_cleaned = [price for price in env_prices if price is not None]
+        start_prices_cleaned = [price for price in start_prices if price is not None]
+
+        snapshot = PricingSnapshot(
+            average_cpu_price=(
+                sum(cpu_prices_cleaned) / len(cpu_prices_cleaned)
+                if cpu_prices_cleaned
+                else 0
+            ),
+            median_cpu_price=median(cpu_prices_cleaned) if cpu_prices_cleaned else 0,
+            average_env_price=(
+                sum(env_prices_cleaned) / len(env_prices_cleaned)
+                if env_prices_cleaned
+                else 0
+            ),
+            median_env_price=median(env_prices_cleaned) if env_prices_cleaned else 0,
+            average_start_price=(
+                sum(start_prices_cleaned) / len(start_prices_cleaned)
+                if start_prices_cleaned
+                else 0
+            ),
+            median_start_price=(
+                median(start_prices_cleaned) if start_prices_cleaned else 0
+            ),
+            created_at=timezone.now(),
+            date=data_date,
+        )
+        snapshot.save()
+    except Exception as e:
+        print(e)  # Replace with actual logging

@@ -55,6 +55,7 @@ def setup_periodic_tasks(sender, **kwargs):
         network_historical_stats_to_redis_v2,
         compare_ec2_and_golem,
         providers_who_received_tasks,
+        create_pricing_snapshot,
     )
 
     # sender.add_periodic_task(
@@ -139,6 +140,12 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         60.0,
         get_current_glm_price.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        crontab(hour=0, minute=1),  # 00:01
+        create_pricing_snapshot.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
