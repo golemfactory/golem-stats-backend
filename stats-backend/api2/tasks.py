@@ -688,32 +688,74 @@ def create_pricing_snapshot():
 
 
 @app.task
-def median_pricing_past_hour():
+def median_and_average_pricing_past_hour():
     try:
         last_hour = timezone.now() - timedelta(hours=1)
-        cpu_median = median(
-            ProviderWithTask.objects.filter(created_at__gte=last_hour)
-            .values_list("cpu_per_hour", flat=True)
-            .exclude(cpu_per_hour__isnull=True)
+        cpu_values = ProviderWithTask.objects.filter(created_at__gte=last_hour).exclude(
+            cpu_per_hour__isnull=True
         )
-        env_median = median(
-            ProviderWithTask.objects.filter(created_at__gte=last_hour)
-            .values_list("env_per_hour", flat=True)
-            .exclude(env_per_hour__isnull=True)
+        env_values = ProviderWithTask.objects.filter(created_at__gte=last_hour).exclude(
+            env_per_hour__isnull=True
         )
-        start_median = median(
-            ProviderWithTask.objects.filter(created_at__gte=last_hour)
-            .values_list("start_price", flat=True)
-            .exclude(start_price__isnull=True)
-        )
+        start_values = ProviderWithTask.objects.filter(
+            created_at__gte=last_hour
+        ).exclude(start_price__isnull=True)
+
+        cpu_median = median(cpu_values.values_list("cpu_per_hour", flat=True))
+        cpu_average = cpu_values.aggregate(Avg("cpu_per_hour"))["cpu_per_hour__avg"]
+
+        env_median = median(env_values.values_list("env_per_hour", flat=True))
+        env_average = env_values.aggregate(Avg("env_per_hour"))["env_per_hour__avg"]
+
+        start_median = median(start_values.values_list("start_price", flat=True))
+        start_average = start_values.aggregate(Avg("start_price"))["start_price__avg"]
 
         pricing_data = {
             "cpu_median": cpu_median,
+            "cpu_average": cpu_average,
             "env_median": env_median,
+            "env_average": env_average,
             "start_median": start_median,
+            "start_average": start_average,
         }
-        print(f"Median pricing data: {pricing_data}")
+        print(f"Median and average pricing data: {pricing_data}")
 
-        r.set("pricing_median", json.dumps(pricing_data))
+        r.set("pricing_past_hour_v2", json.dumps(pricing_data))
     except Exception as e:
         print(e)  # Replace with proper logging mechanism
+
+
+import numpy as np
+
+
+@app.task
+def chart_pricing_data_for_frontend():
+    def pricing_snapshot_stats_with_dates(start_date, end_date):
+        snapshot_data = PricingSnapshot.objects.filter(
+            created_at__range=(start_date, end_date)
+        ).order_by("created_at")
+        data = []
+        for snapshot in snapshot_data:
+            data_entry = {
+                "date": snapshot.created_at.timestamp(),
+                "average_cpu": snapshot.average_cpu_price,
+                "median_cpu": snapshot.median_cpu_price,
+                "average_env": snapshot.average_env_price,
+                "median_env": snapshot.median_env_price,
+                "average_start": snapshot.average_start_price,
+                "median_start": snapshot.median_start_price,
+            }
+            data.append(data_entry)
+        return data
+
+    now = datetime.now()
+    data = {
+        "1w": pricing_snapshot_stats_with_dates(now - timedelta(weeks=1), now),
+        "2w": pricing_snapshot_stats_with_dates(now - timedelta(weeks=2), now),
+        "4w": pricing_snapshot_stats_with_dates(now - timedelta(weeks=4), now),
+        "All": pricing_snapshot_stats_with_dates(
+            PricingSnapshot.objects.earliest("created_at").created_at, now
+        ),
+    }
+
+    r.set("pricing_data_charted_v2", json.dumps(data))

@@ -28,13 +28,13 @@ from math import ceil
 from .scoring import calculate_uptime_percentage
 
 
-async def get_median_pricing_1h(request):
+async def pricing_past_hour(request):
     try:
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
-        pricing_data = json.loads(await r.get("pricing_median"))
+        pricing_data = json.loads(await r.get("pricing_past_hour_v2"))
         pool.disconnect()
         return JsonResponse(pricing_data)
     except Exception as e:
@@ -67,6 +67,19 @@ async def network_historical_stats(request):
         content = await r.get("network_historical_stats_v2")
         data = json.loads(content)
         pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
+
+
+async def historical_pricing_data(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("pricing_data_charted_v2")
+        data = json.loads(content) if content else {}
         return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
     else:
         return HttpResponse(status=400)

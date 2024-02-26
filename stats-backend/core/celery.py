@@ -56,7 +56,8 @@ def setup_periodic_tasks(sender, **kwargs):
         compare_ec2_and_golem,
         providers_who_received_tasks,
         create_pricing_snapshot,
-        median_pricing_past_hour,
+        median_and_average_pricing_past_hour,
+        chart_pricing_data_for_frontend,
     )
 
     # sender.add_periodic_task(
@@ -84,8 +85,14 @@ def setup_periodic_tasks(sender, **kwargs):
         options={"queue": "default", "routing_key": "default"},
     )
     sender.add_periodic_task(
+        crontab(minute="*/10"),
+        chart_pricing_data_for_frontend.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
         60,
-        median_pricing_past_hour.s(),
+        median_and_average_pricing_past_hour.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
