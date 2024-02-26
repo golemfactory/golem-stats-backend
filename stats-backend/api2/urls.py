@@ -13,6 +13,7 @@ urlpatterns = [
     path("network/online", views.network_online),
     path("network/online/flatmap", views.network_online_flatmap),
     path("network/offers/cheapest/cores", views.cheapest_by_cores),
+    path("network/pricing/median/1h", views.get_median_pricing_1h),
     path("provider/wallet/<wallet>", views.node_wallet),
     path("provider/node/<yagna_id>", views.node),
     path("provider/uptime/<yagna_id>", views.node_uptime),

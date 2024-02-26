@@ -56,6 +56,7 @@ def setup_periodic_tasks(sender, **kwargs):
         compare_ec2_and_golem,
         providers_who_received_tasks,
         create_pricing_snapshot,
+        median_pricing_past_hour,
     )
 
     # sender.add_periodic_task(
@@ -79,6 +80,12 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         60,
         compare_ec2_and_golem.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        60,
+        median_pricing_past_hour.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )

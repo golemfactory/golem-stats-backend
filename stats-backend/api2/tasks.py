@@ -685,3 +685,35 @@ def create_pricing_snapshot():
         snapshot.save()
     except Exception as e:
         print(e)  # Replace with actual logging
+
+
+@app.task
+def median_pricing_past_hour():
+    try:
+        last_hour = timezone.now() - timedelta(hours=1)
+        cpu_median = median(
+            ProviderWithTask.objects.filter(created_at__gte=last_hour)
+            .values_list("cpu_per_hour", flat=True)
+            .exclude(cpu_per_hour__isnull=True)
+        )
+        env_median = median(
+            ProviderWithTask.objects.filter(created_at__gte=last_hour)
+            .values_list("env_per_hour", flat=True)
+            .exclude(env_per_hour__isnull=True)
+        )
+        start_median = median(
+            ProviderWithTask.objects.filter(created_at__gte=last_hour)
+            .values_list("start_price", flat=True)
+            .exclude(start_price__isnull=True)
+        )
+
+        pricing_data = {
+            "cpu_median": cpu_median,
+            "env_median": env_median,
+            "start_median": start_median,
+        }
+        print(f"Median pricing data: {pricing_data}")
+
+        r.set("pricing_median", json.dumps(pricing_data))
+    except Exception as e:
+        print(e)  # Replace with proper logging mechanism

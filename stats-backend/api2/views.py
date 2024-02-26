@@ -28,6 +28,19 @@ from math import ceil
 from .scoring import calculate_uptime_percentage
 
 
+async def get_median_pricing_1h(request):
+    try:
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        pricing_data = json.loads(await r.get("pricing_median"))
+        pool.disconnect()
+        return JsonResponse(pricing_data)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 async def list_ec2_instances_comparison(request):
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
