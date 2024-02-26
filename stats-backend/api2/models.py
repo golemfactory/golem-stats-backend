@@ -75,3 +75,19 @@ class NodeStatusHistory(models.Model):
 
     def __str__(self):
         return f"{self.provider.node_id} - {'Online' if self.is_online else 'Offline'} at {self.timestamp}"
+
+
+class ProviderWithTask(models.Model):
+    instance = models.ForeignKey(
+        Node, on_delete=models.CASCADE, related_name="tasks_received"
+    )
+    offer = models.ForeignKey(Offer, on_delete=models.CASCADE)
+    cpu_per_hour = models.FloatField(
+        null=True, blank=True
+    )  # Pricing per second for cpu/h
+    env_per_hour = models.FloatField(
+        null=True, blank=True
+    )  # Pricing per second for duration/env/h
+    start_price = models.FloatField(null=True, blank=True)  # Static start price
+    created_at = models.DateTimeField(auto_now_add=True)
+    network = models.CharField(max_length=42, default="mainnet")

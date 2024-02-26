@@ -581,3 +581,55 @@ def store_ec2_info():
         }
 
     return ec2_info
+
+
+import time
+from api.utils import get_stats_data
+from .models import ProviderWithTask, Node, Offer
+from .utils import identify_network_by_offer
+
+
+@app.task
+def providers_who_received_tasks():
+    now = round(time.time())
+    domain = (
+        os.environ.get("STATS_URL")
+        + f"api/datasources/proxy/40/api/v1/query_range?query=increase(payment_invoices_provider_accepted%7Bjob%3D%22community.1%22%7D%5B10m%5D)%20%3E%200&start={now}&end={now}&step=5"
+    )
+    content, status_code = get_stats_data(domain)
+    if status_code == 200:
+        data = content["data"]["result"]
+        for obj in data:
+            instance_id = obj["metric"]["instance"]
+            node, _ = Node.objects.get_or_create(node_id=instance_id)
+            try:
+                offer = Offer.objects.get(provider=node, runtime="vm")
+                if offer is None:
+                    continue
+                print(offer.properties, "offer is here")
+                pricing_model = offer.properties.get(
+                    "golem.com.pricing.model.linear.coeffs", []
+                )
+                usage_vector = offer.properties.get("golem.com.usage.vector", [])
+                if not usage_vector or not pricing_model:
+                    continue
+
+                static_start_price = pricing_model[-1]
+
+                cpu_index = usage_vector.index("golem.usage.cpu_sec")
+                cpu_per_hour_price = pricing_model[cpu_index] * 3600
+
+                duration_index = usage_vector.index("golem.usage.duration_sec")
+                env_per_hour_price = pricing_model[duration_index] * 3600
+
+                ProviderWithTask.objects.create(
+                    instance=node,
+                    offer=offer,
+                    cpu_per_hour=cpu_per_hour_price,
+                    env_per_hour=env_per_hour_price,
+                    start_price=static_start_price,
+                    network=identify_network_by_offer(offer),
+                )
+            except Offer.DoesNotExist:
+                print(f"Offer for node {node.node_id} not found")
+                pass  # If no VM runtime offer found for node, continue with next

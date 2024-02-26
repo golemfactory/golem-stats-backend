@@ -54,6 +54,7 @@ def setup_periodic_tasks(sender, **kwargs):
         store_ec2_info,
         network_historical_stats_to_redis_v2,
         compare_ec2_and_golem,
+        providers_who_received_tasks,
     )
 
     # sender.add_periodic_task(
@@ -77,6 +78,12 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         60,
         compare_ec2_and_golem.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        crontab(minute="*/10"),
+        providers_who_received_tasks.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
