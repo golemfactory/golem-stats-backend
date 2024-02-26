@@ -651,10 +651,14 @@ def get_earnings_for_node_on_platform(user_node_id, platform):
         + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{user_node_id}"%2C%20platform%3D"{platform}"%7D%5B10m%5D)%2F10%5E9)&time={now}'
     )
     data = get_stats_data(domain)
-    if data[0]["data"]["result"]:
-        return round(float(data[0]["data"]["result"][0]["value"][1]), 2)
-    else:
-        print(f"No data for {user_node_id} on {platform}", data)
+    try:
+        if data[0]["data"]["result"]:
+            return round(float(data[0]["data"]["result"][0]["value"][1]), 2)
+        else:
+            print(f"No data for {user_node_id} on {platform}", data)
+            return 0.0
+    except Exception as e:
+        print(f"Error getting data for {user_node_id} on {platform}", e)
         return 0.0
 
 
