@@ -638,18 +638,18 @@ from numpy import median
 
 
 @app.task
-def create_pricing_snapshot():
+def create_pricing_snapshot(network):
     try:
         last_24_hours = timezone.now() - timedelta(days=1)
         data_date = last_24_hours.date()  # Store the date when the data was collected
         cpu_prices = ProviderWithTask.objects.filter(
-            created_at__gte=last_24_hours
+            created_at__gte=last_24_hours, network=network
         ).values_list("cpu_per_hour", flat=True)
         env_prices = ProviderWithTask.objects.filter(
-            created_at__gte=last_24_hours
+            created_at__gte=last_24_hours, network=network
         ).values_list("env_per_hour", flat=True)
         start_prices = ProviderWithTask.objects.filter(
-            created_at__gte=last_24_hours
+            created_at__gte=last_24_hours, network=network
         ).values_list("start_price", flat=True)
 
         cpu_prices_cleaned = [price for price in cpu_prices if price is not None]
@@ -679,42 +679,90 @@ def create_pricing_snapshot():
             ),
             created_at=timezone.now(),
             date=data_date,
+            network=network,
         )
         snapshot.save()
     except Exception as e:
         print(e)  # Replace with actual logging
 
 
+from django.db.models import Q
+
+
 @app.task
 def median_and_average_pricing_past_hour():
     try:
         last_hour = timezone.now() - timedelta(hours=1)
-        cpu_values = ProviderWithTask.objects.filter(created_at__gte=last_hour).exclude(
+        filters = Q(created_at__gte=last_hour) & (
+            Q(network="testnet") | Q(network="mainnet")
+        )
+
+        cpu_values = ProviderWithTask.objects.filter(filters).exclude(
             cpu_per_hour__isnull=True
         )
-        env_values = ProviderWithTask.objects.filter(created_at__gte=last_hour).exclude(
+        env_values = ProviderWithTask.objects.filter(filters).exclude(
             env_per_hour__isnull=True
         )
-        start_values = ProviderWithTask.objects.filter(
-            created_at__gte=last_hour
-        ).exclude(start_price__isnull=True)
+        start_values = ProviderWithTask.objects.filter(filters).exclude(
+            start_price__isnull=True
+        )
 
-        cpu_median = median(cpu_values.values_list("cpu_per_hour", flat=True))
-        cpu_average = cpu_values.aggregate(Avg("cpu_per_hour"))["cpu_per_hour__avg"]
+        cpu_median_testnet = median(
+            cpu_values.filter(network="testnet").values_list("cpu_per_hour", flat=True)
+        )
+        cpu_average_testnet = cpu_values.filter(network="testnet").aggregate(
+            Avg("cpu_per_hour")
+        )["cpu_per_hour__avg"]
+        cpu_median_mainnet = median(
+            cpu_values.filter(network="mainnet").values_list("cpu_per_hour", flat=True)
+        )
+        cpu_average_mainnet = cpu_values.filter(network="mainnet").aggregate(
+            Avg("cpu_per_hour")
+        )["cpu_per_hour__avg"]
 
-        env_median = median(env_values.values_list("env_per_hour", flat=True))
-        env_average = env_values.aggregate(Avg("env_per_hour"))["env_per_hour__avg"]
+        env_median_testnet = median(
+            env_values.filter(network="testnet").values_list("env_per_hour", flat=True)
+        )
+        env_average_testnet = env_values.filter(network="testnet").aggregate(
+            Avg("env_per_hour")
+        )["env_per_hour__avg"]
+        env_median_mainnet = median(
+            env_values.filter(network="mainnet").values_list("env_per_hour", flat=True)
+        )
+        env_average_mainnet = env_values.filter(network="mainnet").aggregate(
+            Avg("env_per_hour")
+        )["env_per_hour__avg"]
 
-        start_median = median(start_values.values_list("start_price", flat=True))
-        start_average = start_values.aggregate(Avg("start_price"))["start_price__avg"]
+        start_median_testnet = median(
+            start_values.filter(network="testnet").values_list("start_price", flat=True)
+        )
+        start_average_testnet = start_values.filter(network="testnet").aggregate(
+            Avg("start_price")
+        )["start_price__avg"]
+        start_median_mainnet = median(
+            start_values.filter(network="mainnet").values_list("start_price", flat=True)
+        )
+        start_average_mainnet = start_values.filter(network="mainnet").aggregate(
+            Avg("start_price")
+        )["start_price__avg"]
 
         pricing_data = {
-            "cpu_median": cpu_median,
-            "cpu_average": cpu_average,
-            "env_median": env_median,
-            "env_average": env_average,
-            "start_median": start_median,
-            "start_average": start_average,
+            "testnet": {
+                "cpu_median": cpu_median_testnet,
+                "cpu_average": cpu_average_testnet,
+                "env_median": env_median_testnet,
+                "env_average": env_average_testnet,
+                "start_median": start_median_testnet,
+                "start_average": start_average_testnet,
+            },
+            "mainnet": {
+                "cpu_median": cpu_median_mainnet,
+                "cpu_average": cpu_average_mainnet,
+                "env_median": env_median_mainnet,
+                "env_average": env_average_mainnet,
+                "start_median": start_median_mainnet,
+                "start_average": start_average_mainnet,
+            },
         }
         print(f"Median and average pricing data: {pricing_data}")
 
@@ -728,13 +776,13 @@ import numpy as np
 
 @app.task
 def chart_pricing_data_for_frontend():
-    def pricing_snapshot_stats_with_dates(start_date, end_date):
+    def pricing_snapshot_stats_with_dates(start_date, end_date, network):
         snapshot_data = PricingSnapshot.objects.filter(
-            created_at__range=(start_date, end_date)
+            created_at__range=(start_date, end_date), network=network
         ).order_by("created_at")
-        data = []
-        for snapshot in snapshot_data:
-            data_entry = {
+
+        data = [
+            {
                 "date": snapshot.created_at.timestamp(),
                 "average_cpu": snapshot.average_cpu_price,
                 "median_cpu": snapshot.median_cpu_price,
@@ -743,7 +791,8 @@ def chart_pricing_data_for_frontend():
                 "average_start": snapshot.average_start_price,
                 "median_start": snapshot.median_start_price,
             }
-            data.append(data_entry)
+            for snapshot in snapshot_data
+        ]
         return data
 
     now = datetime.now()
@@ -752,14 +801,21 @@ def chart_pricing_data_for_frontend():
     six_months_ago = now - timedelta(days=30 * 6)
     one_year_ago = now - timedelta(days=365)
 
-    data = {
-        "7d": pricing_snapshot_stats_with_dates(seven_days_ago, now),
-        "1m": pricing_snapshot_stats_with_dates(one_month_ago, now),
-        "6m": pricing_snapshot_stats_with_dates(six_months_ago, now),
-        "1y": pricing_snapshot_stats_with_dates(one_year_ago, now),
-        "All": pricing_snapshot_stats_with_dates(
-            PricingSnapshot.objects.earliest("created_at").created_at, now
-        ),
-    }
+    networks_data = {}
+    for network in ["testnet", "mainnet"]:
+        data = {
+            "7d": pricing_snapshot_stats_with_dates(seven_days_ago, now, network),
+            "1m": pricing_snapshot_stats_with_dates(one_month_ago, now, network),
+            "6m": pricing_snapshot_stats_with_dates(six_months_ago, now, network),
+            "1y": pricing_snapshot_stats_with_dates(one_year_ago, now, network),
+            "All": pricing_snapshot_stats_with_dates(
+                PricingSnapshot.objects.filter(network=network)
+                .earliest("created_at")
+                .created_at,
+                now,
+                network,
+            ),
+        }
+        networks_data[network] = data
 
-    r.set("pricing_data_charted_v2", json.dumps(data))
+    r.set("pricing_data_charted_v2", json.dumps(networks_data))

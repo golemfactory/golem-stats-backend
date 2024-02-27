@@ -85,7 +85,8 @@ def setup_periodic_tasks(sender, **kwargs):
         options={"queue": "default", "routing_key": "default"},
     )
     sender.add_periodic_task(
-        crontab(minute="*/10"),
+        # crontab(minute="*/10"),
+        30,
         chart_pricing_data_for_frontend.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
@@ -158,8 +159,16 @@ def setup_periodic_tasks(sender, **kwargs):
         options={"queue": "default", "routing_key": "default"},
     )
     sender.add_periodic_task(
-        crontab(hour=0, minute=1),  # 00:01
-        create_pricing_snapshot.s(),
+        # crontab(hour=0, minute=1),  # 00:01
+        30,
+        create_pricing_snapshot.s(network="mainnet"),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        # crontab(hour=0, minute=1),  # 00:01
+        30,
+        create_pricing_snapshot.s(network="testnet"),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
