@@ -241,7 +241,7 @@ async def payments_earnings_provider(request, yagna_id):
         if data[1] == 200 and data[0]["data"]["result"]:
             earnings[interval] = data[0]["data"]["result"][0]["value"][1]
         else:
-            earnings[interval] = []
+            earnings[interval] = 0.0 # If no data is found, set earnings to 0
 
     return JsonResponse(earnings, json_dumps_params={"indent": 4})
 
