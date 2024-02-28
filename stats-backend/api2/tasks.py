@@ -780,11 +780,11 @@ def chart_pricing_data_for_frontend():
     def pricing_snapshot_stats_with_dates(start_date, end_date, network):
         snapshot_data = PricingSnapshot.objects.filter(
             created_at__range=(start_date, end_date), network=network
-        ).order_by("created_at")
+        ).order_by("date")
 
         data = [
             {
-                "date": snapshot.created_at.timestamp(),
+                "date": snapshot.date.timestamp(),
                 "average_cpu": snapshot.average_cpu_price,
                 "median_cpu": snapshot.median_cpu_price,
                 "average_env": snapshot.average_env_price,
