@@ -265,6 +265,31 @@ async def network_online(request):
     else:
         return HttpResponse(status=400)
 
+async def network_online_new_stats_page(request):
+    try:
+        page = int(request.GET.get("page", 1))
+        size = int(request.GET.get("size", 30))
+    except ValueError:
+        return HttpResponse(status=400, content="Invalid page or size parameter")
+
+    if request.method != "GET":
+        return HttpResponse(status=400)
+
+    pool = aioredis.ConnectionPool.from_url(
+        "redis://redis:6379/0", decode_responses=True
+    )
+    r = aioredis.Redis(connection_pool=pool)
+    content = await r.get(f"v2_online_{page}_{size}")
+    metadata_content = await r.get("v2_online_metadata")
+    if content and metadata_content:
+        data = json.loads(content)
+        metadata = json.loads(metadata_content)
+    else:
+        return HttpResponse(
+            status=404, content="Cache not found for specified page and size"
+        )
+    response_data = {"data": data, "metadata": metadata}
+    return JsonResponse(response_data, safe=False, json_dumps_params={"indent": 4})
 
 async def network_online_flatmap(request):
     if request.method == "GET":

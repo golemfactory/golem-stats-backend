@@ -210,6 +210,39 @@ def v2_network_online_to_redis():
 
 
 @app.task
+def v2_network_online_to_redis_new_stats_page():
+    try:
+        response = requests.get(
+            "https://reputation.dev-test.golem.network/v1/providers/scores"
+        )
+        response.raise_for_status()
+        external_data = response.json()
+        success_rate_mapping = {
+            provider["providerId"]: provider["scores"]["successRate"]
+            for provider in external_data["providers"]
+        }
+        data = Node.objects.filter(online=True).order_by("node_id")
+        serializer = NodeSerializer(data, many=True)
+        serialized_data = serializer.data
+        size = 30
+        total_pages = (len(serialized_data) // size) + (
+            0 if len(serialized_data) % size == 0 else 1
+        )
+        for page in range(1, total_pages + 1):
+            paginated_data = serialized_data[(page - 1) * size : page * size]
+            for node in paginated_data:
+                node_id = node["node_id"]
+                node["taskReputation"] = success_rate_mapping.get(node_id)
+            r.set(f"v2_online_{page}_{size}", json.dumps(paginated_data, default=str))
+        # Include metadata for total pages
+        r.set(
+            "v2_online_metadata", json.dumps({"total_pages": total_pages, "size": size})
+        )
+    except requests.HTTPError as e:
+        print(f"Failed to retrieve data: {e}")
+
+
+@app.task
 def v2_network_online_to_redis_flatmap():
     data = NodeV1.objects.filter(online=True)
     serializer = FlatNodeSerializer(data, many=True)
@@ -434,7 +467,7 @@ def v2_cheapest_provider():
     for obj in sorted_pricing_and_specs:
         provider = {}
         provider["name"] = "Golem Network"
-        provider["node_id"] = obj["properties"]["id"]
+        provider["node_id"] = obj["properties"]["node_id"]
         provider["img"] = "/golem.png"
         provider["usd_monthly"] = float(price) * float(obj["monthly_price_glm"])
         provider["cores"] = float(obj["properties"]["golem.inf.cpu.threads"])
@@ -679,7 +712,7 @@ def create_pricing_snapshot(network):
                 median(start_prices_cleaned) if start_prices_cleaned else 0
             ),
             created_at=timezone.now(),
-            date=data_date,
+            date=last_24_hours,
             network=network,
         )
         snapshot.save()
@@ -782,18 +815,20 @@ def chart_pricing_data_for_frontend():
             created_at__range=(start_date, end_date), network=network
         ).order_by("date")
 
-        data = [
-            {
-                "date": snapshot.date.timestamp(),
-                "average_cpu": snapshot.average_cpu_price,
-                "median_cpu": snapshot.median_cpu_price,
-                "average_env": snapshot.average_env_price,
-                "median_env": snapshot.median_env_price,
-                "average_start": snapshot.average_start_price,
-                "median_start": snapshot.median_start_price,
-            }
-            for snapshot in snapshot_data
-        ]
+        data = []
+        for snapshot in snapshot_data:
+            if snapshot.date is not None:
+                data.append(
+                    {
+                        "date": snapshot.date.timestamp(),
+                        "average_cpu": snapshot.average_cpu_price,
+                        "median_cpu": snapshot.median_cpu_price,
+                        "average_env": snapshot.average_env_price,
+                        "median_env": snapshot.median_env_price,
+                        "average_start": snapshot.average_start_price,
+                        "median_start": snapshot.median_start_price,
+                    }
+                )
         return data
 
     now = datetime.now()

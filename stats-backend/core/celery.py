@@ -58,6 +58,7 @@ def setup_periodic_tasks(sender, **kwargs):
         create_pricing_snapshot,
         median_and_average_pricing_past_hour,
         chart_pricing_data_for_frontend,
+        v2_network_online_to_redis_new_stats_page,
     )
 
     # sender.add_periodic_task(
@@ -128,13 +129,19 @@ def setup_periodic_tasks(sender, **kwargs):
         options={"queue": "yagna", "routing_key": "yagna"},
     )
     sender.add_periodic_task(
-        10.0,
+        20.0,
         v2_network_online_to_redis.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
     sender.add_periodic_task(
-        10.0,
+        20.0,
+        v2_network_online_to_redis_new_stats_page.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        20.0,
         v2_network_online_to_redis_flatmap.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},

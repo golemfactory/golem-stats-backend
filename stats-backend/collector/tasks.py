@@ -208,22 +208,32 @@ def network_average_pricing():
             else:
                 perhour.append(pricing_vector["golem.usage.duration_sec"] * 3600)
 
-                start.append((obj.data["golem.com.pricing.model.linear.coeffs"][2]))
+            start.append(obj.data["golem.com.pricing.model.linear.coeffs"][2])
             if len(str(pricing_vector["golem.usage.cpu_sec"])) < 5:
                 cpuhour.append(pricing_vector["golem.usage.cpu_sec"])
             else:
                 cpuhour.append(pricing_vector["golem.usage.cpu_sec"] * 3600)
 
+    # Check if any of the lists are empty
+    if not (perhour and cpuhour and start):
+        # Skip if any list is empty
+        return
+
+    # Calculate mean if all lists have data
+    cpuhour_avg = statistics.mean(cpuhour)
+    perhour_avg = statistics.mean(perhour)
+    start_avg = statistics.mean(start)
+
     content = {
-        "cpuhour": statistics.mean(cpuhour),
-        "perhour": statistics.mean(perhour),
-        "start": statistics.mean(start),
+        "cpuhour": cpuhour_avg,
+        "perhour": perhour_avg,
+        "start": start_avg,
     }
     serialized = json.dumps(content)
     NetworkAveragePricing.objects.create(
-        start=statistics.mean(start),
-        cpuh=statistics.mean(cpuhour),
-        perh=statistics.mean(perhour),
+        start=start_avg,
+        cpuh=cpuhour_avg,
+        perh=perhour_avg,
     )
     r.set("network_average_pricing", serialized)
 

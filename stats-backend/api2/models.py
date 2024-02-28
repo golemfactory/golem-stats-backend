@@ -102,5 +102,5 @@ class PricingSnapshot(models.Model):
     average_start_price = models.FloatField(default=0)
     median_start_price = models.FloatField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
-    date = models.DateField(null=True, blank=True)
+    date = models.DateTimeField(null=True, blank=True)
     network = models.CharField(max_length=42, default="mainnet")
