@@ -64,6 +64,7 @@ def compare_ec2_and_golem():
                     vcpu=ec2.vcpu,
                     memory__gte=ec2.memory,
                     provider__online=True,
+                    provider__network="mainnet",
                 )
                 .order_by("hourly_price_usd")
                 .first()

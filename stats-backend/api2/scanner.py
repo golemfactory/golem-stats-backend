@@ -20,7 +20,7 @@ from django.db.models import Case, When, Value, F
 from django.db.models.functions import Abs
 from django.db import transaction
 import calendar
-
+from .utils import identify_network_by_offer
 
 @app.task(queue="yagna", options={"queue": "yagna", "routing_key": "yagna"})
 def update_providers_info(node_props):
@@ -117,6 +117,7 @@ def update_providers_info(node_props):
         obj.wallet = wallet
         # Verify each node's status
         is_online = check_node_status(obj.node_id)
+        obj.network = identify_network_by_offer(offerobj)
         obj.online = is_online
         obj.save()
 

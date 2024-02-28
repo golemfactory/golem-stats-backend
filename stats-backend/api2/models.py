@@ -16,6 +16,7 @@ class Node(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
     uptime_created_at = models.DateTimeField(auto_now_add=True)
+    network = models.CharField(max_length=42, default="mainnet")
 
 
 class EC2Instance(models.Model):

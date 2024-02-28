@@ -51,6 +51,7 @@ class NodeSerializer(serializers.ModelSerializer):
             "runtimes",
             "computing_now",
             "wallet",
+            "network",
         ]
 
     def get_offers(self, node):
