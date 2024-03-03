@@ -136,6 +136,18 @@ def setup_periodic_tasks(sender, **kwargs):
     )
     sender.add_periodic_task(
         20.0,
+        v2_network_online_to_redis_new_stats_page.s(runtime="vm"),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        20.0,
+        v2_network_online_to_redis_new_stats_page.s(runtime="vm-nvidia"),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        20.0,
         v2_network_online_to_redis_new_stats_page.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},

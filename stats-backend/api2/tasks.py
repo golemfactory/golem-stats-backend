@@ -210,7 +210,7 @@ def v2_network_online_to_redis():
 
 
 @app.task
-def v2_network_online_to_redis_new_stats_page():
+def v2_network_online_to_redis_new_stats_page(runtime=None):
     try:
         response = requests.get(
             "https://reputation.dev-test.golem.network/v1/providers/scores"
@@ -221,10 +221,17 @@ def v2_network_online_to_redis_new_stats_page():
             provider["providerId"]: provider["scores"]["successRate"]
             for provider in external_data["providers"]
         }
-        data = Node.objects.filter(online=True).order_by("node_id")
+
+        filters = {"online": True}
+        if runtime:
+            filters["offer__runtime"] = runtime
+
+        data = Node.objects.filter(**filters).order_by("node_id").distinct()
         serializer = NodeSerializer(data, many=True)
         serialized_data = serializer.data
         size = 30
+        page_key_suffix = f"_{runtime}" if runtime else ""
+
         total_pages = (len(serialized_data) // size) + (
             0 if len(serialized_data) % size == 0 else 1
         )
@@ -232,11 +239,14 @@ def v2_network_online_to_redis_new_stats_page():
             paginated_data = serialized_data[(page - 1) * size : page * size]
             for node in paginated_data:
                 node_id = node["node_id"]
-                node["taskReputation"] = success_rate_mapping.get(node_id)
-            r.set(f"v2_online_{page}_{size}", json.dumps(paginated_data, default=str))
-        # Include metadata for total pages
+                node["taskReputation"] = success_rate_mapping.get(node_id, None)
+            r.set(
+                f"v2_online_{page}_{size}{page_key_suffix}",
+                json.dumps(paginated_data, default=str),
+            )
         r.set(
-            "v2_online_metadata", json.dumps({"total_pages": total_pages, "size": size})
+            f"v2_online_metadata{page_key_suffix}",
+            json.dumps({"total_pages": total_pages, "size": size}),
         )
     except requests.HTTPError as e:
         print(f"Failed to retrieve data: {e}")

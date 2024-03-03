@@ -85,103 +85,93 @@ async def historical_pricing_data(request):
         return HttpResponse(status=400)
 
 
+from datetime import datetime
+
+
 @api_view(["GET"])
 def node_uptime(request, yagna_id):
     node = Node.objects.filter(node_id=yagna_id).first()
     if not node:
-        return Response(
-            {
-                "first_seen": None,
-                "data": [],
-                "downtime_periods": [],
-                "status": "offline",
-            }
-        )
+        return JsonResponse({
+            "first_seen": None,
+            "data": [],
+            "downtime_periods": [],
+            "status": "offline",
+        }, status=404)
 
     statuses = NodeStatusHistory.objects.filter(provider=node).order_by("timestamp")
     response_data, downtime_periods = [], []
-    total_span_seconds = (timezone.now() - node.uptime_created_at).total_seconds()
-    granularity = max(60, ceil(total_span_seconds / 90))
-    granularity = next(
-        (g for g in [60, 300, 600, 1800, 3600, 86400, 604800] if granularity <= g),
-        604800,
+    current_time = timezone.now()
+    first_seen_date = node.uptime_created_at.date()
+    today_date = current_time.date()
+    total_days = (today_date - first_seen_date).days + 1  # Including today
+    last_offline_timestamp = None
+
+    for day_offset in range(total_days):
+        day = first_seen_date + timedelta(days=day_offset)
+        day_start = timezone.make_aware(datetime.combine(day, datetime.min.time()))
+        day_end = day_start + timedelta(days=1)
+        data_points_for_day = statuses.filter(timestamp__range=(day_start, day_end)).distinct('timestamp')
+                
+        if data_points_for_day.exists():
+            for point in data_points_for_day:
+                if not point.is_online:
+                    if last_offline_timestamp is None:
+                        last_offline_timestamp = point.timestamp
+                else:
+                    if last_offline_timestamp is not None:
+                        downtime_periods.append(process_downtime(last_offline_timestamp, point.timestamp))
+                        last_offline_timestamp = None
+
+                response_data.append({
+                    "tooltip": "Today" if day == today_date else f"{total_days - day_offset - 1} day{'s' if (total_days - day_offset - 1) > 1 else ''} ago",
+                    "status": "online" if point.is_online else "offline",
+                })
+        else:
+            # Assume the status did not change this day, infer from last known status if available
+            last_known_status = statuses.filter(timestamp__lt=day_start).last()
+            inferred_status = last_known_status.is_online if last_known_status else False  # default to offline if unknown
+            tooltip = "Today" if day == today_date else f"{total_days - day_offset - 1} day{'s' if (total_days - day_offset - 1) > 1 else ''} ago"
+            response_data.append({
+                "tooltip": tooltip,
+                "status": "online" if inferred_status else "offline",
+            })
+
+    # Handling ongoing downtime
+    if last_offline_timestamp is not None:
+        downtime_periods.append(process_downtime(last_offline_timestamp, current_time))
+
+    return JsonResponse({
+        "first_seen": node.uptime_created_at.strftime("%Y-%m-%d %H:%M:%S"),
+        "uptime_percentage": calculate_uptime_percentage(yagna_id, node),
+        "data": response_data,
+        "downtime_periods": downtime_periods,
+        "current_status": "online" if node.online else "offline",
+    })
+
+def process_downtime(start_time, end_time):
+    duration = (end_time - start_time).total_seconds()
+    hours, remainder = divmod(duration, 3600)
+    minutes = remainder // 60
+    down_timestamp = f"From {start_time.strftime('%I:%M %p')} to {end_time.strftime('%I:%M %p')} on {start_time.strftime('%B %d, %Y')}"
+    human_readable = f"Down for {int(hours)} hour{'s' if hours != 1 else ''}" + (
+        f", {int(minutes)} minute{'s' if minutes != 1 else ''}" if minutes else ""
     )
+    return {"timestamp": down_timestamp, "human_period": human_readable}
 
-    next_check_time, downtime_start = node.uptime_created_at, None
-    while next_check_time < timezone.now():
-        end_time = next_check_time + timedelta(seconds=granularity)
-        window_statuses = statuses.filter(
-            timestamp__gte=next_check_time, timestamp__lt=end_time
-        )
-        has_offline = window_statuses.filter(is_online=False).exists()
 
-        # Adjust tooltip calculation to display meaningful information
-        if granularity >= 86400:
-            time_diff = f"{(next_check_time - node.uptime_created_at).days} days ago"
-        elif granularity >= 3600:
-            hours_ago = int((timezone.now() - next_check_time).total_seconds() / 3600)
-            time_diff = f"{hours_ago} hours ago" if hours_ago > 1 else "1 hour ago"
-        else:
-            minutes_ago = int((timezone.now() - next_check_time).total_seconds() / 60)
-            time_diff = (
-                f"{minutes_ago} minutes ago" if minutes_ago > 1 else "1 minute ago"
-            )
-
-        if has_offline:
-            response_data.append({"tooltip": time_diff, "status": "offline"})
-            if downtime_start is None:
-                downtime_start = next_check_time
-        else:
-            response_data.append({"tooltip": time_diff, "status": "online"})
-            if downtime_start:
-                downtime_end = next_check_time
-                duration = (downtime_end - downtime_start).total_seconds()
-                hours, remainder = divmod(duration, 3600)
-                minutes = remainder // 60
-                downtimestamp = f"From {downtime_start.strftime('%I:%M %p')} to {downtime_end.strftime('%I:%M %p')} on {downtime_start.strftime('%B %d, %Y')}"
-                human_readable = (
-                    f"Down for {int(hours)} hour{'s' if hours != 1 else ''}"
-                    + (
-                        f" and {int(minutes)} minute{'s' if minutes != 1 else ''}"
-                        if minutes
-                        else ""
-                    )
-                )
-                downtime_periods.append(
-                    {"timestamp": downtimestamp, "human_period": human_readable}
-                )
-                downtime_start = None
-        next_check_time = end_time
-
-    if downtime_start:
-        downtime_end = timezone.now()
-        duration = (downtime_end - downtime_start).total_seconds()
-        hours, remainder = divmod(duration, 3600)
-        minutes = remainder // 60
-        downtimestamp = f"From {downtime_start.strftime('%I:%M %p')} to now on {downtime_start.strftime('%B %d, %Y')}"
-        human_readable = f"Down for {int(hours)} hour{'s' if hours != 1 else ''}" + (
-            f" and {int(minutes)} minute{'s' if minutes != 1 else ''}"
-            if minutes
-            else ""
-        )
-        downtime_periods.append(
-            {"timestamp": downtimestamp, "human_readable": human_readable}
-        )
-
-    if node.online:
-        latest_status = "online"
+def calculate_time_diff(check_time, granularity, node):
+    if granularity >= 86400:
+        return f"{(check_time - node.uptime_created_at).days} days ago"
+    elif granularity >= 3600:
+        hours_ago = int((timezone.now() - check_time).total_seconds() / 3600)
+        return f"{hours_ago} hours ago" if hours_ago > 1 else "1 hour ago"
     else:
-        latest_status = "offline"
+        minutes_ago = int((timezone.now() - check_time).total_seconds() / 60)
+        return f"{minutes_ago} minutes ago" if minutes_ago > 1 else "1 minute ago"
 
-    return Response(
-        {
-            "first_seen": node.uptime_created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            "uptime_percentage": calculate_uptime_percentage(yagna_id, node),
-            "data": response_data[::-1],
-            "downtime_periods": downtime_periods,
-            "current_status": latest_status,
-        }
-    )
+
+
 
 
 def globe_data(request):
@@ -265,10 +255,13 @@ async def network_online(request):
     else:
         return HttpResponse(status=400)
 
+
 async def network_online_new_stats_page(request):
     try:
         page = int(request.GET.get("page", 1))
         size = int(request.GET.get("size", 30))
+        runtime = request.GET.get("runtime", None)
+        runtime_key_suffix = f"_{runtime}" if runtime else ""
     except ValueError:
         return HttpResponse(status=400, content="Invalid page or size parameter")
 
@@ -279,17 +272,19 @@ async def network_online_new_stats_page(request):
         "redis://redis:6379/0", decode_responses=True
     )
     r = aioredis.Redis(connection_pool=pool)
-    content = await r.get(f"v2_online_{page}_{size}")
-    metadata_content = await r.get("v2_online_metadata")
-    if content and metadata_content:
-        data = json.loads(content)
-        metadata = json.loads(metadata_content)
-    else:
+    content = await r.get(f"v2_online_{page}_{size}{runtime_key_suffix}")
+    metadata_content = await r.get(f"v2_online_metadata{runtime_key_suffix}")
+
+    if not content or not metadata_content:
         return HttpResponse(
             status=404, content="Cache not found for specified page and size"
         )
+
+    data = json.loads(content)
+    metadata = json.loads(metadata_content)
     response_data = {"data": data, "metadata": metadata}
     return JsonResponse(response_data, safe=False, json_dumps_params={"indent": 4})
+
 
 async def network_online_flatmap(request):
     if request.method == "GET":
