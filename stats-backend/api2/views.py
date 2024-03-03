@@ -151,12 +151,21 @@ def node_uptime(request, yagna_id):
 
 def process_downtime(start_time, end_time):
     duration = (end_time - start_time).total_seconds()
-    hours, remainder = divmod(duration, 3600)
+    days, remainder = divmod(duration, 86400)
+    hours, remainder = divmod(remainder, 3600)
     minutes = remainder // 60
-    down_timestamp = f"From {start_time.strftime('%I:%M %p')} to {end_time.strftime('%I:%M %p')} on {start_time.strftime('%B %d, %Y')}"
-    human_readable = f"Down for {int(hours)} hour{'s' if hours != 1 else ''}" + (
-        f", {int(minutes)} minute{'s' if minutes != 1 else ''}" if minutes else ""
-    )
+    down_timestamp = f"From {start_time.strftime('%I:%M %p')} on {start_time.strftime('%B %d, %Y')} " \
+                     f"to {end_time.strftime('%I:%M %p')} on {end_time.strftime('%B %d, %Y')}"
+
+    parts = []
+    if days:
+        parts.append(f"{int(days)} day{'s' if days != 1 else ''}")
+    if hours:
+        parts.append(f"{int(hours)} hour{'s' if hours != 1 else ''}")
+    if minutes or not parts:
+        parts.append(f"{int(minutes)} minute{'s' if minutes != 1 else ''}")
+
+    human_readable = f"Down for {', '.join(parts)}"
     return {"timestamp": down_timestamp, "human_period": human_readable}
 
 
