@@ -41,6 +41,19 @@ async def pricing_past_hour(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+async def task_pricing(request):
+    try:
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        pricing_data = json.loads(await r.get("provider_task_price_data"))
+        pool.disconnect()
+        return JsonResponse(pricing_data)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 async def list_ec2_instances_comparison(request):
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
@@ -92,12 +105,15 @@ from datetime import datetime
 def node_uptime(request, yagna_id):
     node = Node.objects.filter(node_id=yagna_id).first()
     if not node:
-        return JsonResponse({
-            "first_seen": None,
-            "data": [],
-            "downtime_periods": [],
-            "status": "offline",
-        }, status=404)
+        return JsonResponse(
+            {
+                "first_seen": None,
+                "data": [],
+                "downtime_periods": [],
+                "status": "offline",
+            },
+            status=404,
+        )
 
     statuses = NodeStatusHistory.objects.filter(provider=node).order_by("timestamp")
     response_data, downtime_periods = [], []
@@ -111,8 +127,10 @@ def node_uptime(request, yagna_id):
         day = first_seen_date + timedelta(days=day_offset)
         day_start = timezone.make_aware(datetime.combine(day, datetime.min.time()))
         day_end = day_start + timedelta(days=1)
-        data_points_for_day = statuses.filter(timestamp__range=(day_start, day_end)).distinct('timestamp')
-                
+        data_points_for_day = statuses.filter(
+            timestamp__range=(day_start, day_end)
+        ).distinct("timestamp")
+
         if data_points_for_day.exists():
             for point in data_points_for_day:
                 if not point.is_online:
@@ -120,42 +138,63 @@ def node_uptime(request, yagna_id):
                         last_offline_timestamp = point.timestamp
                 else:
                     if last_offline_timestamp is not None:
-                        downtime_periods.append(process_downtime(last_offline_timestamp, point.timestamp))
+                        downtime_periods.append(
+                            process_downtime(last_offline_timestamp, point.timestamp)
+                        )
                         last_offline_timestamp = None
 
-                response_data.append({
-                    "tooltip": "Today" if day == today_date else f"{total_days - day_offset - 1} day{'s' if (total_days - day_offset - 1) > 1 else ''} ago",
-                    "status": "online" if point.is_online else "offline",
-                })
+                response_data.append(
+                    {
+                        "tooltip": (
+                            "Today"
+                            if day == today_date
+                            else f"{total_days - day_offset - 1} day{'s' if (total_days - day_offset - 1) > 1 else ''} ago"
+                        ),
+                        "status": "online" if point.is_online else "offline",
+                    }
+                )
         else:
             # Assume the status did not change this day, infer from last known status if available
             last_known_status = statuses.filter(timestamp__lt=day_start).last()
-            inferred_status = last_known_status.is_online if last_known_status else False  # default to offline if unknown
-            tooltip = "Today" if day == today_date else f"{total_days - day_offset - 1} day{'s' if (total_days - day_offset - 1) > 1 else ''} ago"
-            response_data.append({
-                "tooltip": tooltip,
-                "status": "online" if inferred_status else "offline",
-            })
+            inferred_status = (
+                last_known_status.is_online if last_known_status else False
+            )  # default to offline if unknown
+            tooltip = (
+                "Today"
+                if day == today_date
+                else f"{total_days - day_offset - 1} day{'s' if (total_days - day_offset - 1) > 1 else ''} ago"
+            )
+            response_data.append(
+                {
+                    "tooltip": tooltip,
+                    "status": "online" if inferred_status else "offline",
+                }
+            )
 
     # Handling ongoing downtime
     if last_offline_timestamp is not None:
         downtime_periods.append(process_downtime(last_offline_timestamp, current_time))
 
-    return JsonResponse({
-        "first_seen": node.uptime_created_at.strftime("%Y-%m-%d %H:%M:%S"),
-        "uptime_percentage": calculate_uptime_percentage(yagna_id, node),
-        "data": response_data,
-        "downtime_periods": downtime_periods,
-        "current_status": "online" if node.online else "offline",
-    })
+    return JsonResponse(
+        {
+            "first_seen": node.uptime_created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "uptime_percentage": calculate_uptime_percentage(yagna_id, node),
+            "data": response_data,
+            "downtime_periods": downtime_periods,
+            "current_status": "online" if node.online else "offline",
+        }
+    )
+
 
 def process_downtime(start_time, end_time):
     duration = (end_time - start_time).total_seconds()
     days, remainder = divmod(duration, 86400)
     hours, remainder = divmod(remainder, 3600)
     minutes = remainder // 60
-    down_timestamp = f"From {start_time.strftime('%I:%M %p')} on {start_time.strftime('%B %d, %Y')} " \
-                     f"to {end_time.strftime('%I:%M %p')} on {end_time.strftime('%B %d, %Y')}"
+    down_timestamp = (
+        f"From {start_time.strftime('%I:%M %p')} on {start_time.strftime('%B %d, %Y')} "
+        f"to {end_time.strftime('%I:%M %p')} on {end_time.strftime('%B %d, %Y')}"
+    )
 
     parts = []
     if days:
@@ -178,9 +217,6 @@ def calculate_time_diff(check_time, granularity, node):
     else:
         minutes_ago = int((timezone.now() - check_time).total_seconds() / 60)
         return f"{minutes_ago} minutes ago" if minutes_ago > 1 else "1 minute ago"
-
-
-
 
 
 def globe_data(request):
