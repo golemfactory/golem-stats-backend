@@ -195,7 +195,7 @@ def v2_network_online_to_redis():
         for node in serialized_data:
             node_id = node["node_id"]
             if node_id in success_rate_mapping:
-                node["taskReputation"] = success_rate_mapping[node_id]
+                node["taskReputation"] = success_rate_mapping[node_id] * 100
             else:
                 node["taskReputation"] = None
 
