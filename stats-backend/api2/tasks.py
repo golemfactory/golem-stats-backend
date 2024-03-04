@@ -895,7 +895,7 @@ def get_provider_task_data():
             entry_data = {
                 "providerName": entry.offer.properties.get("golem.node.id.name", ""),
                 "providerId": entry.instance.node_id,
-                "cores": entry.offer.properties.get("golem.inf.cpu.cores", 0),
+                "cores": entry.offer.properties.get("golem.inf.cpu.threads", 0),
                 "memory": entry.offer.properties.get("golem.inf.mem.gib", 0),
                 "disk": entry.offer.properties.get("golem.inf.storage.gib", 0),
                 "cpuh": entry.cpu_per_hour,
