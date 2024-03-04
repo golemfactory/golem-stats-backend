@@ -792,20 +792,20 @@ def median_and_average_pricing_past_hour():
 
         pricing_data = {
             "testnet": {
-                "cpu_median": cpu_median_testnet,
-                "cpu_average": cpu_average_testnet,
-                "env_median": env_median_testnet,
-                "env_average": env_average_testnet,
-                "start_median": start_median_testnet,
-                "start_average": start_average_testnet,
+                "cpu_median": cpu_median_testnet if cpu_median_testnet else 0,
+                "cpu_average": cpu_average_testnet if cpu_average_testnet else 0,
+                "env_median": env_median_testnet if env_median_testnet else 0,
+                "env_average": env_average_testnet if env_average_testnet else 0,
+                "start_median": start_median_testnet if start_median_testnet else 0,
+                "start_average": start_average_testnet if start_average_testnet else 0,
             },
             "mainnet": {
-                "cpu_median": cpu_median_mainnet,
-                "cpu_average": cpu_average_mainnet,
-                "env_median": env_median_mainnet,
-                "env_average": env_average_mainnet,
-                "start_median": start_median_mainnet,
-                "start_average": start_average_mainnet,
+                "cpu_median": cpu_median_mainnet if cpu_median_mainnet else 0,
+                "cpu_average": cpu_average_mainnet if cpu_average_mainnet else 0,
+                "env_median": env_median_mainnet if env_median_mainnet else 0,
+                "env_average": env_average_mainnet if env_average_mainnet else 0,
+                "start_median": start_median_mainnet if start_median_mainnet else 0,
+                "start_average": start_average_mainnet if start_average_mainnet else 0,
             },
         }
         print(f"Median and average pricing data: {pricing_data}")
