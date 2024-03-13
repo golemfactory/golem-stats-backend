@@ -60,6 +60,8 @@ def setup_periodic_tasks(sender, **kwargs):
         chart_pricing_data_for_frontend,
         v2_network_online_to_redis_new_stats_page,
         get_provider_task_data,
+        # online_nodes_uptime_donut_data,
+        # v2_network_stats_to_redis,
     )
 
     # sender.add_periodic_task(
@@ -86,6 +88,12 @@ def setup_periodic_tasks(sender, **kwargs):
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
+    # sender.add_periodic_task(
+    #     60,
+    #     online_nodes_uptime_donut_data.s(),
+    #     queue="default",
+    #     options={"queue": "default", "routing_key": "default"},
+    # )
     sender.add_periodic_task(
         crontab(minute="*/11"),
         get_provider_task_data.s(),
@@ -132,6 +140,12 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         60.0,
         v2_offer_scraper.s(),
+        queue="yagna",
+        options={"queue": "yagna", "routing_key": "yagna"},
+    )
+    sender.add_periodic_task(
+        60.0,
+        v2_offer_scraper.s(subnet_tag="ray-on-golem-heads"),
         queue="yagna",
         options={"queue": "yagna", "routing_key": "yagna"},
     )
@@ -303,6 +317,12 @@ def setup_periodic_tasks(sender, **kwargs):
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
+    # sender.add_periodic_task(
+    #     10.0,
+    #     v2_network_stats_to_redis.s(),
+    #     queue="default",
+    #     options={"queue": "default", "routing_key": "default"},
+    # )
     sender.add_periodic_task(
         10.0,
         network_utilization_to_redis.s(),
