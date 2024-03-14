@@ -11,7 +11,10 @@ from .views import (
 
 urlpatterns = [
     path("network/online", views.network_online),
+    path("network/online/donut", views.online_nodes_uptime_donut_data),
     path("network/online/new", views.network_online_new_stats_page),
+    path("network/online/stats", views.online_stats),
+    path("network/online/runtime/stats", views.online_stats_by_runtime),
     path("network/online/flatmap", views.network_online_flatmap),
     path("network/offers/cheapest/cores", views.cheapest_by_cores),
     path("network/pricing/1h", views.pricing_past_hour),

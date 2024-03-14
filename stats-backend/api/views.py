@@ -36,11 +36,6 @@ pool = redis.ConnectionPool(host="redis", port=6379, db=0)
 r = redis.Redis(connection_pool=pool)
 
 
-@sync_to_async
-def LogEndpoint(endpoint):
-    r.lpush("API", endpoint)
-
-
 async def total_api_calls(request):
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
@@ -56,7 +51,6 @@ async def total_api_calls(request):
 
 
 async def median_prices(request):
-    await LogEndpoint("Network Median Pricing")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -71,7 +65,6 @@ async def median_prices(request):
 
 
 async def average_pricing(request):
-    await LogEndpoint("Network Average Pricing")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -89,7 +82,6 @@ async def statsmax(request):
     """
     Retrieves network stats over time. (Providers, Cores, Memory, Disk)
     """
-    await LogEndpoint("Network Historical Stats")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -109,7 +101,6 @@ async def providercomputingmax(request):
     """
     Retrieves providers computing over time. (Highest amount observed during the day)
     """
-    await LogEndpoint("Network Historical Computing")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -127,7 +118,6 @@ async def avgpricingmax(request):
     """
     Retrieves Average pricing over time. (Start, CPU/h, Per/h)
     """
-    await LogEndpoint("Network Historical Average Pricing")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -145,7 +135,6 @@ async def medianpricingmax(request):
     """
     Retrieves Average pricing over time. (Start, CPU/h, Per/h)
     """
-    await LogEndpoint("Network Historical Median Pricing")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -163,22 +152,20 @@ async def online_nodes(request):
     """
     List all online nodes.
     """
-    await LogEndpoint("Network Online")
     if request.method == "GET":
-        pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+
+        return JsonResponse(
+            {
+                "deprecation": "This endpoint has been sunset due to instability. Please use v2/network/online instead."
+            },
+            safe=False,
+            json_dumps_params={"indent": 4},
         )
-        r = aioredis.Redis(connection_pool=pool)
-        content = await r.get("online")
-        data = json.loads(content)
-        pool.disconnect()
-        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
     else:
         return HttpResponse(status=400)
 
 
 async def activity_graph_provider(request, yagna_id):
-    await LogEndpoint("Node Activity")
     end = round(time.time())
     start = end - 86400
 
@@ -192,7 +179,6 @@ async def activity_graph_provider(request, yagna_id):
 
 
 async def payments_last_n_hours_provider(request, yagna_id, hours):
-    await LogEndpoint("Node Earnings")
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
@@ -212,7 +198,6 @@ async def payments_last_n_hours_provider(request, yagna_id, hours):
 
 
 async def yagna_releases(request):
-    await LogEndpoint("Yagna Releases")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -227,7 +212,6 @@ async def yagna_releases(request):
 
 
 async def payments_earnings_provider(request, yagna_id):
-    await LogEndpoint("Node Earnings")
     now = round(time.time())
     time_intervals = ["24", "168", "720", "2160"]
 
@@ -241,13 +225,12 @@ async def payments_earnings_provider(request, yagna_id):
         if data[1] == 200 and data[0]["data"]["result"]:
             earnings[interval] = data[0]["data"]["result"][0]["value"][1]
         else:
-            earnings[interval] = 0.0 # If no data is found, set earnings to 0
+            earnings[interval] = 0.0  # If no data is found, set earnings to 0
 
     return JsonResponse(earnings, json_dumps_params={"indent": 4})
 
 
 async def total_tasks_computed(request, yagna_id):
-    await LogEndpoint("Node Tasks Computed")
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
@@ -268,7 +251,6 @@ async def total_tasks_computed(request, yagna_id):
 
 
 async def provider_seconds_computed_total(request, yagna_id):
-    await LogEndpoint("Node Seconds Computed")
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
@@ -289,7 +271,6 @@ async def provider_seconds_computed_total(request, yagna_id):
 
 
 async def provider_computing(request, yagna_id):
-    await LogEndpoint("Node Computing")
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
@@ -466,7 +447,6 @@ async def show_endpoint_count(request):
     """
     Lists the amount of times an endpoint has been requested.
     """
-    await LogEndpoint("List Endpoint Count")
     if request.method == "GET":
         endpoint = request.GET["endpoint"]
         data = APICounter.objects.filter(endpoint=endpoint).count()
@@ -493,7 +473,6 @@ async def stats_30m(request):
     """
     Network stats past 30 minutes.
     """
-    await LogEndpoint("Network Online Stats 30m")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -529,7 +508,6 @@ async def general_stats(request):
     """
     List network stats for online nodes.
     """
-    await LogEndpoint("Network Online Stats")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -548,7 +526,6 @@ async def network_utilization(request):
     Queries the networks utilization from a start date to the end date specified, and returns
     timestamps in ms along with providers computing.
     """
-    await LogEndpoint("Network Utilization")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -566,7 +543,6 @@ async def network_versions(request):
     """
     Queries the networks nodes for their yagna versions
     """
-    await LogEndpoint("Network Versions")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -584,7 +560,6 @@ async def providers_computing_currently(request):
     """
     Returns how many providers are currently computing a task.
     """
-    await LogEndpoint("Network Computing")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -602,7 +577,6 @@ async def providers_average_earnings(request):
     """
     Returns providers average earnings per task in the last hour.
     """
-    await LogEndpoint("Providers Average Earnings")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -620,7 +594,6 @@ async def network_earnings_24h(request):
     """
     Returns the earnings for the whole network the last n hours.
     """
-    await LogEndpoint("Network Earnings 24h")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -708,7 +681,6 @@ async def requestors(request):
     """
     Returns all the requestors seen on the network and the tasks requested amount.
     """
-    await LogEndpoint("Requestors")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -726,7 +698,6 @@ async def market_agreement_termination_reason(request):
     """
     Returns the reasons for market agreements termination.
     """
-    await LogEndpoint("Market Agreement Termination")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -744,7 +715,6 @@ async def paid_invoices_1h(request):
     """
     Returns the percentage of invoices paid during the last hour.
     """
-    await LogEndpoint("Paid Invoices 1h")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
@@ -762,7 +732,6 @@ async def provider_invoice_accepted_percentage(request):
     """
     Returns the percentage of invoices accepted by the provider that they have issued to the requestor.
     """
-    await LogEndpoint("Provider Invoice Accepted 1h")
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True

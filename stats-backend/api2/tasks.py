@@ -39,12 +39,68 @@ from django.db.models import (
 )
 from django.db.models.functions import Cast
 
+from .scoring import calculate_uptime_percentage
+from django.db import transaction
+
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Decimal):
             return float(obj)
         return super().default(obj)
+
+
+@app.task
+def online_nodes_uptime_donut_data():
+
+    try:
+        with transaction.atomic():
+            # Fetching nodes with only necessary fields to reduce query load
+            nodes_mainnet = Node.objects.filter(online=True, network="mainnet").only(
+                "node_id"
+            )
+            nodes_testnet = Node.objects.filter(online=True, network="testnet").only(
+                "node_id"
+            )
+
+            # Initializing data structure for each network
+            uptime_data = {
+                "mainnet": {
+                    "80_and_over": 0,
+                    "50_to_79": 0,
+                    "30_to_49": 0,
+                    "below_30": 0,
+                    "totalOnline": nodes_mainnet.count(),
+                },
+                "testnet": {
+                    "80_and_over": 0,
+                    "50_to_79": 0,
+                    "30_to_49": 0,
+                    "below_30": 0,
+                    "totalOnline": nodes_testnet.count(),
+                },
+            }
+
+            def update_uptime_data(nodes, network):
+                for node in nodes:
+                    uptime_percentage = calculate_uptime_percentage(node.node_id)
+                    if uptime_percentage >= 80:
+                        uptime_data[network]["80_and_over"] += 1
+                    elif 50 <= uptime_percentage < 80:
+                        uptime_data[network]["50_to_79"] += 1
+                    elif 30 <= uptime_percentage < 50:
+                        uptime_data[network]["30_to_49"] += 1
+                    else:
+                        uptime_data[network]["below_30"] += 1
+
+            # Updating uptime data for each network
+            update_uptime_data(nodes_mainnet, "mainnet")
+            update_uptime_data(nodes_testnet, "testnet")
+
+            # Save the result in a cache or similar storage
+            r.set("online_nodes_uptime_donut_data", json.dumps(uptime_data))
+    except Exception as e:
+        print(f"Error: {e}")
 
 
 @app.task
@@ -109,15 +165,18 @@ def compare_ec2_and_golem():
 
 @app.task
 def network_historical_stats_to_redis_v2():
-    now = datetime.now()
-    one_day_ago = now - timedelta(days=1)
-    seven_days_ago = now - timedelta(days=7)
-    one_month_ago = now - timedelta(days=30)
-    one_year_ago = now - timedelta(days=365)
+    now = timezone.now()
+    runtime_names = NetworkStats.objects.values_list("runtime", flat=True).distinct()
+    formatted_data = {
+        runtime: {"1d": [], "7d": [], "1m": [], "1y": [], "All": []}
+        for runtime in runtime_names
+    }
 
-    def data_with_granularity(start_date, end_date, granularity):
+    def data_with_granularity(runtime_name, start_date, end_date, granularity):
         stats = (
-            NetworkStats.objects.filter(date__range=(start_date, end_date))
+            NetworkStats.objects.filter(
+                runtime=runtime_name, date__range=(start_date, end_date)
+            )
             .annotate(timestamp=granularity("date"))
             .values("timestamp")
             .annotate(
@@ -125,50 +184,53 @@ def network_historical_stats_to_redis_v2():
                 cores=Avg("cores"),
                 memory=Avg("memory"),
                 disk=Avg("disk"),
+                gpus=Avg("gpus"),
             )
             .order_by("timestamp")
         )
         if granularity in [TruncDay, TruncHour]:
-            for stat in stats:
-                stat_date = stat["timestamp"]
-                computing_total = (
-                    ProvidersComputingMax.objects.filter(
-                        date__date=stat_date
-                    ).aggregate(Max("total"))["total__max"]
-                    or 0
-                )
-                stat["computing"] = computing_total
+            latest_stat = (
+                NetworkStats.objects.filter(runtime=runtime_name, date__lt=end_date)
+                .order_by("-date")
+                .values("online", "cores", "memory", "disk", "gpus")
+                .first()
+            )
+            if latest_stat:
+                latest_stat["timestamp"] = end_date - timedelta(microseconds=1)
+                stats = list(stats) + [latest_stat]
         return stats
 
-    hourly_data_past_day = data_with_granularity(one_day_ago, now, TruncHour)
-    daily_data_past_7_days = data_with_granularity(seven_days_ago, now, TruncDay)
-    daily_data_past_month = data_with_granularity(one_month_ago, now, TruncDay)
-    daily_data_past_year = data_with_granularity(one_year_ago, now, TruncDay)
-
-    formatted_data = {"1d": [], "7d": [], "1m": [], "1y": [], "All": []}
-
-    def append_data(data_source, key):
+    def append_data(formatted_data, runtime_name, data_source, key):
         for entry in data_source:
             formatted_entry = {
                 "date": entry["timestamp"].timestamp(),
-                "online": round(entry["online"]),
-                "cores": round(entry["cores"]),
-                "memory": round(entry["memory"] / 1024, 2),
-                "disk": round(entry["disk"] / 1024, 2),
+                "online": round(entry.get("online", 0)),
+                "cores": round(entry.get("cores", 0)),
+                "memory": round(entry.get("memory", 0) / 1024, 2),
+                "disk": round(entry.get("disk", 0) / 1024, 2),
+                "gpus": round(entry.get("gpus", 0)),
             }
-            if "computing" in entry:
-                formatted_entry["computing"] = entry["computing"]
-            formatted_data[key].append(formatted_entry)
+            formatted_data[runtime_name][key].append(formatted_entry)
 
-    append_data(hourly_data_past_day, "1d")
-    append_data(daily_data_past_7_days, "7d")
-    append_data(daily_data_past_month, "1m")
-    append_data(daily_data_past_year, "1y")
-
-    all_time_data = data_with_granularity(
-        NetworkStats.objects.earliest("date").date, now, TruncDay
-    )
-    append_data(all_time_data, "All")
+    for runtime_name in runtime_names:
+        time_intervals = [
+            ("1d", now - timedelta(days=1)),
+            ("7d", now - timedelta(days=7)),
+            ("1m", now - timedelta(days=30)),
+            ("1y", now - timedelta(days=365)),
+            (
+                "All",
+                NetworkStats.objects.filter(runtime=runtime_name).earliest("date").date,
+            ),
+        ]
+        for key, start_date in time_intervals:
+            data = data_with_granularity(
+                runtime_name,
+                start_date,
+                now,
+                TruncDay if key not in ["1d"] else TruncHour,
+            )
+            append_data(formatted_data, runtime_name, data, key)
 
     r.set("network_historical_stats_v2", json.dumps(formatted_data))
 
@@ -177,13 +239,27 @@ def network_historical_stats_to_redis_v2():
 def v2_network_online_to_redis():
     # Fetch and process data from the external domain
     response = requests.get(
-        "https://reputation.dev-test.golem.network/v1/providers/scores"
+        "https://reputation.dev-test.golem.network/v2/providers/scores"
     )
     if response.status_code == 200:
         external_data = response.json()
+
+        # Mapping of providerId to successRate
         success_rate_mapping = {
-            provider["providerId"]: provider["scores"]["successRate"]
-            for provider in external_data["providers"]
+            provider["provider"]["id"]: provider["scores"]["successRate"]
+            for provider in external_data["testedProviders"]
+        }
+
+        # Mapping of blacklisted providerId to the reason
+        blacklist_provider_mapping = {
+            provider["provider"]["id"]: provider["reason"]
+            for provider in external_data["rejectedProviders"]
+        }
+
+        # Mapping of blacklisted operator walletAddress to the reason
+        blacklist_operator_mapping = {
+            operator["operator"]["walletAddress"]: operator["reason"]
+            for operator in external_data["rejectedOperators"]
         }
 
         # Fetch your existing nodes
@@ -191,13 +267,32 @@ def v2_network_online_to_redis():
         serializer = NodeSerializer(data, many=True)
         serialized_data = serializer.data
 
-        # Attach successRate to each node if the providerId matches
+        # Attach successRate and blacklist status to each node
         for node in serialized_data:
             node_id = node["node_id"]
+            wallet = node.get("wallet")  # Assuming 'wallet' attribute exists
+
+            node["reputation"] = {}
+            node["reputation"]["blacklisted"] = False
+            node["reputation"]["blacklistedReason"] = None
+
+            if node_id in blacklist_provider_mapping:
+                node["reputation"]["blacklisted"] = True
+                node["reputation"]["blacklistedReason"] = blacklist_provider_mapping[
+                    node_id
+                ]
+            elif wallet in blacklist_operator_mapping:
+                node["reputation"]["blacklisted"] = True
+                node["reputation"]["blacklistedReason"] = blacklist_operator_mapping[
+                    wallet
+                ]
+
             if node_id in success_rate_mapping:
-                node["taskReputation"] = success_rate_mapping[node_id] * 100
+                node["reputation"]["taskReputation"] = (
+                    success_rate_mapping[node_id] * 100
+                )
             else:
-                node["taskReputation"] = None
+                node["reputation"]["taskReputation"] = None
 
         # Serialize and save to Redis
         test = json.dumps(serialized_data, default=str)
@@ -475,6 +570,8 @@ def v2_cheapest_provider():
         },
     ]
     for obj in sorted_pricing_and_specs:
+        if not "node_id" in obj["properties"]:
+            continue
         provider = {}
         provider["name"] = "Golem Network"
         provider["node_id"] = obj["properties"]["node_id"]
@@ -632,7 +729,74 @@ from .utils import identify_network_by_offer
 
 
 @app.task
+def v2_network_stats_to_redis():
+
+    stats_by_runtime = {}
+
+    vm_offers_query = Offer.objects.filter(provider__online=True)
+
+    for offer in vm_offers_query:
+        properties = offer.properties
+        if not properties:
+            print(f"Offer {offer.id} has no properties {offer}")
+            continue
+        runtime_name = offer.runtime
+
+        if runtime_name not in stats_by_runtime:
+            stats_by_runtime[runtime_name] = {
+                "online": 0,
+                "cores": 0,
+                "threads": 0,
+                "memory": 0.0,
+                "disk": 0.0,
+                "gpus": 0,
+                "cuda_cores": 0,
+                "gpu_memory": 0.0,
+                "gpu_models": {},
+            }
+        stats = stats_by_runtime[runtime_name]
+        stats["online"] += 1
+        stats["cores"] += properties.get("golem.inf.cpu.cores", 0)
+        stats["threads"] += properties.get("golem.inf.cpu.threads", 0)
+        stats["memory"] += properties.get("golem.inf.mem.gib", 0.0)
+        stats["disk"] += properties.get("golem.inf.storage.gib", 0.0)
+        gpu = properties.get("golem.!exp.gap-35.v1.inf.gpu.model", None)
+        if gpu:
+            stats["gpus"] += 1
+            stats["cuda_cores"] += properties.get(
+                "golem.!exp.gap-35.v1.inf.gpu.cuda.cores", 0
+            )
+            stats["gpu_memory"] += properties.get(
+                "golem.!exp.gap-35.v1.inf.gpu.memory.total.gib", 0.0
+            )
+            stats["gpu_models"][gpu] = stats["gpu_models"].get(gpu, 0) + 1
+
+    total_online_mainnet = Node.objects.filter(online=True, network="mainnet").count()
+    total_online_testnet = Node.objects.filter(online=True, network="testnet").count()
+    stats_by_runtime["totalOnlineMainnet"] = total_online_mainnet
+    stats_by_runtime["totalOnlineTestnet"] = total_online_testnet
+
+    serialized = json.dumps(stats_by_runtime, default=dict)
+    r.set("online_stats_by_runtime", serialized)
+
+    for runtime, data in stats_by_runtime.items():
+        if isinstance(data, dict):
+            NetworkStats.objects.create(
+                online=data["online"],
+                cores=data["cores"],
+                memory=data["memory"],
+                disk=data["disk"],
+                runtime=runtime,
+                gpus=data.get("gpus", 0),
+                cuda_cores=data.get("cuda_cores", 0),
+                gpu_memory=data.get("gpu_memory", 0.0),
+                gpu_models=data.get("gpu_models", {}),
+            )
+
+
+@app.task
 def providers_who_received_tasks():
+
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
@@ -641,40 +805,38 @@ def providers_who_received_tasks():
     content, status_code = get_stats_data(domain)
     if status_code == 200:
         data = content["data"]["result"]
-        for obj in data:
-            instance_id = obj["metric"]["instance"]
-            node, _ = Node.objects.get_or_create(node_id=instance_id)
-            try:
-                offer = Offer.objects.get(provider=node, runtime="vm")
-                if offer is None:
-                    continue
-                print(offer.properties, "offer is here")
-                pricing_model = offer.properties.get(
-                    "golem.com.pricing.model.linear.coeffs", []
-                )
-                usage_vector = offer.properties.get("golem.com.usage.vector", [])
-                if not usage_vector or not pricing_model:
-                    continue
+        with transaction.atomic():
+            for obj in data:
+                instance_id = obj["metric"]["instance"]
+                node, _ = Node.objects.get_or_create(node_id=instance_id)
+                try:
+                    offer = Offer.objects.get(provider=node, runtime="vm")
+                    if offer is None:
+                        continue
+                    pricing_model = offer.properties.get(
+                        "golem.com.pricing.model.linear.coeffs", []
+                    )
+                    usage_vector = offer.properties.get("golem.com.usage.vector", [])
+                    if not usage_vector or not pricing_model:
+                        continue
 
-                static_start_price = pricing_model[-1]
+                    static_start_price = pricing_model[-1]
+                    cpu_index = usage_vector.index("golem.usage.cpu_sec")
+                    cpu_per_hour_price = pricing_model[cpu_index] * 3600
 
-                cpu_index = usage_vector.index("golem.usage.cpu_sec")
-                cpu_per_hour_price = pricing_model[cpu_index] * 3600
+                    duration_index = usage_vector.index("golem.usage.duration_sec")
+                    env_per_hour_price = pricing_model[duration_index] * 3600
 
-                duration_index = usage_vector.index("golem.usage.duration_sec")
-                env_per_hour_price = pricing_model[duration_index] * 3600
-
-                ProviderWithTask.objects.create(
-                    instance=node,
-                    offer=offer,
-                    cpu_per_hour=cpu_per_hour_price,
-                    env_per_hour=env_per_hour_price,
-                    start_price=static_start_price,
-                    network=identify_network_by_offer(offer),
-                )
-            except Offer.DoesNotExist:
-                print(f"Offer for node {node.node_id} not found")
-                pass  # If no VM runtime offer found for node, continue with next
+                    ProviderWithTask.objects.create(
+                        instance=node,
+                        offer=offer,
+                        cpu_per_hour=cpu_per_hour_price,
+                        env_per_hour=env_per_hour_price,
+                        start_price=static_start_price,
+                        network=identify_network_by_offer(offer),
+                    )
+                except Offer.DoesNotExist:
+                    print(f"Offer for node {node.node_id} not found")
 
 
 from django.db.models import Avg
@@ -865,6 +1027,93 @@ def chart_pricing_data_for_frontend():
         networks_data[network] = data
 
     r.set("pricing_data_charted_v2", json.dumps(networks_data))
+
+
+from django.db.models import Max, Sum
+from django.db.models import (
+    Count,
+    Avg,
+    StdDev,
+    FloatField,
+    Q,
+    Subquery,
+    OuterRef,
+    F,
+    Case,
+    When,
+    Max,
+)
+from django.db.models.functions import Cast
+from datetime import timedelta
+from django.db.models import Subquery, OuterRef
+from django.db.models.fields.json import KeyTextTransform
+from django.db import models
+from django.db.models import IntegerField, FloatField
+
+
+@app.task
+def sum_highest_runtime_resources():
+    with transaction.atomic():
+        online_nodes = Node.objects.filter(online=True)
+
+        total_cores = 0
+        total_memory = 0
+        total_storage = 0
+        total_gpus = 0
+
+        for node in online_nodes:
+            offers = Offer.objects.filter(provider=node)
+            max_resources = offers.annotate(
+                cores=Cast(
+                    KeyTextTransform("golem.inf.cpu.threads", "properties"),
+                    IntegerField(),
+                ),
+                memory=Cast(
+                    KeyTextTransform("golem.inf.mem.gib", "properties"), FloatField()
+                ),
+                storage=Cast(
+                    KeyTextTransform("golem.inf.storage.gib", "properties"),
+                    FloatField(),
+                ),
+                gpu_model=KeyTextTransform(
+                    "golem.!exp.gap-35.v1.inf.gpu.model", "properties"
+                ),
+            ).aggregate(
+                max_cores=Max("cores"),
+                max_memory=Max("memory"),
+                max_storage=Max("storage"),
+                gpu_count=Count("gpu_model", filter=Q(gpu_model__isnull=False)),
+            )
+
+            total_cores += (
+                max_resources["max_cores"] if max_resources["max_cores"] else 0
+            )
+            total_memory += (
+                max_resources["max_memory"] if max_resources["max_memory"] else 0
+            )
+            total_storage += (
+                max_resources["max_storage"] if max_resources["max_storage"] else 0
+            )
+            total_gpus += max_resources["gpu_count"]
+
+        print(
+            f"Total cores: {total_cores}"
+            f"Total memory: {total_memory}"
+            f"Total storage: {total_storage}"
+            f"Total gpus: {total_gpus}"
+        )
+        r.set(
+            "v2_network_online_stats",
+            json.dumps(
+                {
+                    "providers": online_nodes.count(),
+                    "cores": total_cores,
+                    "memory": total_memory,
+                    "storage": total_storage,
+                    "gpus": total_gpus,
+                }
+            ),
+        )
 
 
 @app.task

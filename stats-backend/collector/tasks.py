@@ -85,31 +85,33 @@ def stats_snapshot_yesterday():
     date_trunc_day = TruncDay("date", output_field=DateField())
 
     online = (
-        NetworkStats.objects.filter(date__gte=start_date)
+        NetworkStats.objects.filter(date__gte=start_date, runtime="vm")
         .annotate(day=date_trunc_day)
         .values("day")
         .annotate(online=Max("online"))
     )
     cores = (
-        NetworkStats.objects.filter(date__gte=start_date)
+        NetworkStats.objects.filter(date__gte=start_date, runtime="vm")
         .annotate(day=date_trunc_day)
         .values("day")
         .annotate(cores=Max("cores"))
     )
     memory = (
-        NetworkStats.objects.filter(date__gte=start_date)
+        NetworkStats.objects.filter(date__gte=start_date, runtime="vm")
         .annotate(day=date_trunc_day)
         .values("day")
         .annotate(memory=Max("memory"))
     )
     disk = (
-        NetworkStats.objects.filter(date__gte=start_date)
+        NetworkStats.objects.filter(date__gte=start_date, runtime="vm")
         .annotate(day=date_trunc_day)
         .values("day")
         .annotate(disk=Max("disk"))
     )
 
-    existing_dates = NetworkStatsMax.objects.all().values_list("date", flat=True)
+    existing_dates = NetworkStatsMax.objects.filter(runtime="vm").values_list(
+        "date", flat=True
+    )
 
     for online_obj, cores_obj, memory_obj, disk_obj in zip(online, cores, memory, disk):
         current_date = online_obj["day"]
@@ -316,7 +318,7 @@ def max_stats():
     medianmax = json.dumps(serializermedian.data)
     r.set("pricing_median_max", medianmax)
 
-    data4 = NetworkStatsMax.objects.all()
+    data4 = NetworkStatsMax.objects.filter(runtime="vm")
     serializerstats = NetworkStatsMaxSerializer(data4, many=True)
     statsmax = json.dumps(serializerstats.data)
     r.set("stats_max", statsmax)
@@ -367,12 +369,6 @@ def network_stats_to_redis():
     # (The mainnet and testnet logic might need to be revised based on how they relate to the Offer model)
 
     serialized = json.dumps(content)
-    NetworkStats.objects.create(
-        online=vm_offers_query.count(),
-        cores=sum(cores),
-        memory=sum(memory),
-        disk=sum(disk),
-    )
 
     r.set("online_stats", serialized)
 
@@ -386,7 +382,9 @@ import json
 def networkstats_30m():
     now = datetime.now()
     before = now - timedelta(minutes=30)
-    data = NetworkStats.objects.filter(date__range=(before, now)).order_by("date")
+    data = NetworkStats.objects.filter(
+        date__range=(before, now), runtime="vm"
+    ).order_by("date")
     serializer = NetworkStatsSerializer(data, many=True)
     r.set("stats_30m", json.dumps(serializer.data))
 
@@ -407,29 +405,38 @@ def network_utilization_to_redis():
 
 @app.task
 def network_node_versions():
+    from django.db import transaction
+
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
         + f'api/datasources/proxy/40/api/v1/query?query=yagna_version_major%7Bjob%3D"community.1"%7D*100%2Byagna_version_minor%7Bjob%3D"community.1"%7D*10%2Byagna_version_patch%7Bjob%3D"community.1"%7D&time={now}'
     )
     data = get_stats_data(domain)
-    nodes = data[0]["data"]["result"]
-    for obj in nodes:
+    nodes_data = data[0]["data"]["result"]
+
+    node_updates = []
+
+    for obj in nodes_data:
         try:
-            node = obj["metric"]["instance"]
-            if len(obj["value"][1]) == 2:
-                version = "0" + obj["value"][1]
-                concatinated = version[0] + "." + version[1] + "." + version[2]
-                Node.objects.filter(node_id=node).update(version=concatinated)
-                Nodev2.objects.filter(node_id=node).update(version=concatinated)
-            elif len(obj["value"][1]) == 3:
-                version = obj["value"][1]
-                concatinated = "0." + version[0] + version[1] + "." + version[2]
-                Node.objects.filter(node_id=node).update(version=concatinated)
-                Nodev2.objects.filter(node_id=node).update(version=concatinated)
+            node_id = obj["metric"]["instance"]
+            version_val = obj["value"][1]
+            if len(version_val) == 2:
+                version_formatted = "0." + version_val[0] + "." + version_val[1]
+            elif len(version_val) == 3:
+                version_formatted = (
+                    version_val[0] + "." + version_val[1] + "." + version_val[2]
+                )
+            else:
+                continue
+            node_updates.append((node_id, version_formatted))
         except Exception as e:
             print(e)
-            continue
+
+    with transaction.atomic():
+        for node_id, version in node_updates:
+            Node.objects.filter(node_id=node_id).update(version=version)
+            Nodev2.objects.filter(node_id=node_id).update(version=version)
 
 
 @app.task
@@ -665,32 +672,52 @@ def get_earnings_for_node_on_platform(user_node_id, platform):
         if data[0]["data"]["result"]:
             return round(float(data[0]["data"]["result"][0]["value"][1]), 2)
         else:
-            print(f"No data for {user_node_id} on {platform}", data)
             return 0.0
     except Exception as e:
         print(f"Error getting data for {user_node_id} on {platform}", e)
         return 0.0
 
 
+from django.db import transaction
+
+
 @app.task
 def node_earnings_total(node_version):
     if node_version == "v1":
-        providers = Node.objects.filter(online=True)
+        providers = Node.objects.filter(online=True).only("node_id", "earnings_total")
     elif node_version == "v2":
-        providers = Nodev2.objects.filter(online=True)
+        providers = Nodev2.objects.filter(online=True).only("node_id", "earnings_total")
 
-    for user in providers:
+    providers_updates = []
+    for provider in providers:
         earnings_total = sum(
-            get_earnings_for_node_on_platform(user.node_id, platform)
+            get_earnings_for_node_on_platform(provider.node_id, platform)
             for platform in settings.GOLEM_MAINNET_PAYMENT_DRIVERS
         )
-
-        user.earnings_total = (
-            user.earnings_total + earnings_total
-            if user.earnings_total
+        updated_earnings_total = (
+            provider.earnings_total + earnings_total
+            if provider.earnings_total
             else earnings_total
         )
-        user.save(update_fields=["earnings_total"])
+        providers_updates.append((provider.pk, updated_earnings_total))
+
+    with transaction.atomic():
+        if node_version == "v1":
+            Node.objects.bulk_update(
+                [
+                    Node(pk=pk, earnings_total=earnings)
+                    for pk, earnings in providers_updates
+                ],
+                ["earnings_total"],
+            )
+        elif node_version == "v2":
+            Nodev2.objects.bulk_update(
+                [
+                    Nodev2(pk=pk, earnings_total=earnings)
+                    for pk, earnings in providers_updates
+                ],
+                ["earnings_total"],
+            )
 
 
 @app.task
@@ -760,131 +787,44 @@ def market_agreement_termination_reasons():
 @app.task
 def requestor_scraper():
     checker, checkcreated = requestor_scraper_check.objects.get_or_create(id=1)
+    update_frequency = 10  # Default to last 10 seconds
     if checkcreated:
-        # No requestors indexed before, we loop back over the last 90 days to init the table with data.
         checker.indexed_before = True
         checker.save()
         now = round(time.time())
-        ninetydaysago = round(time.time()) - int(7776000)
-        hour = 3600
-        while ninetydaysago < now:
-            domain = (
-                os.environ.get("STATS_URL")
-                + f'api/datasources/proxy/40/api/v1/query?query=increase(market_agreements_requestor_approved%7Bjob%3D"community.1"%7D%5B{hour}s%5D)&time={ninetydaysago+hour}'
-            )
-            data = get_stats_data(domain)
-            ninetydaysago += hour
-            if data[1] == 200:
-                if data[0]["data"]["result"]:
-                    for node in data[0]["data"]["result"]:
-                        stats_tasks_requested = float(node["value"][1])
-                        if stats_tasks_requested > 1:
-                            obj, created = Requestors.objects.get_or_create(
-                                node_id=node["metric"]["instance"]
-                            )
-                            if created:
-                                obj.tasks_requested = stats_tasks_requested
-                                obj.save()
-                            else:
-                                obj.tasks_requested = (
-                                    obj.tasks_requested + stats_tasks_requested
-                                )
-                                obj.save()
-    else:
-        # Already indexed, we check the last 10 seconds.
-        now = round(time.time())
+        ninetydaysago = now - 7776000
+        update_frequency = 3600  # Update to last 90 days in hourly increments
+
+    time_to_check = (
+        ninetydaysago if checkcreated else round(time.time() - update_frequency)
+    )
+
+    domain = (
+        os.environ.get("STATS_URL")
+        + f'api/datasources/proxy/40/api/v1/query?query=increase(market_agreements_requestor_approved%7Bjob%3D"community.1"%7D%5B{update_frequency}s%5D)&time={time_to_check}'
+    )
+    data = get_stats_data(domain)
+
+    while checkcreated and ninetydaysago < now:
+        process_scraper_data(data)
+        ninetydaysago += 3600
         domain = (
             os.environ.get("STATS_URL")
-            + f'api/datasources/proxy/40/api/v1/query?query=increase(market_agreements_requestor_approved%7Bjob%3D"community.1"%7D%5B10s%5D)&time={now}'
+            + f'api/datasources/proxy/40/api/v1/query?query=increase(market_agreements_requestor_approved%7Bjob%3D"community.1"%7D%5B3600s%5D)&time={ninetydaysago}'
         )
         data = get_stats_data(domain)
-        if data[1] == 200:
-            if data[0]["data"]["result"]:
-                for node in data[0]["data"]["result"]:
-                    stats_tasks_requested = float(node["value"][1])
-                    if stats_tasks_requested > 1:
-                        obj, created = Requestors.objects.get_or_create(
-                            node_id=node["metric"]["instance"]
-                        )
-                        if created:
-                            obj.tasks_requested = stats_tasks_requested
-                            obj.save()
-                        else:
-                            obj.tasks_requested = (
-                                obj.tasks_requested + stats_tasks_requested
-                            )
-                            obj.save()
+
+    if not checkcreated:
+        process_scraper_data(data)
 
 
-@app.task
-def offer_scraper():
-    try:
-        os.chdir("/stats-backend/yapapi/examples/low-level-api")
-
-        with open("data.config") as f:
-            command = f.readline().strip()
-
-        subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
-        content = r.get("v1_offers")
-        serialized_content = json.loads(content) if content else []
-
-        serialized_ids = {json.loads(offer)["id"] for offer in serialized_content}
-        recent_nodes_qs = Node.objects.filter(
-            updated_at__gte=timezone.now() - timezone.timedelta(hours=1)
-        )
-        recent_nodes = {node.node_id: node for node in recent_nodes_qs}
-
-        nodes_to_update, nodes_to_create = [], []
-
-        for node_id in recent_nodes:
-            node = recent_nodes[node_id]
-            online = False
-            if node_id in serialized_ids:
-                node_data = next(
-                    (
-                        json.loads(offer)
-                        for offer in serialized_content
-                        if json.loads(offer)["id"] == node_id
-                    ),
-                    None,
+def process_scraper_data(data):
+    if data[1] == 200 and data[0]["data"]["result"]:
+        for node in data[0]["data"]["result"]:
+            stats_tasks_requested = float(node["value"][1])
+            if stats_tasks_requested > 1:
+                obj, _ = Requestors.objects.get_or_create(
+                    node_id=node["metric"]["instance"]
                 )
-                if node_data:
-                    node.data = node_data
-                    node.wallet = node_data.get("wallet")
-                online = True
-            node.updated_at = timezone.now()
-            online_command = f"yagna net find {node_id}"
-            online_proc = subprocess.run(
-                online_command, shell=True, capture_output=True, text=True
-            )
-            node.online = online and "Request failed" not in online_proc.stderr
-            nodes_to_update.append(node)
-
-        for offer in serialized_content:
-            data = json.loads(offer)
-            provider_id = data["id"]
-            if provider_id not in recent_nodes:
-                online_command = f"yagna net find {provider_id}"
-                online_proc = subprocess.run(
-                    online_command, shell=True, capture_output=True, text=True
-                )
-                online = "Request failed" not in online_proc.stderr
-                if online:
-                    nodes_to_create.append(
-                        Node(
-                            node_id=provider_id,
-                            data=data,
-                            wallet=data.get("wallet"),
-                            updated_at=timezone.now(),
-                            online=online,
-                            hybrid=True,
-                        )
-                    )
-
-        Node.objects.bulk_update(
-            nodes_to_update, fields=["data", "wallet", "online", "updated_at"]
-        )
-        Node.objects.bulk_create(nodes_to_create)
-
-    except Exception as e:
-        logging.error(f"An error occurred in offer_scraper: {e}", exc_info=True)
+                obj.tasks_requested = (obj.tasks_requested or 0) + stats_tasks_requested
+                obj.save()

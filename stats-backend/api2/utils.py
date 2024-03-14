@@ -18,6 +18,26 @@ def is_provider_online(provider):
     return is_online
 
 
+def extract_pricing_from_vm_properties(vm_properties):
+    pricing_model = vm_properties.get("golem.com.pricing.model.linear.coeffs", [])
+    usage_vector = vm_properties.get("golem.com.usage.vector", [])
+    if not usage_vector or not pricing_model:
+        return None, None, None
+
+    static_start_price = pricing_model[-1]
+
+    cpu_index = usage_vector.index("golem.usage.cpu_sec")
+    cpu_per_hour_price = pricing_model[cpu_index] * 3600
+
+    duration_index = usage_vector.index("golem.usage.duration_sec")
+    env_per_hour_price = pricing_model[duration_index] * 3600
+    return (
+        cpu_per_hour_price,
+        env_per_hour_price,
+        static_start_price,
+    )
+
+
 def identify_network(provider):
     # Use the variable from settings
     for driver in settings.GOLEM_MAINNET_PAYMENT_DRIVERS:

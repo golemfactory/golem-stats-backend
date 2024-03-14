@@ -68,6 +68,34 @@ async def list_ec2_instances_comparison(request):
         return HttpResponse(status=400)
 
 
+async def online_stats_by_runtime(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("online_stats_by_runtime")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
+
+
+async def online_stats(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("v2_network_online_stats")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
+
+
 async def network_historical_stats(request):
     """
     Network stats past 30 minutes.
@@ -184,6 +212,23 @@ def node_uptime(request, yagna_id):
             "current_status": "online" if node.online else "offline",
         }
     )
+
+
+async def online_nodes_uptime_donut_data(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("online_nodes_uptime_donut_data")
+        try:
+            data = json.loads(content)
+        except TypeError:
+            data = {"error": "No data found"}
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
 
 
 def process_downtime(start_time, end_time):

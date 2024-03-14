@@ -15,7 +15,6 @@ app = Celery("core")
 @app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     from collector.tasks import (
-        offer_scraper,
         online_nodes_computing,
         network_online_to_redis,
         network_stats_to_redis,
@@ -60,17 +59,11 @@ def setup_periodic_tasks(sender, **kwargs):
         chart_pricing_data_for_frontend,
         v2_network_online_to_redis_new_stats_page,
         get_provider_task_data,
-        # online_nodes_uptime_donut_data,
-        # v2_network_stats_to_redis,
-        # sum_highest_runtime_resources,
+        online_nodes_uptime_donut_data,
+        v2_network_stats_to_redis,
+        sum_highest_runtime_resources,
     )
 
-    # sender.add_periodic_task(
-    #     30.0,
-    #     offer_scraper.s(),
-    #     queue="yagna",
-    #     options={"queue": "yagna", "routing_key": "yagna"},
-    # )
     sender.add_periodic_task(
         crontab(hour="*/24"),
         store_ec2_info.s(),
@@ -89,18 +82,18 @@ def setup_periodic_tasks(sender, **kwargs):
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
-    # sender.add_periodic_task(
-    #     60,
-    #     sum_highest_runtime_resources.s(),
-    #     queue="default",
-    #     options={"queue": "default", "routing_key": "default"},
-    # )
-    # sender.add_periodic_task(
-    #     60,
-    #     online_nodes_uptime_donut_data.s(),
-    #     queue="default",
-    #     options={"queue": "default", "routing_key": "default"},
-    # )
+    sender.add_periodic_task(
+        60,
+        sum_highest_runtime_resources.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        60,
+        online_nodes_uptime_donut_data.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
     sender.add_periodic_task(
         crontab(minute="*/11"),
         get_provider_task_data.s(),
@@ -324,12 +317,12 @@ def setup_periodic_tasks(sender, **kwargs):
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
-    # sender.add_periodic_task(
-    #     10.0,
-    #     v2_network_stats_to_redis.s(),
-    #     queue="default",
-    #     options={"queue": "default", "routing_key": "default"},
-    # )
+    sender.add_periodic_task(
+        10.0,
+        v2_network_stats_to_redis.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
     sender.add_periodic_task(
         10.0,
         network_utilization_to_redis.s(),

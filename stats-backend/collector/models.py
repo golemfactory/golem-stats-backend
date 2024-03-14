@@ -22,9 +22,7 @@ BENCHMARK_CHOICES = (
 
 
 class Benchmark(models.Model):
-    type = models.CharField(max_length=9,
-                            choices=BENCHMARK_CHOICES,
-                            default="primary")
+    type = models.CharField(max_length=9, choices=BENCHMARK_CHOICES, default="primary")
     benchmark_score = models.IntegerField()
     benchmarked_at = models.DateTimeField(default=timezone.now)
     provider = models.ForeignKey(Node, on_delete=models.CASCADE)
@@ -40,6 +38,11 @@ class NetworkStatsMax(models.Model):
     memory = models.FloatField()
     disk = models.FloatField()
     date = models.DateTimeField()
+    runtime = models.CharField(max_length=64, default="vm")
+    gpus = models.IntegerField(default=0)
+    cuda_cores = models.IntegerField(default=0)
+    gpu_memory = models.FloatField(default=0)
+    
 
 
 class NetworkStats(models.Model):
@@ -48,6 +51,13 @@ class NetworkStats(models.Model):
     memory = models.FloatField()
     disk = models.FloatField()
     date = models.DateTimeField(auto_now=True)
+    runtime = models.CharField(max_length=64, default="vm")
+    gpus = models.IntegerField(default=0)
+    cuda_cores = models.IntegerField(default=0)
+    gpu_memory = models.FloatField(default=0)
+    gpu_models = models.JSONField(default=dict)
+
+
 
 
 class ProvidersComputing(models.Model):
