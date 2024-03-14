@@ -143,12 +143,12 @@ def setup_periodic_tasks(sender, **kwargs):
         queue="yagna",
         options={"queue": "yagna", "routing_key": "yagna"},
     )
-    # sender.add_periodic_task(
-    #     60.0,
-    #     v2_offer_scraper.s(subnet_tag="ray-on-golem-heads"),
-    #     queue="yagna",
-    #     options={"queue": "yagna", "routing_key": "yagna"},
-    # )
+    sender.add_periodic_task(
+        60.0,
+        v2_offer_scraper.s(subnet_tag="ray-on-golem-heads"),
+        queue="yagna",
+        options={"queue": "yagna", "routing_key": "yagna"},
+    )
     sender.add_periodic_task(
         20.0,
         v2_network_online_to_redis.s(),
