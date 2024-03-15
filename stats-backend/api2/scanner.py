@@ -32,99 +32,98 @@ def update_providers_info(node_props):
     seconds_current_month = days_in_current_month * 24 * 60 * 60
     hours_in_current_month = days_in_current_month * 24
     glm_usd_value = GLM.objects.get(id=1)
-    with transaction.atomic():
-        for prop in node_props:
-            data = json.loads(prop)
-            provider_id = data["node_id"]
-            wallet = data["wallet"]
-            unique_providers.add(provider_id)  # Add provider to the set
-            obj, created = Node.objects.get_or_create(node_id=provider_id)
-            offerobj, offercreated = Offer.objects.get_or_create(
-                provider=obj, runtime=data["golem.runtime.name"]
+    for prop in node_props:
+        data = json.loads(prop)
+        provider_id = data["node_id"]
+        wallet = data["wallet"]
+        unique_providers.add(provider_id)  # Add provider to the set
+        obj, created = Node.objects.get_or_create(node_id=provider_id)
+        offerobj, offercreated = Offer.objects.get_or_create(
+            provider=obj, runtime=data["golem.runtime.name"]
+        )
+        vectors = {}
+        if (
+            data["golem.runtime.name"] == "vm"
+            or data["golem.runtime.name"] == "vm-nvidia"
+        ):
+            for key, value in enumerate(data["golem.com.usage.vector"]):
+                vectors[value] = key
+            monthly_pricing = (
+                (
+                    data["golem.com.pricing.model.linear.coeffs"][
+                        vectors["golem.usage.duration_sec"]
+                    ]
+                    * seconds_current_month
+                )
+                + (
+                    data["golem.com.pricing.model.linear.coeffs"][
+                        vectors["golem.usage.cpu_sec"]
+                    ]
+                    * seconds_current_month
+                    * data["golem.inf.cpu.threads"]
+                )
+                + data["golem.com.pricing.model.linear.coeffs"][-1]
             )
-            vectors = {}
-            if (
-                data["golem.runtime.name"] == "vm"
-                or data["golem.runtime.name"] == "vm-nvidia"
-            ):
-                for key, value in enumerate(data["golem.com.usage.vector"]):
-                    vectors[value] = key
-                monthly_pricing = (
-                    (
-                        data["golem.com.pricing.model.linear.coeffs"][
-                            vectors["golem.usage.duration_sec"]
-                        ]
-                        * seconds_current_month
-                    )
-                    + (
-                        data["golem.com.pricing.model.linear.coeffs"][
-                            vectors["golem.usage.cpu_sec"]
-                        ]
-                        * seconds_current_month
-                        * data["golem.inf.cpu.threads"]
-                    )
-                    + data["golem.com.pricing.model.linear.coeffs"][-1]
+            if not monthly_pricing:
+                print(f"Monthly price is {monthly_pricing}")
+            offerobj.monthly_price_glm = monthly_pricing
+            offerobj.monthly_price_usd = (
+                monthly_pricing * glm_usd_value.current_price
+            )
+            offerobj.hourly_price_glm = monthly_pricing / hours_in_current_month
+            offerobj.hourly_price_usd = (
+                offerobj.monthly_price_usd / hours_in_current_month
+            )
+            vcpu_needed = data.get("golem.inf.cpu.threads", 0)
+            memory_needed = data.get("golem.inf.mem.gib", 0.0)
+            closest_ec2 = (
+                EC2Instance.objects.annotate(
+                    cpu_diff=Abs(F("vcpu") - vcpu_needed),
+                    memory_diff=Abs(F("memory") - memory_needed),
                 )
-                if not monthly_pricing:
-                    print(f"Monthly price is {monthly_pricing}")
-                offerobj.monthly_price_glm = monthly_pricing
-                offerobj.monthly_price_usd = (
-                    monthly_pricing * glm_usd_value.current_price
+                .order_by("cpu_diff", "memory_diff", "price_usd")
+                .first()
+            )
+
+            # Compare and update the Offer object
+            if closest_ec2 and monthly_pricing:
+                offer_price_usd = monthly_pricing * glm_usd_value.current_price
+                ec2_monthly_price = closest_ec2.price_usd * 730
+
+                offer_is_more_expensive = offer_price_usd > ec2_monthly_price
+                offer_is_cheaper = offer_price_usd < ec2_monthly_price
+
+                # Update Offer object fields for expensive comparison
+                offerobj.is_overpriced = offer_is_more_expensive
+                offerobj.overpriced_compared_to = (
+                    closest_ec2 if offer_is_more_expensive else None
                 )
-                offerobj.hourly_price_glm = monthly_pricing / hours_in_current_month
-                offerobj.hourly_price_usd = (
-                    offerobj.monthly_price_usd / hours_in_current_month
-                )
-                vcpu_needed = data.get("golem.inf.cpu.threads", 0)
-                memory_needed = data.get("golem.inf.mem.gib", 0.0)
-                closest_ec2 = (
-                    EC2Instance.objects.annotate(
-                        cpu_diff=Abs(F("vcpu") - vcpu_needed),
-                        memory_diff=Abs(F("memory") - memory_needed),
-                    )
-                    .order_by("cpu_diff", "memory_diff", "price_usd")
-                    .first()
+                offerobj.times_more_expensive = (
+                    offer_price_usd / float(ec2_monthly_price)
+                    if offer_is_more_expensive
+                    else None
                 )
 
-                # Compare and update the Offer object
-                if closest_ec2 and monthly_pricing:
-                    offer_price_usd = monthly_pricing * glm_usd_value.current_price
-                    ec2_monthly_price = closest_ec2.price_usd * 730
+                # Update Offer object fields for cheaper comparison
+                offerobj.cheaper_than = closest_ec2 if offer_is_cheaper else None
+                offerobj.times_cheaper = (
+                    float(ec2_monthly_price) / offer_price_usd
+                    if offer_is_cheaper
+                    else None
+                )
 
-                    offer_is_more_expensive = offer_price_usd > ec2_monthly_price
-                    offer_is_cheaper = offer_price_usd < ec2_monthly_price
+        offerobj.is_overpriced = False
+        offerobj.overpriced_compared_to = None
 
-                    # Update Offer object fields for expensive comparison
-                    offerobj.is_overpriced = offer_is_more_expensive
-                    offerobj.overpriced_compared_to = (
-                        closest_ec2 if offer_is_more_expensive else None
-                    )
-                    offerobj.times_more_expensive = (
-                        offer_price_usd / float(ec2_monthly_price)
-                        if offer_is_more_expensive
-                        else None
-                    )
-
-                    # Update Offer object fields for cheaper comparison
-                    offerobj.cheaper_than = closest_ec2 if offer_is_cheaper else None
-                    offerobj.times_cheaper = (
-                        float(ec2_monthly_price) / offer_price_usd
-                        if offer_is_cheaper
-                        else None
-                    )
-
-            offerobj.is_overpriced = False
-            offerobj.overpriced_compared_to = None
-
-            offerobj.properties = data
-            offerobj.save()
-            obj.runtime = data["golem.runtime.name"]
-            obj.wallet = wallet
-            # Verify each node's status
-            is_online = check_node_status(obj.node_id)
-            obj.network = identify_network_by_offer(offerobj)
-            obj.online = is_online
-            obj.save()
+        offerobj.properties = data
+        offerobj.save()
+        obj.runtime = data["golem.runtime.name"]
+        obj.wallet = wallet
+        # Verify each node's status
+        is_online = check_node_status(obj.node_id)
+        obj.network = identify_network_by_offer(offerobj)
+        obj.online = is_online
+        obj.save()
 
     online_nodes = Node.objects.filter(online=True)
     for node in online_nodes:
