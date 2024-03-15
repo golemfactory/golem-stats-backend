@@ -67,9 +67,7 @@ def update_providers_info(node_props):
             if not monthly_pricing:
                 print(f"Monthly price is {monthly_pricing}")
             offerobj.monthly_price_glm = monthly_pricing
-            offerobj.monthly_price_usd = (
-                monthly_pricing * glm_usd_value.current_price
-            )
+            offerobj.monthly_price_usd = monthly_pricing * glm_usd_value.current_price
             offerobj.hourly_price_glm = monthly_pricing / hours_in_current_month
             offerobj.hourly_price_usd = (
                 offerobj.monthly_price_usd / hours_in_current_month
@@ -85,32 +83,37 @@ def update_providers_info(node_props):
                 .first()
             )
 
-            # Compare and update the Offer object
             if closest_ec2 and monthly_pricing:
                 offer_price_usd = monthly_pricing * glm_usd_value.current_price
                 ec2_monthly_price = closest_ec2.price_usd * 730
 
-                offer_is_more_expensive = offer_price_usd > ec2_monthly_price
-                offer_is_cheaper = offer_price_usd < ec2_monthly_price
+                # Check if ec2_monthly_price is not zero to avoid ZeroDivisionError
+                if ec2_monthly_price != 0:
+                    offer_is_more_expensive = offer_price_usd > ec2_monthly_price
+                    offer_is_cheaper = offer_price_usd < ec2_monthly_price
 
-                # Update Offer object fields for expensive comparison
-                offerobj.is_overpriced = offer_is_more_expensive
-                offerobj.overpriced_compared_to = (
-                    closest_ec2 if offer_is_more_expensive else None
-                )
-                offerobj.times_more_expensive = (
-                    offer_price_usd / float(ec2_monthly_price)
-                    if offer_is_more_expensive
-                    else None
-                )
+                    # Update Offer object fields for expensive comparison
+                    offerobj.is_overpriced = offer_is_more_expensive
+                    offerobj.overpriced_compared_to = (
+                        closest_ec2 if offer_is_more_expensive else None
+                    )
+                    offerobj.times_more_expensive = (
+                        offer_price_usd / float(ec2_monthly_price)
+                        if offer_is_more_expensive
+                        else None
+                    )
 
-                # Update Offer object fields for cheaper comparison
-                offerobj.cheaper_than = closest_ec2 if offer_is_cheaper else None
-                offerobj.times_cheaper = (
-                    float(ec2_monthly_price) / offer_price_usd
-                    if offer_is_cheaper
-                    else None
-                )
+                    # Update Offer object fields for cheaper comparison
+                    offerobj.cheaper_than = closest_ec2 if offer_is_cheaper else None
+                    offerobj.times_cheaper = (
+                        float(ec2_monthly_price) / offer_price_usd
+                        if offer_is_cheaper
+                        else None
+                    )
+                else:
+                    # Handle the case where ec2_monthly_price is zero
+                    # You might want to log this situation or set a default behavior
+                    print("EC2 monthly price is zero, cannot compare offer prices.")
 
         offerobj.is_overpriced = False
         offerobj.overpriced_compared_to = None
