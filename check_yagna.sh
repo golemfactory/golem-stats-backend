@@ -12,3 +12,5 @@ fi
 
 # Use the key in the curl command
 curl -H "Authorization: Bearer ${KEY}" 127.0.0.1:7465/me
+
+yagna payment status
