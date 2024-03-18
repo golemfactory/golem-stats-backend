@@ -20,7 +20,7 @@ esac
 mkdir -p /golem/work
 touch /golem/work/yagna.log
 echo "Starting Yagna"
-YAGNA_AUTOCONF_APPKEY=stats /root/.local/bin/yagna service run >/dev/null 2>&1 &
+BCAST_RECEIVING_QUEUE_SIZE=1000 YAGNA_AUTOCONF_APPKEY=stats /root/.local/bin/yagna service run >/dev/null 2>&1 &
 sleep 5
 #export YAGNA_APPKEY="$(yagna app-key list --json | jq -r '.values | map(select(.[0] == "checker")) | .[0][1]')" && npm run ts:low -- --subnet-tag public-beta
 cd /stats-backend/ && cd yapapi && git checkout b0.5
@@ -50,7 +50,7 @@ if [ -f "$KEY_PATH" ]; then
     sleep 5
     rm $HOME/.local/share/yagna/accounts.json
 
-    YAGNA_AUTOCONF_APPKEY=stats /root/.local/bin/yagna service run >/dev/null 2>&1 &
+    BCAST_RECEIVING_QUEUE_SIZE=1000 YAGNA_AUTOCONF_APPKEY=stats /root/.local/bin/yagna service run >/dev/null 2>&1 &
     sleep 5
     echo "Wallet restored"
 fi
