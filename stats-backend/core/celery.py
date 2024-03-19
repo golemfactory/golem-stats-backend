@@ -62,6 +62,9 @@ def setup_periodic_tasks(sender, **kwargs):
         online_nodes_uptime_donut_data,
         v2_network_stats_to_redis,
         sum_highest_runtime_resources,
+        get_online_counts,
+        count_cpu_vendors,
+        count_cpu_architecture,
     )
 
     sender.add_periodic_task(
@@ -79,6 +82,18 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         60,
         compare_ec2_and_golem.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        20,
+        count_cpu_vendors.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        20,
+        count_cpu_architecture.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
@@ -152,6 +167,12 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         20.0,
         v2_network_online_to_redis.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        30.0,
+        get_online_counts.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )

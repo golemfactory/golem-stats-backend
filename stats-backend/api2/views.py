@@ -332,6 +332,48 @@ def node(request, yagna_id):
         return HttpResponse(status=400)
 
 
+async def online_nodes(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("v2_online_counts")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
+
+
+async def cpu_vendor_stats(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("cpu_vendors_count")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
+
+
+async def cpu_architecture_stats(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("cpu_architecture_count")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
+
+
 async def network_online(request):
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(

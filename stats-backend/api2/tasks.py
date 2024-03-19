@@ -1160,3 +1160,119 @@ def get_provider_task_data():
                     response[network][timeframe].append(entry_data)
 
     r.set("provider_task_price_data", json.dumps(response))
+
+
+from django.db.models import Count, F, Window
+from django.db.models.functions import Lag, TruncHour
+from django.utils import timezone
+from .models import NodeStatusHistory
+
+
+@app.task
+def get_online_counts():
+    last_24_hours = timezone.now() - timedelta(hours=24)
+    data_points = (
+        NodeStatusHistory.objects.filter(timestamp__gte=last_24_hours, is_online=True)
+        .annotate(hour=TruncHour("timestamp"))
+        .values("hour")
+        .annotate(online_count=Count("provider", distinct=True))
+        .annotate(
+            prev_count=Window(
+                expression=Lag("online_count", default=None), order_by=F("hour").asc()
+            )
+        )
+        .order_by("hour")[:90]
+    )
+
+    formatted_data = [
+        {"date": point["hour"].timestamp(), "providers": point["online_count"]}
+        for point in data_points
+    ]
+
+    last_count = formatted_data[-1]["providers"] if formatted_data else 0
+    first_count = formatted_data[0]["providers"] if formatted_data else 0
+
+    change = last_count - first_count
+    percentage_change = ((change / first_count) * 100) if first_count else 0
+    change_type = "positive" if change >= 0 else "negative"
+
+    stats = {
+        "change": f"{change}",
+        "percentageChange": f"{percentage_change:.2f}%",
+        "changeType": change_type,
+        "value": Node.objects.filter(online=True).count(),
+    }
+
+    result = {"data": formatted_data, "stats": stats}
+    r.set("v2_online_counts", json.dumps(result))
+
+
+from django.db.models import CharField, Value
+from django.db.models.functions import Cast, Replace
+from collections import defaultdict
+import json
+
+
+@app.task
+def count_cpu_vendors():
+    # Ensure the correct output field is set to CharField to avoid mixed types error.
+    online_nodes_offers = (
+        Offer.objects.filter(
+            provider__online=True, properties__has_key="golem.inf.cpu.vendor"
+        )
+        .annotate(
+            clean_cpu_vendor=Replace(
+                Cast("properties__golem.inf.cpu.vendor", CharField()),
+                Value('"'),
+                Value(""),
+            )
+        )
+        .values("provider_id", "clean_cpu_vendor")
+        .distinct()
+    )
+
+    cpu_vendors_count = defaultdict(int)
+    processed_nodes = set()
+
+    for offer in online_nodes_offers:
+        node_id = offer["provider_id"]
+        if node_id not in processed_nodes:
+            cpu_vendors_count[offer["clean_cpu_vendor"]] += 1
+            processed_nodes.add(node_id)
+
+    cpu_vendors_json = json.dumps(cpu_vendors_count)
+
+    r.set("cpu_vendors_count", cpu_vendors_json)
+
+
+@app.task
+def count_cpu_architecture():
+    # Ensure the correct output field is set to CharField to avoid mixed types error.
+    online_nodes_offers = (
+        Offer.objects.filter(
+            provider__online=True, properties__has_key="golem.inf.cpu.architecture"
+        )
+        .annotate(
+            clean_cpu_architecture=Replace(
+                Cast("properties__golem.inf.cpu.architecture", CharField()),
+                Value('"'),
+                Value(""),
+            )
+        )
+        .values("provider_id", "clean_cpu_architecture")
+        .distinct()
+    )
+
+    cpu_architecture_count = defaultdict(int)
+    cpu_architecture_count["arm64"] = 0
+    processed_nodes = set()
+
+    for offer in online_nodes_offers:
+        node_id = offer["provider_id"]
+        if node_id not in processed_nodes:
+            cpu_architecture_count[offer["clean_cpu_architecture"]] += 1
+            processed_nodes.add(node_id)
+
+    cpu_architecture_json = json.dumps(cpu_architecture_count)
+
+    r.set("cpu_architecture_count", cpu_architecture_json)
