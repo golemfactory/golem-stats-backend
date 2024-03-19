@@ -165,13 +165,25 @@ async def online_nodes(request):
         return HttpResponse(status=400)
 
 
+import urllib.parse
+
+
 async def activity_graph_provider(request, yagna_id):
     end = round(time.time())
-    start = end - 86400
+    start = end - 604800
+
+    query = (
+        f'activity_provider_created{{hostname=~"{yagna_id}", job=~"community.1"}}'
+        " - "
+        f'activity_provider_destroyed{{hostname=~"{yagna_id}", job=~"community.1"}}'
+    )
+
+    encoded_query = urllib.parse.quote(query)
 
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/proxy/40/api/v1/query_range?query=sum(changes(activity_provider_created%7Bjob%3D~"community.1"%2C%20instance%3D~"{yagna_id}"%7D%5B60m%5D))&start={start}&end={end}&step=120'
+        + "api/datasources/proxy/40/api/v1/query_range?"
+        + f"query={encoded_query}&start={start}&end={end}&step=120"
     )
     data = await get_yastats_data(domain)
     if data[1] == 200:
@@ -185,6 +197,7 @@ async def payments_last_n_hours_provider(request, yagna_id, hours):
         + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{hours}h%5D)%2F10%5E9)&time={now}'
     )
     data = await get_yastats_data(domain)
+    print(data)
     if data[1] == 200:
         if data[0]["data"]["result"]:
             content = {"earnings": data[0]["data"]["result"][0]["value"][1]}
@@ -221,6 +234,7 @@ async def payments_earnings_provider(request, yagna_id):
     for interval in time_intervals:
         query_url = f'{base_url}?query=sum(increase(payment_amount_received%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{interval}h%5D)%2F10%5E9)&time={now}'
         data = await get_yastats_data(query_url)
+        print(data)
 
         if data[1] == 200 and data[0]["data"]["result"]:
             earnings[interval] = data[0]["data"]["result"][0]["value"][1]
