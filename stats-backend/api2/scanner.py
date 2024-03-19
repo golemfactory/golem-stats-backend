@@ -35,7 +35,10 @@ def update_providers_info(node_props):
     for prop in node_props:
         data = json.loads(prop)
         provider_id = data["node_id"]
-        wallet = data["wallet"]
+        if "wallet" in data:
+            wallet = data["wallet"]
+        else:
+            wallet = None
         unique_providers.add(provider_id)  # Add provider to the set
         obj, created = Node.objects.get_or_create(node_id=provider_id)
         offerobj, offercreated = Offer.objects.get_or_create(
