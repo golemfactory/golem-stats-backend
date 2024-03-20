@@ -11,6 +11,7 @@ from collector.models import (
     NetworkStats,
     ProvidersComputing,
     Benchmark,
+    Requestors,
 )
 from .models import APICounter
 from .serializers import (
@@ -224,22 +225,43 @@ async def yagna_releases(request):
         return HttpResponse(status=400)
 
 
-async def payments_earnings_provider(request, yagna_id):
-    now = round(time.time())
-    time_intervals = ["24", "168", "720", "2160"]
+import requests
+
+from api2.models import RelayNodes
+
+
+def payments_earnings_provider(request, yagna_id):
+    now = int(time.time())
+    hour_intervals = [24, 168, 720, 2160]
+    base_url = "http://polygongas.org:14059/erc20/api/stats/transfers?chain=137&account="
 
     earnings = {}
-    base_url = os.environ.get("STATS_URL") + "api/datasources/proxy/40/api/v1/query"
 
-    for interval in time_intervals:
-        query_url = f'{base_url}?query=sum(increase(payment_amount_received%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{interval}h%5D)%2F10%5E9)&time={now}'
-        data = await get_yastats_data(query_url)
-        print(data)
+    for interval in hour_intervals:
+        epoch = now - (interval * 3600)
+        url = f"{base_url}{yagna_id}&from={epoch}"
+        response = requests.get(url)
 
-        if data[1] == 200 and data[0]["data"]["result"]:
-            earnings[interval] = data[0]["data"]["result"][0]["value"][1]
+        if response.status_code == 200:
+            data = response.json()
+            transfers = data.get("transfers", [])
+
+            from_addrs = {t["fromAddr"] for t in transfers}
+            matched_addrs = set(Requestors.objects.filter(node_id__in=from_addrs).values_list("node_id", flat=True)) \
+                .union(set(RelayNodes.objects.filter(node_id__in=from_addrs).values_list("node_id", flat=True)))
+
+            seen_tx_hashes = set()
+            total_amount_wei_matched = 0
+            for t in transfers:
+                if t["txHash"] in seen_tx_hashes:
+                    continue
+                if t["fromAddr"] in matched_addrs:
+                    total_amount_wei_matched += int(t["tokenAmount"])
+                seen_tx_hashes.add(t["txHash"])
+
+            earnings[str(interval)] = total_amount_wei_matched / 1e18
         else:
-            earnings[interval] = 0.0  # If no data is found, set earnings to 0
+            earnings[str(interval)] = 0.0
 
     return JsonResponse(earnings, json_dumps_params={"indent": 4})
 

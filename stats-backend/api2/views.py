@@ -388,25 +388,25 @@ def get_transfer_sum(request, node_id, epoch):
 
         transfers = data.get("transfers", [])
         from_addrs = {t["fromAddr"] for t in transfers}
-        matched_addrs = set(
-            Requestors.objects.filter(node_id__in=from_addrs).values_list(
-                "node_id", flat=True
-            )
-        )
-        matched_addrs.update(
-            RelayNodes.objects.filter(node_id__in=from_addrs).values_list(
-                "node_id", flat=True
-            )
-        )
 
-        total_amount_wei_matched = sum(
-            int(t["tokenAmount"]) for t in transfers if t["fromAddr"] in matched_addrs
-        )
-        total_amount_wei_not_matched = sum(
-            int(t["tokenAmount"])
-            for t in transfers
-            if t["fromAddr"] not in matched_addrs
-        )
+        matched_addrs = set(Requestors.objects.filter(node_id__in=from_addrs).values_list("node_id", flat=True))
+        matched_addrs.update(RelayNodes.objects.filter(node_id__in=from_addrs).values_list("node_id", flat=True))
+
+        seen_tx_hashes = set()
+        total_amount_wei_matched = 0
+        total_amount_wei_not_matched = 0
+        for t in transfers:
+            if t["txHash"] in seen_tx_hashes:
+                print(f'Duplicate txHash: {t["txHash"]}')
+                continue
+            seen_tx_hashes.add(t["txHash"])
+            
+            amount = int(t["tokenAmount"]) 
+            if t["fromAddr"] in matched_addrs:
+                print(f'Matched Transfer Amount: {amount / 1e18} ETH')
+                total_amount_wei_matched += amount
+            else:
+                total_amount_wei_not_matched += amount
 
         return JsonResponse(
             {
