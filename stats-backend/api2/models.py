@@ -104,3 +104,8 @@ class PricingSnapshot(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     date = models.DateTimeField(null=True, blank=True)
     network = models.CharField(max_length=42, default="mainnet")
+
+
+
+class RelayNodes(models.Model):
+    node_id = models.CharField(max_length=42, unique=True)

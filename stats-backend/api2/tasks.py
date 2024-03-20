@@ -1292,3 +1292,40 @@ def online_nodes_computing():
         NodeV1.objects.exclude(node_id__in=computing_node_ids).update(
             computing_now=False
         )
+
+
+from .models import RelayNodes
+
+
+@app.task
+def fetch_and_store_relay_nodes():
+    base_url = "http://yacn2.dev.golem.network:9000/nodes/"
+    all_nodes = []
+
+    for prefix in range(256):
+        try:
+            r = requests.get(f"{base_url}{prefix:02x}")
+            r.raise_for_status()  # Raises an HTTPError if the status is 4xx, 5xx
+            data = r.json()
+
+            # Process keys (node IDs) and prepare them for bulk insertion
+            node_ids = [key.strip().lower() for key in data.keys()]
+            all_nodes.extend(node_ids)
+
+        except requests.RequestException as e:
+            pass  # Error logging implementation
+
+    # Retrieve all existing node_ids to avoid IntegrityError on insert
+    existing_node_ids = set(
+        RelayNodes.objects.filter(node_id__in=set(all_nodes)).values_list(
+            "node_id", flat=True
+        )
+    )
+    new_nodes = [
+        RelayNodes(node_id=nid)
+        for nid in set(all_nodes)
+        if nid not in existing_node_ids
+    ]
+
+    # Bulk insert new nodes
+    RelayNodes.objects.bulk_create(new_nodes, ignore_conflicts=True)

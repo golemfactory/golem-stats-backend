@@ -375,6 +375,7 @@ async def cpu_architecture_stats(request):
 
 
 from collector.models import Requestors
+from .models import RelayNodes
 
 
 def get_transfer_sum(request, node_id, epoch):
@@ -382,26 +383,39 @@ def get_transfer_sum(request, node_id, epoch):
         url = f"http://polygongas.org:14059/erc20/api/stats/transfers?chain=137&account={node_id}&from={epoch}"
         response = requests.get(url)
         if response.status_code != 200:
-            return JsonResponse({'error': 'Failed to get data from API'}, status=500)
+            return JsonResponse({"error": "Failed to get data from API"}, status=500)
         data = response.json()
-        from_addrs = [t["fromAddr"] for t in data.get("transfers", [])]
-        from_addrs_in_db = Requestors.objects.filter(node_id__in=from_addrs).values_list("node_id", flat=True)
+
+        transfers = data.get("transfers", [])
+        from_addrs = {t["fromAddr"] for t in transfers}
+        matched_addrs = set(
+            Requestors.objects.filter(node_id__in=from_addrs).values_list(
+                "node_id", flat=True
+            )
+        )
+        matched_addrs.update(
+            RelayNodes.objects.filter(node_id__in=from_addrs).values_list(
+                "node_id", flat=True
+            )
+        )
+
         total_amount_wei_matched = sum(
-            int(t["tokenAmount"])
-            for t in data.get("transfers", [])
-            if t["fromAddr"] in from_addrs_in_db
+            int(t["tokenAmount"]) for t in transfers if t["fromAddr"] in matched_addrs
         )
         total_amount_wei_not_matched = sum(
             int(t["tokenAmount"])
-            for t in data.get("transfers", [])
-            if t["fromAddr"] not in from_addrs_in_db
+            for t in transfers
+            if t["fromAddr"] not in matched_addrs
         )
-        return JsonResponse({
-            'total_amount_matched': total_amount_wei_matched / 1e18,
-            'total_amount_not_matched': total_amount_wei_not_matched / 1e18
-        })
+
+        return JsonResponse(
+            {
+                "total_amount_matched": total_amount_wei_matched / 1e18,
+                "total_amount_not_matched": total_amount_wei_not_matched / 1e18,
+            }
+        )
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 async def network_online(request):

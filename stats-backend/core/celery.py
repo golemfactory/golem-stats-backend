@@ -63,11 +63,18 @@ def setup_periodic_tasks(sender, **kwargs):
         count_cpu_vendors,
         count_cpu_architecture,
         online_nodes_computing,
+        fetch_and_store_relay_nodes,
     )
 
     sender.add_periodic_task(
         crontab(hour="*/24"),
         store_ec2_info.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        30,
+        fetch_and_store_relay_nodes.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
