@@ -64,11 +64,25 @@ def setup_periodic_tasks(sender, **kwargs):
         count_cpu_architecture,
         online_nodes_computing,
         fetch_and_store_relay_nodes,
+        init_golem_tx_scraping,
+        fetch_latest_glm_tx,
     )
 
     sender.add_periodic_task(
         crontab(hour="*/24"),
         store_ec2_info.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        crontab(hour="*/1"),
+        init_golem_tx_scraping.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        20,
+        fetch_latest_glm_tx.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )

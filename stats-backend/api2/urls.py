@@ -31,6 +31,7 @@ urlpatterns = [
     path("website/index", views.golem_main_website_index),
     path("network/historical/stats", views.network_historical_stats),
     path("network/comparison", views.list_ec2_instances_comparison),
+    path("tx", views.start_index),
     path("network/offers/cheapest", views.cheapest_offer),
     path(
         "healthcheck/start",

@@ -1329,3 +1329,141 @@ def fetch_and_store_relay_nodes():
 
     # Bulk insert new nodes
     RelayNodes.objects.bulk_create(new_nodes, ignore_conflicts=True)
+
+
+from .models import TransactionScraperIndex, GolemTransactions
+from collector.models import Requestors
+
+
+@app.task
+def init_golem_tx_scraping():
+    index, _ = TransactionScraperIndex.objects.get_or_create(
+        id=1, defaults={"indexed_before": False, "latest_timestamp_indexed": None}
+    )
+    if index.indexed_before:
+        return
+
+    try:
+        url = "http://polygongas.org:14059/erc20/api/stats/transfers?chain=137&receiver=all&from=0&to=200000000000"
+        response = requests.get(url)
+        if response.status_code != 200:
+            raise Exception(
+                f"Failed to fetch data. Status code: {response.status_code}"
+            )
+
+        data = response.json()
+        transfers = data.get("transfers", [])
+        latest_timestamp = 0
+        BATCH_SIZE = 1000
+        from_addrs = {t["fromAddr"] for t in transfers}
+        known_senders = set(
+            Requestors.objects.filter(node_id__in=from_addrs).values_list(
+                "node_id", flat=True
+            )
+        ).union(
+            RelayNodes.objects.filter(node_id__in=from_addrs).values_list(
+                "node_id", flat=True
+            )
+        )
+
+        for i in range(0, len(transfers), BATCH_SIZE):
+            with transaction.atomic():
+                batch = transfers[i : i + BATCH_SIZE]
+                golem_transactions = []
+                for t in batch:
+                    timestamp = datetime.utcfromtimestamp(t["blockTimestamp"]).replace(
+                        tzinfo=timezone.utc
+                    )
+                    latest_timestamp = max(latest_timestamp, t["blockTimestamp"])
+                    if t["toAddr"] == "0x0b220b82f3ea3b7f6d9a1d8ab58930c064a2b5bf":
+                        transaction_type = "singleTransfer"
+                    elif t["toAddr"] == "0x50100d4faf5f3b09987dea36dc2eddd57a3e561b":
+                        transaction_type = "batched"
+                    else:
+                        transaction_type = None
+
+                    golem_transactions.append(
+                        GolemTransactions(
+                            txhash=t["txHash"],
+                            scanner_id=t["id"],
+                            amount=int(t["tokenAmount"]) / 1e18,
+                            timestamp=timestamp,
+                            transaction_type=transaction_type,
+                            receiver=t["receiverAddr"],
+                            sender=t["fromAddr"],
+                            tx_from_golem=t["fromAddr"] in known_senders,
+                        )
+                    )
+                GolemTransactions.objects.bulk_create(
+                    golem_transactions, ignore_conflicts=True
+                )
+
+        index.indexed_before = True
+        index.latest_timestamp_indexed = datetime.utcfromtimestamp(
+            latest_timestamp
+        ).replace(tzinfo=timezone.utc)
+        index.save()
+    except Exception as e:
+        raise e
+
+
+@app.task
+def fetch_latest_glm_tx():
+    try:
+        index = TransactionScraperIndex.objects.get(id=1)
+        if not index.indexed_before or index.latest_timestamp_indexed is None:
+            return
+        epoch_now = int(timezone.now().timestamp())
+        latest_timestamp = int(index.latest_timestamp_indexed.timestamp())
+        url = f"http://polygongas.org:14059/erc20/api/stats/transfers?chain=137&receiver=all&from={latest_timestamp}&to={epoch_now}"
+        response = requests.get(url)
+        if response.status_code != 200:
+            raise Exception(
+                f"Failed to fetch updates. Status code: {response.status_code}"
+            )
+
+        data = response.json()
+        transfers = data.get("transfers", [])
+        if not transfers:
+            return
+
+        latest_block_timestamp = 0
+        golem_transactions = []
+        from_addrs = {t["fromAddr"] for t in transfers}
+        known_senders = set(
+            Requestors.objects.filter(node_id__in=from_addrs).values_list(
+                "node_id", flat=True
+            )
+        )
+
+        for t in transfers:
+            timestamp = datetime.utcfromtimestamp(t["blockTimestamp"]).replace(
+                tzinfo=timezone.utc
+            )
+            latest_block_timestamp = max(latest_block_timestamp, t["blockTimestamp"])
+            if t["toAddr"] == "0x0b220b82f3ea3b7f6d9a1d8ab58930c064a2b5bf":
+                transaction_type = "singleTransfer"
+            elif t["toAddr"] == "0x50100d4faf5f3b09987dea36dc2eddd57a3e561b":
+                transaction_type = "batched"
+            else:
+                transaction_type = None
+            golem_transactions.append(
+                GolemTransactions(
+                    txhash=t["txHash"],
+                    scanner_id=t["id"],
+                    amount=int(t["tokenAmount"]) / 1e18,
+                    transaction_type=transaction_type,
+                    timestamp=timestamp,
+                    receiver=t["receiverAddr"],
+                    sender=t["fromAddr"],
+                    tx_from_golem=t["fromAddr"] in known_senders,
+                )
+            )
+
+        GolemTransactions.objects.bulk_create(golem_transactions, ignore_conflicts=True)
+        index.latest_timestamp_indexed = datetime.utcfromtimestamp(
+            latest_block_timestamp
+        ).replace(tzinfo=timezone.utc)
+        index.save()
+    except Exception as e:
+        raise e

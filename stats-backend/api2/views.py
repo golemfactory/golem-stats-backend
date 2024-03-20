@@ -380,7 +380,8 @@ from .models import RelayNodes
 
 def get_transfer_sum(request, node_id, epoch):
     try:
-        url = f"http://polygongas.org:14059/erc20/api/stats/transfers?chain=137&account={node_id}&from={epoch}"
+        epoch_now = int(timezone.now().timestamp())
+        url = f"http://polygongas.org:14059/erc20/api/stats/transfers?chain=137&receiver={node_id}&from={epoch}&to={epoch_now}"
         response = requests.get(url)
         if response.status_code != 200:
             return JsonResponse({"error": "Failed to get data from API"}, status=500)
@@ -389,21 +390,24 @@ def get_transfer_sum(request, node_id, epoch):
         transfers = data.get("transfers", [])
         from_addrs = {t["fromAddr"] for t in transfers}
 
-        matched_addrs = set(Requestors.objects.filter(node_id__in=from_addrs).values_list("node_id", flat=True))
-        matched_addrs.update(RelayNodes.objects.filter(node_id__in=from_addrs).values_list("node_id", flat=True))
+        matched_addrs = set(
+            Requestors.objects.filter(node_id__in=from_addrs).values_list(
+                "node_id", flat=True
+            )
+        )
+        matched_addrs.update(
+            RelayNodes.objects.filter(node_id__in=from_addrs).values_list(
+                "node_id", flat=True
+            )
+        )
 
-        seen_tx_hashes = set()
         total_amount_wei_matched = 0
         total_amount_wei_not_matched = 0
         for t in transfers:
-            if t["txHash"] in seen_tx_hashes:
-                print(f'Duplicate txHash: {t["txHash"]}')
-                continue
-            seen_tx_hashes.add(t["txHash"])
-            
-            amount = int(t["tokenAmount"]) 
+
+            amount = int(t["tokenAmount"])
             if t["fromAddr"] in matched_addrs:
-                print(f'Matched Transfer Amount: {amount / 1e18} ETH')
+                print(f"Matched Transfer Amount: {amount / 1e18} ETH")
                 total_amount_wei_matched += amount
             else:
                 total_amount_wei_not_matched += amount
@@ -617,3 +621,15 @@ def get_healthcheck_status(request):
         return Response(
             {"error": "Healthcheck task not found."}, status=status.HTTP_404_NOT_FOUND
         )
+
+
+from .tasks import init_golem_tx_scraping
+
+
+def start_index(request):
+    init_golem_tx_scraping.delay()
+    return JsonResponse(
+        {
+            "message": "Welcome to the Golem Stats API. Please refer to the documentation for more information."
+        }
+    )

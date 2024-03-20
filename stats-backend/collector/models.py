@@ -42,7 +42,6 @@ class NetworkStatsMax(models.Model):
     gpus = models.IntegerField(default=0)
     cuda_cores = models.IntegerField(default=0)
     gpu_memory = models.FloatField(default=0)
-    
 
 
 class NetworkStats(models.Model):
@@ -56,8 +55,6 @@ class NetworkStats(models.Model):
     cuda_cores = models.IntegerField(default=0)
     gpu_memory = models.FloatField(default=0)
     gpu_models = models.JSONField(default=dict)
-
-
 
 
 class ProvidersComputing(models.Model):
