@@ -174,41 +174,40 @@ def update_nodes_status(provider_id, is_online_now):
 def update_nodes_data(node_props):
     r = redis.Redis(host="redis", port=6379, db=0)
 
-    with transaction.atomic():
-        for props in node_props:
-            props = json.loads(props)
-            issuer_id = props["node_id"]
-            is_online_now = check_node_status(issuer_id)
-            try:
-                update_nodes_status(issuer_id, is_online_now)
-                r.set(f"provider:{issuer_id}:status", str(is_online_now))
-            except Exception as e:
-                print(f"Error updating NodeStatus for {issuer_id}: {e}")
-        print(f"Done updating {len(node_props)} providers")
-        # Deserialize each element in node_props into a dictionary
-        deserialized_node_props = [json.loads(props) for props in node_props]
+    for props in node_props:
+        props = json.loads(props)
+        issuer_id = props["node_id"]
+        is_online_now = check_node_status(issuer_id)
+        try:
+            update_nodes_status(issuer_id, is_online_now)
+            r.set(f"provider:{issuer_id}:status", str(is_online_now))
+        except Exception as e:
+            print(f"Error updating NodeStatus for {issuer_id}: {e}")
+    print(f"Done updating {len(node_props)} providers")
+    # Deserialize each element in node_props into a dictionary
+    deserialized_node_props = [json.loads(props) for props in node_props]
 
-        # Now create the set
-        provider_ids_in_props = {props["node_id"] for props in deserialized_node_props}
-        previously_online_providers_ids = (
-            Node.objects.filter(nodestatushistory__is_online=True)
-            .distinct()
-            .values_list("node_id", flat=True)
-        )
+    # Now create the set
+    provider_ids_in_props = {props["node_id"] for props in deserialized_node_props}
+    previously_online_providers_ids = (
+        Node.objects.filter(nodestatushistory__is_online=True)
+        .distinct()
+        .values_list("node_id", flat=True)
+    )
 
-        provider_ids_not_in_scan = (
-            set(previously_online_providers_ids) - provider_ids_in_props
-        )
+    provider_ids_not_in_scan = (
+        set(previously_online_providers_ids) - provider_ids_in_props
+    )
 
-        for issuer_id in provider_ids_not_in_scan:
-            is_online_now = check_node_status(issuer_id)
+    for issuer_id in provider_ids_not_in_scan:
+        is_online_now = check_node_status(issuer_id)
 
-            try:
-                update_nodes_status(issuer_id, is_online_now)
-                r.set(f"provider:{issuer_id}:status", str(is_online_now))
-            except Exception as e:
-                print(f"Error verifying/updating NodeStatus for {issuer_id}: {e}")
-        print(f"Done updating {len(provider_ids_not_in_scan)} OFFLINE providers")
+        try:
+            update_nodes_status(issuer_id, is_online_now)
+            r.set(f"provider:{issuer_id}:status", str(is_online_now))
+        except Exception as e:
+            print(f"Error verifying/updating NodeStatus for {issuer_id}: {e}")
+    print(f"Done updating {len(provider_ids_not_in_scan)} OFFLINE providers")
 
 
 def check_node_status(issuer_id):

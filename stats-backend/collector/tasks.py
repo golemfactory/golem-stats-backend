@@ -433,10 +433,9 @@ def network_node_versions():
         except Exception as e:
             print(e)
 
-    with transaction.atomic():
-        for node_id, version in node_updates:
-            Node.objects.filter(node_id=node_id).update(version=version)
-            Nodev2.objects.filter(node_id=node_id).update(version=version)
+    for node_id, version in node_updates:
+        Node.objects.filter(node_id=node_id).update(version=version)
+        Nodev2.objects.filter(node_id=node_id).update(version=version)
 
 
 @app.task
@@ -711,23 +710,22 @@ def node_earnings_total(node_version):
         )
         providers_updates.append((provider.pk, updated_earnings_total))
 
-    with transaction.atomic():
-        if node_version == "v1":
-            Node.objects.bulk_update(
-                [
-                    Node(pk=pk, earnings_total=earnings)
-                    for pk, earnings in providers_updates
-                ],
-                ["earnings_total"],
-            )
-        elif node_version == "v2":
-            Nodev2.objects.bulk_update(
-                [
-                    Nodev2(pk=pk, earnings_total=earnings)
-                    for pk, earnings in providers_updates
-                ],
-                ["earnings_total"],
-            )
+    if node_version == "v1":
+        Node.objects.bulk_update(
+            [
+                Node(pk=pk, earnings_total=earnings)
+                for pk, earnings in providers_updates
+            ],
+            ["earnings_total"],
+        )
+    elif node_version == "v2":
+        Nodev2.objects.bulk_update(
+            [
+                Nodev2(pk=pk, earnings_total=earnings)
+                for pk, earnings in providers_updates
+            ],
+            ["earnings_total"],
+        )
 
 
 @app.task
