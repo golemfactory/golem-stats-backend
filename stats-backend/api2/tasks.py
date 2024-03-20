@@ -17,11 +17,11 @@ from django.db.models import F
 from django.db.models.functions import Abs
 from decimal import Decimal
 from .utils import (
-    get_pricing,
-    get_ec2_products,
-    find_cheapest_price,
-    has_vcpu_memory,
-    round_to_three_decimals,
+    identify_network_by_offer,
+    is_provider_online,
+    process_and_store_product_data,
+    extract_pricing_from_vm_properties,
+    identify_network,
 )
 
 pool = redis.ConnectionPool(host="redis", port=6379, db=0)
@@ -685,41 +685,38 @@ def healthcheck_provider(node_id, network, taskId):
     return rc
 
 
-@app.task
-def store_ec2_info():
-    ec2_info = {}
-    products_data = get_ec2_products()
+@app.task(
+    bind=True,
+    autoretry_for=(requests.exceptions.RequestException,),
+    retry_backoff=True,
+    retry_jitter=True,
+    retry_kwargs={"max_retries": 5},
+)
+def store_ec2_info(self):
+    url = "https://api.vantage.sh/v2/products?service_id=aws-ec2"
+    headers = {
+        "accept": "application/json",
+        "authorization": f'Bearer {os.environ.get("VANTAGE_API_KEY")}',
+    }
+    try:
+        response = requests.get(url, headers=headers)
+        # Check for rate limiting error
+        if response.status_code == 429:
+            reset_time = int(response.headers.get("x-rate-limit-reset", 0))
+            current_time = time.time()
+            retry_after = max(
+                reset_time - current_time, 1
+            )  # Ensure there's at least a 1-second wait
+            # Schedule the next retry to align with the rate limit reset time
+            raise self.retry(countdown=retry_after)
+        response.raise_for_status()
 
-    for product in products_data:
-        details = product.get("details", {})
-        if not has_vcpu_memory(details):
-            continue
-        print(product)
-        product_id = product["id"]
-        category = product.get("category")
-        name = product.get("name")
-
-        pricing_data = get_pricing(product_id)
-        cheapest_price = find_cheapest_price(pricing_data["prices"])
-
-        # Convert memory to float and price to Decimal
-        memory_gb = float(details["memory"])
-        price = cheapest_price["amount"] if cheapest_price else None
-
-        # Use get_or_create to store or update the instance in the database
-        instance, created = EC2Instance.objects.get_or_create(
-            name=name,
-            defaults={"vcpu": details["vcpu"], "memory": memory_gb, "price_usd": price},
-        )
-
-        ec2_info[product_id] = {
-            "category": category,
-            "name": name,
-            "details": details,
-            "cheapest_price": cheapest_price,
-        }
-
-    return ec2_info
+        products_data = response.json().get("products", [])
+        for product in products_data:
+            process_and_store_product_data.delay(product)
+    except requests.RequestException as exc:
+        # Reraise with self.retry to utilize Celery's built-in retry mechanism
+        raise self.retry(exc=exc)
 
 
 import time
@@ -1276,3 +1273,26 @@ def count_cpu_architecture():
     cpu_architecture_json = json.dumps(cpu_architecture_count)
 
     r.set("cpu_architecture_count", cpu_architecture_json)
+
+
+import urllib.parse
+
+
+@app.task
+def online_nodes_computing():
+    end = round(time.time())
+    start = end - 10
+    query = 'activity_provider_created{job="community.1"} - activity_provider_destroyed{job="community.1"}'
+    url = f"{os.environ.get('STATS_URL')}api/datasources/proxy/40/api/v1/query_range?query={urllib.parse.quote(query)}&start={start}&end={end}&step=1"
+    data = get_stats_data(url)
+
+    if data[1] == 200 and data[0]["status"] == "success" and data[0]["data"]["result"]:
+        computing_node_ids = [
+            node["metric"]["instance"]
+            for node in data[0]["data"]["result"]
+            if node["values"][-1][1] == "1"
+        ]
+        Node.objects.filter(node_id__in=computing_node_ids).update(computing_now=True)
+        Node.objects.exclude(node_id__in=computing_node_ids).update(computing_now=False)
+        NodeV1.objects.filter(node_id__in=computing_node_ids).update(computing_now=True)
+        NodeV1.objects.exclude(node_id__in=computing_node_ids).update(computing_now=False)

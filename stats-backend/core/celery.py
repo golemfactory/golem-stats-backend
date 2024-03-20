@@ -15,7 +15,6 @@ app = Celery("core")
 @app.on_after_finalize.connect
 def setup_periodic_tasks(sender, **kwargs):
     from collector.tasks import (
-        online_nodes_computing,
         network_online_to_redis,
         network_stats_to_redis,
         network_utilization_to_redis,
@@ -26,7 +25,6 @@ def setup_periodic_tasks(sender, **kwargs):
         network_versions_to_redis,
         node_earnings_total,
         stats_snapshot_yesterday,
-        requests_served,
         network_median_pricing,
         network_average_pricing,
         computing_snapshot_yesterday,
@@ -39,7 +37,6 @@ def setup_periodic_tasks(sender, **kwargs):
         market_agreement_termination_reasons,
         paid_invoices_1h,
         provider_accepted_invoices_1h,
-        save_endpoint_logs_to_db,
         fetch_yagna_release,
     )
     from api2.tasks import (
@@ -65,6 +62,7 @@ def setup_periodic_tasks(sender, **kwargs):
         get_online_counts,
         count_cpu_vendors,
         count_cpu_architecture,
+        online_nodes_computing,
     )
 
     sender.add_periodic_task(
@@ -94,6 +92,12 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         20,
         count_cpu_architecture.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        10,
+        online_nodes_computing.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
@@ -200,12 +204,7 @@ def setup_periodic_tasks(sender, **kwargs):
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
-    sender.add_periodic_task(
-        30.0,
-        online_nodes_computing.s(),
-        queue="default",
-        options={"queue": "default", "routing_key": "default"},
-    )
+
     sender.add_periodic_task(
         10.0,
         requestor_scraper.s(),

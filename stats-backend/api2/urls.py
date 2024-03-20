@@ -26,6 +26,7 @@ urlpatterns = [
     path("provider/wallet/<wallet>", views.node_wallet),
     path("provider/node/<yagna_id>", views.node),
     path("provider/uptime/<yagna_id>", views.node_uptime),
+    path("provider/earnings/<node_id>/<epoch>", views.get_transfer_sum),
     path("website/globe_data", views.globe_data),
     path("website/index", views.golem_main_website_index),
     path("network/historical/stats", views.network_historical_stats),
