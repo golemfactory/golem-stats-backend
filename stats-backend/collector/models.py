@@ -14,6 +14,12 @@ class Node(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     hybrid = models.BooleanField(default=False)
 
+    def save(self, *args, **kwargs):
+        # If online is False, set computing_now to False
+        if not self.online:
+            self.computing_now = False
+        super(Node, self).save(*args, **kwargs)
+
 
 BENCHMARK_CHOICES = (
     ("primary", "primary"),
@@ -42,7 +48,6 @@ class NetworkStatsMax(models.Model):
     gpus = models.IntegerField(default=0)
     cuda_cores = models.IntegerField(default=0)
     gpu_memory = models.FloatField(default=0)
-    
 
 
 class NetworkStats(models.Model):
@@ -56,8 +61,6 @@ class NetworkStats(models.Model):
     cuda_cores = models.IntegerField(default=0)
     gpu_memory = models.FloatField(default=0)
     gpu_models = models.JSONField(default=dict)
-
-
 
 
 class ProvidersComputing(models.Model):
