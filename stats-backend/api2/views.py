@@ -623,13 +623,124 @@ def get_healthcheck_status(request):
         )
 
 
-from .tasks import init_golem_tx_scraping
+from .models import GolemTransactions
+
+from django.db.models import Sum, Q, FloatField
+from django.db.models.functions import TruncDay, Coalesce
+
+from django.http import JsonResponse
 
 
-def start_index(request):
-    init_golem_tx_scraping.delay()
-    return JsonResponse(
-        {
-            "message": "Welcome to the Golem Stats API. Please refer to the documentation for more information."
-        }
+def daily_volume_golem_vs_chain(request):
+    data = (
+        GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
+        .values("date")
+        .annotate(
+            on_golem=Coalesce(
+                Sum("amount", filter=Q(tx_from_golem=True), output_field=FloatField()),
+                0,
+                output_field=FloatField(),
+            ),
+            not_golem=Coalesce(
+                Sum("amount", filter=Q(tx_from_golem=False), output_field=FloatField()),
+                0,
+                output_field=FloatField(),
+            ),
+        )
+        .order_by("date")
     )
+    return JsonResponse(list(data), safe=False)
+
+
+from django.db.models import Count
+
+
+def transaction_volume_over_time(request):
+    try:
+        data = (
+            GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
+            .values("date")
+            .annotate(total_transactions=Count("scanner_id"))
+            .order_by("date")
+        )
+        return JsonResponse(list(data), safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+def amount_transferred_over_time(request):
+    try:
+        data = (
+            GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
+            .values("date")
+            .annotate(total_amount=Sum("amount"))
+            .order_by("date")
+        )
+        return JsonResponse(list(data), safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+def transaction_type_comparison(request):
+    try:
+        data = (
+            GolemTransactions.objects.filter(
+                transaction_type__in=["singleTransfer", "batched"]
+            )
+            .values("transaction_type")
+            .annotate(total=Count("scanner_id"))
+            .order_by("transaction_type")
+        )
+        return JsonResponse(list(data), safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+from django.db.models import IntegerField, ExpressionWrapper, Case, When, Avg
+
+
+def daily_transaction_type_counts(request):
+    try:
+        data = (
+            GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
+            .values("date")
+            .annotate(
+                singleTransfer=Sum(
+                    ExpressionWrapper(
+                        Case(
+                            When(transaction_type="singleTransfer", then=1),
+                            default=0,
+                            output_field=IntegerField(),
+                        ),
+                        output_field=IntegerField(),
+                    )
+                ),
+                batched=Sum(
+                    ExpressionWrapper(
+                        Case(
+                            When(transaction_type="batched", then=1),
+                            default=0,
+                            output_field=IntegerField(),
+                        ),
+                        output_field=IntegerField(),
+                    )
+                ),
+            )
+            .order_by("date")
+        )
+        return JsonResponse(list(data), safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+def average_transaction_value_over_time(request):
+    try:
+        data = (
+            GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
+            .values("date")
+            .annotate(average_value=Avg("amount"))
+            .order_by("date")
+        )
+        return JsonResponse(list(data), safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

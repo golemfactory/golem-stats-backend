@@ -18,6 +18,12 @@ class Node(models.Model):
     uptime_created_at = models.DateTimeField(auto_now_add=True)
     network = models.CharField(max_length=42, default="mainnet")
 
+    def save(self, *args, **kwargs):
+        # If online is False, set computing_now to False
+        if not self.online:
+            self.computing_now = False
+        super(Node, self).save(*args, **kwargs)
+
 
 class EC2Instance(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -111,16 +117,25 @@ class RelayNodes(models.Model):
 
 
 class GolemTransactions(models.Model):
-    scanner_id = models.IntegerField(primary_key=True, unique=True)
-    txhash = models.CharField(max_length=66)
-    transaction_type = models.CharField(max_length=42, null=True, blank=True)
+    scanner_id = models.IntegerField(primary_key=True)
+    txhash = models.CharField(max_length=66, db_index=True)
+    transaction_type = models.CharField(
+        max_length=42, null=True, blank=True, db_index=True
+    )
     amount = models.FloatField()
-    timestamp = models.DateTimeField()
-    receiver = models.CharField(max_length=42)
-    sender = models.CharField(max_length=42)
-    tx_from_golem = models.BooleanField(
-        default=False
-    )  # Assumption if it happened on the Golem network
+    timestamp = models.DateTimeField(db_index=True)
+    receiver = models.CharField(max_length=42, db_index=True)
+    sender = models.CharField(max_length=42, db_index=True)
+    tx_from_golem = models.BooleanField(default=False, db_index=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["txhash"]),
+            models.Index(fields=["transaction_type"]),
+            models.Index(fields=["timestamp"]),
+            models.Index(fields=["receiver", "sender"]),
+            # Compound index example if you often filter by both receiver and sender
+        ]
 
 
 class TransactionScraperIndex(models.Model):

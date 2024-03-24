@@ -269,6 +269,13 @@ def payments_earnings_provider(request, yagna_id):
             earnings[str(interval)] = total_amount_wei_matched / 1e18
         else:
             earnings[str(interval)] = 0.0
+        total_earnings = (
+            GolemTransactions.objects.filter(
+                receiver=yagna_id, tx_from_golem=True
+            ).aggregate(Sum("amount"))["amount__sum"]
+            or 0.0
+        )
+        earnings["total"] = total_earnings
 
     return JsonResponse(earnings, json_dumps_params={"indent": 4})
 
@@ -684,40 +691,44 @@ async def network_earnings_6h(request):
         return HttpResponse(status=400)
 
 
-async def network_earnings_overview(request):
-    """
-    Returns the earnings for the whole network over time for various time frames,
-    including the total network earnings.
-    """
+from api2.models import GolemTransactions
+from django.db.models import Sum
+
+from django.utils.timezone import now
+from datetime import timedelta
+
+
+def network_earnings_overview(request):
     if request.method == "GET":
-        time_frames = [6, 24, 168, 720, 2160]  # Time frames in hours
-        pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+        time_frames = [6, 24, 168, 720, 2160]
+        response_data = {}
+
+        for frame in time_frames:
+            end_time = now()
+            start_time = end_time - timedelta(hours=frame)
+            total_earnings = (
+                GolemTransactions.objects.filter(
+                    timestamp__range=[start_time, end_time], tx_from_golem=True
+                ).aggregate(Sum("amount"))["amount__sum"]
+                or 0.0
+            )
+
+            response_data[f"network_earnings_{frame}h"] = {
+                "total_earnings": float(total_earnings)
+            }
+
+        all_time_earnings = (
+            GolemTransactions.objects.filter(tx_from_golem=True).aggregate(
+                Sum("amount")
+            )["amount__sum"]
+            or 0.0
         )
-        r = aioredis.Redis(connection_pool=pool)
 
-        all_data = {}
-        for hours in time_frames:
-            key = f"network_earnings_{hours}h"
-            content = await r.get(key)
-            if content:
-                data = json.loads(content)
-                all_data[key] = data
-            else:
-                all_data[key] = None  # Or handle the missing data as needed
+        response_data["network_total_earnings"] = {
+            "total_earnings": float(all_time_earnings)
+        }
 
-        # Fetching total network earnings
-        total_earnings_content = await r.get("network_total_earnings")
-        if total_earnings_content:
-            total_earnings_data = json.loads(total_earnings_content)
-            all_data["network_total_earnings"] = total_earnings_data
-        else:
-            all_data["network_total_earnings"] = None  # Or handle as needed
-
-        pool.disconnect()
-        return JsonResponse(all_data, safe=False, json_dumps_params={"indent": 4})
-    else:
-        return HttpResponse(status=400)
+        return JsonResponse(response_data)
 
 
 async def requestors(request):

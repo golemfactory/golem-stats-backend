@@ -14,6 +14,12 @@ class Node(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     hybrid = models.BooleanField(default=False)
 
+    def save(self, *args, **kwargs):
+        # If online is False, set computing_now to False
+        if not self.online:
+            self.computing_now = False
+        super(Node, self).save(*args, **kwargs)
+
 
 BENCHMARK_CHOICES = (
     ("primary", "primary"),
