@@ -170,7 +170,7 @@ import urllib.parse
 
 async def activity_graph_provider(request, yagna_id):
     end = round(time.time())
-    start = end - 604800
+    start = end - 86400  # 24 hours
 
     query = (
         f'activity_provider_created{{hostname=~"{yagna_id}", job=~"community.1"}}'
