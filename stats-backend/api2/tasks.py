@@ -15,6 +15,8 @@ from api.serializers import FlatNodeSerializer
 from collector.models import Node as NodeV1
 from django.db.models import F
 from django.db.models.functions import Abs
+from django.core.serializers.json import DjangoJSONEncoder
+
 from decimal import Decimal
 from .utils import (
     identify_network_by_offer,
@@ -1498,3 +1500,87 @@ def fetch_latest_glm_tx():
         print(f"New transactions added. Latest timestamp: {latest_block_timestamp}")
     except Exception as e:
         raise e
+
+
+@app.task
+def average_transaction_value_over_time():
+    data = (
+        GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
+        .values("date")
+        .annotate(average_value=Avg("amount"))
+        .order_by("date")
+    )
+    r.set("average_transaction_value", json.dumps(list(data), cls=DjangoJSONEncoder))
+
+
+from django.db.models import IntegerField, ExpressionWrapper, Case, When, Avg
+
+
+@app.task
+def daily_transaction_type_counts():
+    data = (
+        GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
+        .values("date")
+        .annotate(
+            singleTransfer=Sum(
+                ExpressionWrapper(
+                    Case(
+                        When(transaction_type="singleTransfer", then=1),
+                        default=0,
+                        output_field=IntegerField(),
+                    ),
+                    output_field=IntegerField(),
+                )
+            ),
+            batched=Sum(
+                ExpressionWrapper(
+                    Case(
+                        When(transaction_type="batched", then=1),
+                        default=0,
+                        output_field=IntegerField(),
+                    ),
+                    output_field=IntegerField(),
+                )
+            ),
+        )
+        .order_by("date")
+    )
+
+    r.set(
+        "daily_transaction_type_counts", json.dumps(list(data), cls=DjangoJSONEncoder)
+    )
+
+
+@app.task
+def transaction_type_comparison():
+    data = (
+        GolemTransactions.objects.filter(
+            transaction_type__in=["singleTransfer", "batched"]
+        )
+        .values("transaction_type")
+        .annotate(total=Count("scanner_id"))
+        .order_by("transaction_type")
+    )
+    r.set("transaction_type_comparison", json.dumps(list(data), cls=DjangoJSONEncoder))
+
+
+@app.task
+def amount_transferred_over_time():
+    data = (
+        GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
+        .values("date")
+        .annotate(total_amount=Sum("amount"))
+        .order_by("date")
+    )
+    r.set("amount_transferred_over_time", json.dumps(list(data), cls=DjangoJSONEncoder))
+
+
+@app.task
+def transaction_volume_over_time():
+    data = (
+        GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
+        .values("date")
+        .annotate(total_transactions=Count("scanner_id"))
+        .order_by("date")
+    )
+    r.set("transaction_volume_over_time", json.dumps(list(data), cls=DjangoJSONEncoder))

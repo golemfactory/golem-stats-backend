@@ -703,98 +703,74 @@ def daily_volume_golem_vs_chain(request):
 from django.db.models import Count
 
 
-def transaction_volume_over_time(request):
-    try:
-        data = (
-            GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
-            .values("date")
-            .annotate(total_transactions=Count("scanner_id"))
-            .order_by("date")
+async def transaction_volume_over_time(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
         )
-        return JsonResponse(list(data), safe=False)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("transaction_volume_over_time")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
 
 
-def amount_transferred_over_time(request):
-    try:
-        data = (
-            GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
-            .values("date")
-            .annotate(total_amount=Sum("amount"))
-            .order_by("date")
+async def amount_transferred_over_time(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
         )
-        return JsonResponse(list(data), safe=False)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("amount_transferred_over_time")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
 
 
-def transaction_type_comparison(request):
-    try:
-        data = (
-            GolemTransactions.objects.filter(
-                transaction_type__in=["singleTransfer", "batched"]
-            )
-            .values("transaction_type")
-            .annotate(total=Count("scanner_id"))
-            .order_by("transaction_type")
+async def transaction_type_comparison(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
         )
-        return JsonResponse(list(data), safe=False)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("transaction_type_comparison")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
 
 
 from django.db.models import IntegerField, ExpressionWrapper, Case, When, Avg
 
 
-def daily_transaction_type_counts(request):
-    try:
-        data = (
-            GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
-            .values("date")
-            .annotate(
-                singleTransfer=Sum(
-                    ExpressionWrapper(
-                        Case(
-                            When(transaction_type="singleTransfer", then=1),
-                            default=0,
-                            output_field=IntegerField(),
-                        ),
-                        output_field=IntegerField(),
-                    )
-                ),
-                batched=Sum(
-                    ExpressionWrapper(
-                        Case(
-                            When(transaction_type="batched", then=1),
-                            default=0,
-                            output_field=IntegerField(),
-                        ),
-                        output_field=IntegerField(),
-                    )
-                ),
-            )
-            .order_by("date")
+async def daily_transaction_type_counts(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
         )
-        return JsonResponse(list(data), safe=False)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("daily_transaction_type_counts")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
 
 
-def average_transaction_value_over_time(request):
-    try:
-        data = (
-            GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
-            .values("date")
-            .annotate(average_value=Avg("amount"))
-            .order_by("date")
+async def average_transaction_value_over_time(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
         )
-        return JsonResponse(list(data), safe=False)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
-
-from .tasks import init_golem_tx_scraping
-def init_golem_tx_manually(request):
-    init_golem_tx_scraping.delay()
-    return JsonResponse({"status": "success"}, status=200)
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("average_transaction_value")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)

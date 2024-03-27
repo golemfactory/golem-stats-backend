@@ -198,7 +198,6 @@ async def payments_last_n_hours_provider(request, yagna_id, hours):
         + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{hours}h%5D)%2F10%5E9)&time={now}'
     )
     data = await get_yastats_data(domain)
-    print(data)
     if data[1] == 200:
         if data[0]["data"]["result"]:
             content = {"earnings": data[0]["data"]["result"][0]["value"][1]}
@@ -240,7 +239,6 @@ async def payments_earnings_provider(request, yagna_id):
     for interval in time_intervals:
         query_url = f'{base_url}?query=sum(increase(payment_amount_received%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{interval}h%5D)%2F10%5E9)&time={now}'
         data = await get_yastats_data(query_url)
-        print(data)
 
         if data[1] == 200 and data[0]["data"]["result"]:
             earnings[interval] = data[0]["data"]["result"][0]["value"][1]
@@ -752,39 +750,18 @@ async def network_earnings_overview(request):
         return HttpResponse(status=400)
 
 
-def network_earnings_overview_new(request):
+async def network_earnings_overview_new(request):
     if request.method == "GET":
-        time_frames = [6, 24, 168, 720, 2160]
-        response_data = {}
-
-        for frame in time_frames:
-            end_time = now()
-            start_time = end_time - timedelta(hours=frame)
-            total_earnings = (
-                GolemTransactions.objects.filter(
-                    timestamp__range=[start_time, end_time], tx_from_golem=True
-                ).aggregate(Sum("amount"))["amount__sum"]
-                or 0.0
-            )
-
-            response_data[f"network_earnings_{frame}h"] = {
-                "total_earnings": float(total_earnings)
-            }
-
-        all_time_earnings = (
-            GolemTransactions.objects.filter(tx_from_golem=True).aggregate(
-                Sum("amount")
-            )["amount__sum"]
-            or 0.0
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
         )
-
-        print(f"all_time_earnings: {all_time_earnings}")
-
-        response_data["network_total_earnings"] = {
-            "total_earnings": float(all_time_earnings)
-        }
-
-        return JsonResponse(response_data)
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("network_earnings_overview_new")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
 
 
 async def requestors(request):

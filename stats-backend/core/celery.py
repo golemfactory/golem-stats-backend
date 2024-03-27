@@ -38,6 +38,7 @@ def setup_periodic_tasks(sender, **kwargs):
         paid_invoices_1h,
         provider_accepted_invoices_1h,
         fetch_yagna_release,
+        network_earnings_overview_new,
     )
     from api2.tasks import (
         v2_offer_scraper,
@@ -66,6 +67,48 @@ def setup_periodic_tasks(sender, **kwargs):
         fetch_and_store_relay_nodes,
         init_golem_tx_scraping,
         fetch_latest_glm_tx,
+        transaction_volume_over_time,
+        amount_transferred_over_time,
+        transaction_type_comparison,
+        daily_transaction_type_counts,
+        average_transaction_value_over_time,
+    )
+
+    sender.add_periodic_task(
+        60,
+        transaction_volume_over_time.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        60,
+        network_earnings_overview_new.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        60,
+        daily_transaction_type_counts.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        60,
+        average_transaction_value_over_time.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        60,
+        transaction_type_comparison.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        60,
+        amount_transferred_over_time.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
     )
 
     sender.add_periodic_task(
@@ -86,12 +129,12 @@ def setup_periodic_tasks(sender, **kwargs):
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
-    # sender.add_periodic_task(
-    #     30,
-    #     fetch_and_store_relay_nodes.s(),
-    #     queue="default",
-    #     options={"queue": "default", "routing_key": "default"},
-    # )
+    sender.add_periodic_task(
+        30,
+        fetch_and_store_relay_nodes.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
     sender.add_periodic_task(
         crontab(minute="*/60"),
         fetch_yagna_release.s(),

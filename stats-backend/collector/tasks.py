@@ -455,7 +455,6 @@ def network_versions_to_redis():
         versions_nonsorted = []
         versions = []
         data = content[0]["data"]["result"]
-        print(data)
         # Append to array so we can sort
         for obj in data:
             versions_nonsorted.append(
@@ -545,6 +544,42 @@ def network_total_earnings():
         )
         update_total_earnings(domain)
 
+from api2.models import GolemTransactions
+from django.db.models import Sum
+from django.utils.timezone import now
+
+@app.task
+def network_earnings_overview_new():
+    time_frames = [6, 24, 168, 720, 2160]
+    response_data = {}
+
+    for frame in time_frames:
+        end_time = now()
+        start_time = end_time - timedelta(hours=frame)
+        total_earnings = (
+            GolemTransactions.objects.filter(
+                timestamp__range=[start_time, end_time], tx_from_golem=True
+            ).aggregate(Sum("amount"))["amount__sum"]
+            or 0.0
+        )
+
+        response_data[f"network_earnings_{frame}h"] = {
+            "total_earnings": float(total_earnings)
+        }
+
+    all_time_earnings = (
+        GolemTransactions.objects.filter(tx_from_golem=True).aggregate(
+            Sum("amount")
+        )["amount__sum"]
+        or 0.0
+    )
+
+
+    response_data["network_total_earnings"] = {
+        "total_earnings": float(all_time_earnings)
+    }
+
+    r.set("network_earnings_overview_new", json.dumps(response_data))
 
 def update_total_earnings(domain):
     data = get_stats_data(domain)
