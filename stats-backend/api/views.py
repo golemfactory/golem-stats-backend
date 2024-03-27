@@ -230,7 +230,27 @@ import requests
 from api2.models import RelayNodes
 
 
-def payments_earnings_provider(request, yagna_id):
+async def payments_earnings_provider(request, yagna_id):
+    now = round(time.time())
+    time_intervals = ["24", "168", "720", "2160"]
+
+    earnings = {}
+    base_url = os.environ.get("STATS_URL") + "api/datasources/proxy/40/api/v1/query"
+
+    for interval in time_intervals:
+        query_url = f'{base_url}?query=sum(increase(payment_amount_received%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{interval}h%5D)%2F10%5E9)&time={now}'
+        data = await get_yastats_data(query_url)
+        print(data)
+
+        if data[1] == 200 and data[0]["data"]["result"]:
+            earnings[interval] = data[0]["data"]["result"][0]["value"][1]
+        else:
+            earnings[interval] = 0.0  # If no data is found, set earnings to 0
+
+    return JsonResponse(earnings, json_dumps_params={"indent": 4})
+
+
+def payments_earnings_provider_new(request, yagna_id):
     now = int(time.time())
     hour_intervals = [24, 168, 720, 2160]
     base_url = "http://erc20-api/erc20/api/stats/transfers?chain=137&receiver="
@@ -696,7 +716,43 @@ from django.utils.timezone import now
 from datetime import timedelta
 
 
-def network_earnings_overview(request):
+async def network_earnings_overview(request):
+    """
+    Returns the earnings for the whole network over time for various time frames,
+    including the total network earnings.
+    """
+    if request.method == "GET":
+        time_frames = [6, 24, 168, 720, 2160]  # Time frames in hours
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+
+        all_data = {}
+        for hours in time_frames:
+            key = f"network_earnings_{hours}h"
+            content = await r.get(key)
+            if content:
+                data = json.loads(content)
+                all_data[key] = data
+            else:
+                all_data[key] = None  # Or handle the missing data as needed
+
+        # Fetching total network earnings
+        total_earnings_content = await r.get("network_total_earnings")
+        if total_earnings_content:
+            total_earnings_data = json.loads(total_earnings_content)
+            all_data["network_total_earnings"] = total_earnings_data
+        else:
+            all_data["network_total_earnings"] = None  # Or handle as needed
+
+        pool.disconnect()
+        return JsonResponse(all_data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
+
+
+def network_earnings_overview_new(request):
     if request.method == "GET":
         time_frames = [6, 24, 168, 720, 2160]
         response_data = {}
@@ -721,6 +777,8 @@ def network_earnings_overview(request):
             )["amount__sum"]
             or 0.0
         )
+
+        print(f"all_time_earnings: {all_time_earnings}")
 
         response_data["network_total_earnings"] = {
             "total_earnings": float(all_time_earnings)
