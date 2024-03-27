@@ -114,3 +114,32 @@ class PricingSnapshot(models.Model):
 
 class RelayNodes(models.Model):
     node_id = models.CharField(max_length=42, unique=True)
+
+
+
+class GolemTransactions(models.Model):
+    scanner_id = models.IntegerField(primary_key=True)
+    txhash = models.CharField(max_length=66, db_index=True)
+    transaction_type = models.CharField(
+        max_length=42, null=True, blank=True, db_index=True
+    )
+    amount = models.FloatField()
+    timestamp = models.DateTimeField(db_index=True)
+    receiver = models.CharField(max_length=42, db_index=True)
+    sender = models.CharField(max_length=42, db_index=True)
+    tx_from_golem = models.BooleanField(default=False, db_index=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["txhash"]),
+            models.Index(fields=["transaction_type"]),
+            models.Index(fields=["timestamp"]),
+            models.Index(fields=["receiver", "sender"]),
+            # Compound index example if you often filter by both receiver and sender
+        ]
+
+
+class TransactionScraperIndex(models.Model):
+    indexed_before = models.BooleanField(default=False)
+    latest_timestamp_indexed = models.DateTimeField(null=True, blank=True)
+

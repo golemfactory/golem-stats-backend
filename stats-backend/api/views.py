@@ -11,6 +11,7 @@ from collector.models import (
     NetworkStats,
     ProvidersComputing,
     Benchmark,
+    Requestors,
 )
 from .models import APICounter
 from .serializers import (
@@ -224,6 +225,11 @@ async def yagna_releases(request):
         return HttpResponse(status=400)
 
 
+import requests
+
+from api2.models import RelayNodes
+
+
 async def payments_earnings_provider(request, yagna_id):
     now = round(time.time())
     time_intervals = ["24", "168", "720", "2160"]
@@ -240,6 +246,54 @@ async def payments_earnings_provider(request, yagna_id):
             earnings[interval] = data[0]["data"]["result"][0]["value"][1]
         else:
             earnings[interval] = 0.0  # If no data is found, set earnings to 0
+
+    return JsonResponse(earnings, json_dumps_params={"indent": 4})
+
+
+def payments_earnings_provider_new(request, yagna_id):
+    now = int(time.time())
+    hour_intervals = [24, 168, 720, 2160]
+    base_url = "http://erc20-api/erc20/api/stats/transfers?chain=137&receiver="
+
+    earnings = {}
+
+    for interval in hour_intervals:
+        epoch = now - (interval * 3600)
+        url = f"{base_url}{yagna_id}&from={epoch}&to={now}"
+        response = requests.get(url)
+
+        if response.status_code == 200:
+            data = response.json()
+            transfers = data.get("transfers", [])
+
+            from_addrs = {t["fromAddr"] for t in transfers}
+            matched_addrs = set(
+                Requestors.objects.filter(node_id__in=from_addrs).values_list(
+                    "node_id", flat=True
+                )
+            ).union(
+                set(
+                    RelayNodes.objects.filter(node_id__in=from_addrs).values_list(
+                        "node_id", flat=True
+                    )
+                )
+            )
+
+            total_amount_wei_matched = 0
+            for t in transfers:
+                if t["fromAddr"] in matched_addrs:
+                    total_amount_wei_matched += int(t["tokenAmount"])
+
+            earnings[str(interval)] = total_amount_wei_matched / 1e18
+        else:
+            earnings[str(interval)] = 0.0
+        total_earnings = (
+            GolemTransactions.objects.filter(
+                receiver=yagna_id, tx_from_golem=True
+            ).aggregate(Sum("amount"))["amount__sum"]
+            or 0.0
+        )
+        earnings["total"] = total_earnings
 
     return JsonResponse(earnings, json_dumps_params={"indent": 4})
 
@@ -655,6 +709,13 @@ async def network_earnings_6h(request):
         return HttpResponse(status=400)
 
 
+from api2.models import GolemTransactions
+from django.db.models import Sum
+
+from django.utils.timezone import now
+from datetime import timedelta
+
+
 async def network_earnings_overview(request):
     """
     Returns the earnings for the whole network over time for various time frames,
@@ -689,6 +750,41 @@ async def network_earnings_overview(request):
         return JsonResponse(all_data, safe=False, json_dumps_params={"indent": 4})
     else:
         return HttpResponse(status=400)
+
+
+def network_earnings_overview_new(request):
+    if request.method == "GET":
+        time_frames = [6, 24, 168, 720, 2160]
+        response_data = {}
+
+        for frame in time_frames:
+            end_time = now()
+            start_time = end_time - timedelta(hours=frame)
+            total_earnings = (
+                GolemTransactions.objects.filter(
+                    timestamp__range=[start_time, end_time], tx_from_golem=True
+                ).aggregate(Sum("amount"))["amount__sum"]
+                or 0.0
+            )
+
+            response_data[f"network_earnings_{frame}h"] = {
+                "total_earnings": float(total_earnings)
+            }
+
+        all_time_earnings = (
+            GolemTransactions.objects.filter(tx_from_golem=True).aggregate(
+                Sum("amount")
+            )["amount__sum"]
+            or 0.0
+        )
+
+        print(f"all_time_earnings: {all_time_earnings}")
+
+        response_data["network_total_earnings"] = {
+            "total_earnings": float(all_time_earnings)
+        }
+
+        return JsonResponse(response_data)
 
 
 async def requestors(request):

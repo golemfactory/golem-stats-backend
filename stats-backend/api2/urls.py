@@ -31,6 +31,14 @@ urlpatterns = [
     path("website/index", views.golem_main_website_index),
     path("network/historical/stats", views.network_historical_stats),
     path("network/comparison", views.list_ec2_instances_comparison),
+    path("network/token/golemvschain", views.daily_volume_golem_vs_chain),
+    path("network/transactions/volume", views.transaction_volume_over_time),
+    path("network/amount/transfer", views.amount_transferred_over_time),
+    path("network/transactions/type/comparison", views.transaction_type_comparison),
+    path("network/transactions/daily-type-counts", views.daily_transaction_type_counts),
+    path(
+        "network/transactions/average-value", views.average_transaction_value_over_time
+    ),
     path("network/offers/cheapest", views.cheapest_offer),
     path(
         "healthcheck/start",

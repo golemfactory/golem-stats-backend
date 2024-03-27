@@ -428,7 +428,8 @@ from .models import RelayNodes
 
 def get_transfer_sum(request, node_id, epoch):
     try:
-        url = f"http://polygongas.org:14059/erc20/api/stats/transfers?chain=137&account={node_id}&from={epoch}"
+        epoch_now = int(timezone.now().timestamp())
+        url = f"http://erc20-api/erc20/api/stats/transfers?chain=137&receiver={node_id}&from={epoch}&to={epoch_now}"
         response = requests.get(url)
         if response.status_code != 200:
             return JsonResponse({"error": "Failed to get data from API"}, status=500)
@@ -436,6 +437,7 @@ def get_transfer_sum(request, node_id, epoch):
 
         transfers = data.get("transfers", [])
         from_addrs = {t["fromAddr"] for t in transfers}
+
         matched_addrs = set(
             Requestors.objects.filter(node_id__in=from_addrs).values_list(
                 "node_id", flat=True
@@ -447,14 +449,16 @@ def get_transfer_sum(request, node_id, epoch):
             )
         )
 
-        total_amount_wei_matched = sum(
-            int(t["tokenAmount"]) for t in transfers if t["fromAddr"] in matched_addrs
-        )
-        total_amount_wei_not_matched = sum(
-            int(t["tokenAmount"])
-            for t in transfers
-            if t["fromAddr"] not in matched_addrs
-        )
+        total_amount_wei_matched = 0
+        total_amount_wei_not_matched = 0
+        for t in transfers:
+
+            amount = int(t["tokenAmount"])
+            if t["fromAddr"] in matched_addrs:
+                print(f"Matched Transfer Amount: {amount / 1e18} ETH")
+                total_amount_wei_matched += amount
+            else:
+                total_amount_wei_not_matched += amount
 
         return JsonResponse(
             {
@@ -665,3 +669,126 @@ def get_healthcheck_status(request):
         return Response(
             {"error": "Healthcheck task not found."}, status=status.HTTP_404_NOT_FOUND
         )
+
+
+from .models import GolemTransactions
+
+from django.db.models import Sum, Q, FloatField
+from django.db.models.functions import TruncDay, Coalesce
+
+from django.http import JsonResponse
+
+
+def daily_volume_golem_vs_chain(request):
+    data = (
+        GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
+        .values("date")
+        .annotate(
+            on_golem=Coalesce(
+                Sum("amount", filter=Q(tx_from_golem=True), output_field=FloatField()),
+                0,
+                output_field=FloatField(),
+            ),
+            not_golem=Coalesce(
+                Sum("amount", filter=Q(tx_from_golem=False), output_field=FloatField()),
+                0,
+                output_field=FloatField(),
+            ),
+        )
+        .order_by("date")
+    )
+    return JsonResponse(list(data), safe=False)
+
+
+from django.db.models import Count
+
+
+def transaction_volume_over_time(request):
+    try:
+        data = (
+            GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
+            .values("date")
+            .annotate(total_transactions=Count("scanner_id"))
+            .order_by("date")
+        )
+        return JsonResponse(list(data), safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+def amount_transferred_over_time(request):
+    try:
+        data = (
+            GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
+            .values("date")
+            .annotate(total_amount=Sum("amount"))
+            .order_by("date")
+        )
+        return JsonResponse(list(data), safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+def transaction_type_comparison(request):
+    try:
+        data = (
+            GolemTransactions.objects.filter(
+                transaction_type__in=["singleTransfer", "batched"]
+            )
+            .values("transaction_type")
+            .annotate(total=Count("scanner_id"))
+            .order_by("transaction_type")
+        )
+        return JsonResponse(list(data), safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+from django.db.models import IntegerField, ExpressionWrapper, Case, When, Avg
+
+
+def daily_transaction_type_counts(request):
+    try:
+        data = (
+            GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
+            .values("date")
+            .annotate(
+                singleTransfer=Sum(
+                    ExpressionWrapper(
+                        Case(
+                            When(transaction_type="singleTransfer", then=1),
+                            default=0,
+                            output_field=IntegerField(),
+                        ),
+                        output_field=IntegerField(),
+                    )
+                ),
+                batched=Sum(
+                    ExpressionWrapper(
+                        Case(
+                            When(transaction_type="batched", then=1),
+                            default=0,
+                            output_field=IntegerField(),
+                        ),
+                        output_field=IntegerField(),
+                    )
+                ),
+            )
+            .order_by("date")
+        )
+        return JsonResponse(list(data), safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+def average_transaction_value_over_time(request):
+    try:
+        data = (
+            GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
+            .values("date")
+            .annotate(average_value=Avg("amount"))
+            .order_by("date")
+        )
+        return JsonResponse(list(data), safe=False)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

@@ -420,18 +420,23 @@ def network_node_versions():
     for obj in nodes_data:
         try:
             node_id = obj["metric"]["instance"]
-            version_val = obj["value"][1]
-            if len(version_val) == 2:
-                version_formatted = "0." + version_val[0] + "." + version_val[1]
-            elif len(version_val) == 3:
-                version_formatted = (
-                    version_val[0] + "." + version_val[1] + "." + version_val[2]
-                )
+            version_val = int(obj["value"][1])
+
+            if len(str(version_val)) == 2:  # Two-digit version
+                major = 0
+                minor = version_val // 10
+                patch = version_val % 10
+            elif len(str(version_val)) == 3:  # Three-digit version
+                major = 0
+                minor = version_val // 10
+                patch = version_val % 10
             else:
-                continue
+                continue  # Skip if not two or three digits
+
+            version_formatted = f"{major}.{minor}.{patch}"
             node_updates.append((node_id, version_formatted))
         except Exception as e:
-            print(e)
+            print(f"Error processing node version: {e}")
 
     for node_id, version in node_updates:
         Node.objects.filter(node_id=node_id).update(version=version)
@@ -450,11 +455,13 @@ def network_versions_to_redis():
         versions_nonsorted = []
         versions = []
         data = content[0]["data"]["result"]
+        print(data)
         # Append to array so we can sort
         for obj in data:
             versions_nonsorted.append(
                 {"version": int(obj["metric"]["version"]), "count": obj["values"][0][1]}
             )
+
         versions_nonsorted.sort(key=lambda x: x["version"], reverse=False)
         for obj in versions_nonsorted:
             version = str(obj["version"])
@@ -639,35 +646,7 @@ def provider_accepted_invoices_1h():
 import urllib.parse
 
 
-@app.task
-def online_nodes_computing():
-    end = round(time.time())
-    start = end - 10
-    providers = Node.objects.filter(online=True)
-    computing_node_ids = []
 
-    for node in providers:
-        query = (
-            f'activity_provider_created{{instance=~"{node.node_id}", job=~"community.1"}}'
-            " - "
-            f'activity_provider_destroyed{{instance=~"{node.node_id}", job=~"community.1"}}'
-        )
-        encoded_query = urllib.parse.quote(query)
-        url = f"api/datasources/proxy/40/api/v1/query_range?query={encoded_query}&start={start}&end={end}&step=120"
-        domain = os.environ.get("STATS_URL") + url
-        data = get_stats_data(domain)
-
-        if (
-            data[1] == 200
-            and data[0]["status"] == "success"
-            and data[0]["data"]["result"]
-        ):
-            values = data[0]["data"]["result"][0]["values"]
-            if any(float(value[1]) > 0 for value in values):
-                computing_node_ids.append(node.pk)
-
-    Node.objects.filter(pk__in=computing_node_ids).update(computing_now=True)
-    Node.objects.exclude(pk__in=computing_node_ids).update(computing_now=False)
 
 
 def get_earnings_for_node_on_platform(user_node_id, platform):

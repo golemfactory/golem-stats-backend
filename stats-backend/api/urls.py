@@ -12,6 +12,7 @@ urlpatterns = [
         views.payments_last_n_hours_provider,
     ),
     path("provider/node/<yagna_id>/earnings", views.payments_earnings_provider),
+    path("provider/node/<yagna_id>/earningsnew", views.payments_earnings_provider_new),
     path("provider/node/<yagna_id>/activity", views.activity_graph_provider),
     path("provider/node/<yagna_id>/total/computed", views.total_tasks_computed),
     path(
@@ -25,6 +26,7 @@ urlpatterns = [
     path("network/earnings/24", views.network_earnings_24h),
     path("network/earnings/90d", views.network_total_earnings),
     path("network/earnings/overview", views.network_earnings_overview),
+    path("network/earnings/overviewnew", views.network_earnings_overview_new),
     path("network/online", views.online_nodes),
     path("network/online/stats", views.general_stats),
     path("network/utilization", views.network_utilization),

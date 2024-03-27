@@ -64,6 +64,8 @@ def setup_periodic_tasks(sender, **kwargs):
         count_cpu_architecture,
         online_nodes_computing,
         fetch_and_store_relay_nodes,
+        init_golem_tx_scraping,
+        fetch_latest_glm_tx,
     )
 
     sender.add_periodic_task(
@@ -73,11 +75,23 @@ def setup_periodic_tasks(sender, **kwargs):
         options={"queue": "default", "routing_key": "default"},
     )
     sender.add_periodic_task(
-        30,
-        fetch_and_store_relay_nodes.s(),
+        3600,
+        init_golem_tx_scraping.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
+    sender.add_periodic_task(
+        20,
+        fetch_latest_glm_tx.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    # sender.add_periodic_task(
+    #     30,
+    #     fetch_and_store_relay_nodes.s(),
+    #     queue="default",
+    #     options={"queue": "default", "routing_key": "default"},
+    # )
     sender.add_periodic_task(
         crontab(minute="*/60"),
         fetch_yagna_release.s(),
@@ -212,12 +226,12 @@ def setup_periodic_tasks(sender, **kwargs):
         options={"queue": "default", "routing_key": "default"},
     )
 
-    sender.add_periodic_task(
-        10.0,
-        requestor_scraper.s(),
-        queue="default",
-        options={"queue": "default", "routing_key": "default"},
-    )
+    # sender.add_periodic_task(
+    #     10.0,
+    #     requestor_scraper.s(),
+    #     queue="default",
+    #     options={"queue": "default", "routing_key": "default"},
+    # )
     sender.add_periodic_task(
         60.0,
         get_current_glm_price.s(),
