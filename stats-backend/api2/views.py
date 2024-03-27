@@ -297,22 +297,70 @@ async def golem_main_website_index(request):
         return HttpResponse(status=400)
 
 
-async def node_wallet(request, wallet):
-    """
-    Returns all the nodes with the specified wallet address.
-    """
-    if request.method == "GET":
-        data = Node.objects.filter(wallet=wallet)
-        if data != None:
-            serializer = NodeSerializer(data, many=True)
-            return JsonResponse(
-                serializer.data, safe=False, json_dumps_params={"indent": 4}
-            )
-        else:
-            return HttpResponse(status=404)
-
-    else:
+def node_wallet(request, wallet):
+    if request.method != "GET":
         return HttpResponse(status=400)
+
+    try:
+        reputation_response = requests.get(
+            "https://reputation.dev-test.golem.network/v2/providers/scores"
+        )
+        reputation_response.raise_for_status()
+    except requests.RequestException:
+        return HttpResponse(status=500)
+
+    external_data = reputation_response.json()
+    success_rate_mapping = {
+        provider["provider"]["id"]: provider["scores"]["successRate"]
+        for provider in external_data.get("testedProviders", [])
+    }
+
+    blacklist_provider_mapping = {
+        provider["provider"]["id"]: provider["reason"]
+        for provider in external_data.get("rejectedProviders", [])
+    }
+
+    blacklist_operator_mapping = {
+        operator["operator"]["walletAddress"]: operator["reason"]
+        for operator in external_data.get("rejectedOperators", [])
+    }
+
+    data = Node.objects.filter(wallet=wallet)
+    if not data.exists():
+        return HttpResponse(status=404)
+
+    serializer = NodeSerializer(data, many=True)
+    serialized_data = serializer.data
+
+    default_reputation = {
+        "blacklisted": False,
+        "blacklistedReason": None,
+        "taskReputation": None,
+    }
+    for node in serialized_data:
+        node_id = node["node_id"]
+        node_wallet = node.get("wallet")
+        node["reputation"] = default_reputation.copy()
+
+        if node_id in blacklist_provider_mapping:
+            node["reputation"].update(
+                {
+                    "blacklisted": True,
+                    "blacklistedReason": blacklist_provider_mapping[node_id],
+                }
+            )
+        elif node_wallet in blacklist_operator_mapping:
+            node["reputation"].update(
+                {
+                    "blacklisted": True,
+                    "blacklistedReason": blacklist_operator_mapping[node_wallet],
+                }
+            )
+
+        if node_id in success_rate_mapping:
+            node["reputation"]["taskReputation"] = success_rate_mapping[node_id] * 100
+
+    return JsonResponse(serialized_data, safe=False, json_dumps_params={"indent": 4})
 
 
 def node(request, yagna_id):

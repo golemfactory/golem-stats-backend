@@ -116,6 +116,7 @@ class RelayNodes(models.Model):
     node_id = models.CharField(max_length=42, unique=True)
 
 
+
 class GolemTransactions(models.Model):
     scanner_id = models.IntegerField(primary_key=True)
     txhash = models.CharField(max_length=66, db_index=True)
@@ -141,3 +142,4 @@ class GolemTransactions(models.Model):
 class TransactionScraperIndex(models.Model):
     indexed_before = models.BooleanField(default=False)
     latest_timestamp_indexed = models.DateTimeField(null=True, blank=True)
+
