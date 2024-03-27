@@ -381,7 +381,7 @@ from .models import RelayNodes
 def get_transfer_sum(request, node_id, epoch):
     try:
         epoch_now = int(timezone.now().timestamp())
-        url = f"http://polygongas.org:14059/erc20/api/stats/transfers?chain=137&receiver={node_id}&from={epoch}&to={epoch_now}"
+        url = f"http://erc20-api/erc20/api/stats/transfers?chain=137&receiver={node_id}&from={epoch}&to={epoch_now}"
         response = requests.get(url)
         if response.status_code != 200:
             return JsonResponse({"error": "Failed to get data from API"}, status=500)

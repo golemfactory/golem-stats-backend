@@ -1349,11 +1349,12 @@ def init_golem_tx_scraping():
     end_epoch = start_epoch + 2592000
     final_epoch = 1900313287
 
-    URL_TEMPLATE = "http://polygongas.org:14059/erc20/api/stats/transfers?chain=137&receiver=all&from={}&to={}"
+    URL_TEMPLATE = "http://erc20-api/erc20/api/stats/transfers?chain=137&receiver=all&from={}&to={}"
 
     try:
         latest_timestamp = 0
         while start_epoch < min(final_epoch, current_time_epoch):
+            print(f"Fetching data from {start_epoch} to {end_epoch}")
             url = URL_TEMPLATE.format(
                 start_epoch, min(end_epoch, final_epoch, current_time_epoch)
             )
@@ -1442,7 +1443,7 @@ def fetch_latest_glm_tx():
             return
         epoch_now = int(timezone.now().timestamp())
         latest_timestamp = int(index.latest_timestamp_indexed.timestamp())
-        url = f"http://polygongas.org:14059/erc20/api/stats/transfers?chain=137&receiver=all&from={latest_timestamp}&to={epoch_now}"
+        url = f"http://erc20-api/erc20/api/stats/transfers?chain=137&receiver=all&from={latest_timestamp}&to={epoch_now}"
         response = requests.get(url)
         if response.status_code != 200:
             raise Exception(

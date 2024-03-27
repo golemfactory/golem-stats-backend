@@ -233,9 +233,7 @@ from api2.models import RelayNodes
 def payments_earnings_provider(request, yagna_id):
     now = int(time.time())
     hour_intervals = [24, 168, 720, 2160]
-    base_url = (
-        "http://polygongas.org:14059/erc20/api/stats/transfers?chain=137&receiver="
-    )
+    base_url = "http://erc20-api/erc20/api/stats/transfers?chain=137&receiver="
 
     earnings = {}
 
