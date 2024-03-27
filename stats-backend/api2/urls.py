@@ -34,6 +34,7 @@ urlpatterns = [
     path("network/token/golemvschain", views.daily_volume_golem_vs_chain),
     path("network/transactions/volume", views.transaction_volume_over_time),
     path("network/amount/transfer", views.amount_transferred_over_time),
+    path("initblockchain", views.init_golem_tx_manually),
     path("network/transactions/type/comparison", views.transaction_type_comparison),
     path("network/transactions/daily-type-counts", views.daily_transaction_type_counts),
     path(

@@ -792,3 +792,9 @@ def average_transaction_value_over_time(request):
         return JsonResponse(list(data), safe=False)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+from .tasks import init_golem_tx_scraping
+def init_golem_tx_manually(request):
+    init_golem_tx_scraping.delay()
+    return JsonResponse({"status": "success"}, status=200)
