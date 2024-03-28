@@ -251,30 +251,33 @@ def setup_periodic_tasks(sender, **kwargs):
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
-    sender.add_periodic_task(
-        20.0,
-        v2_network_online_to_redis_new_stats_page.s(runtime="vm"),
-        queue="default",
-        options={"queue": "default", "routing_key": "default"},
-    )
-    sender.add_periodic_task(
-        20.0,
-        v2_network_online_to_redis_new_stats_page.s(runtime="vm-nvidia"),
-        queue="default",
-        options={"queue": "default", "routing_key": "default"},
-    )
-    sender.add_periodic_task(
-        20.0,
-        v2_network_online_to_redis_new_stats_page.s(),
-        queue="default",
-        options={"queue": "default", "routing_key": "default"},
-    )
-    sender.add_periodic_task(
-        20.0,
-        v2_network_online_to_redis_flatmap.s(),
-        queue="default",
-        options={"queue": "default", "routing_key": "default"},
-    )
+    # Disabled as not in use currently
+    # sender.add_periodic_task(
+    #     20.0,
+    #     v2_network_online_to_redis_new_stats_page.s(runtime="vm"),
+    #     queue="default",
+    #     options={"queue": "default", "routing_key": "default"},
+    # )
+    # Disabled as not in use currently
+    # sender.add_periodic_task(
+    #     20.0,
+    #     v2_network_online_to_redis_new_stats_page.s(runtime="vm-nvidia"),
+    #     queue="default",
+    #     options={"queue": "default", "routing_key": "default"},
+    # )
+    # Disabled as not in use currently
+    # sender.add_periodic_task(
+    #     20.0,
+    #     v2_network_online_to_redis_new_stats_page.s(),
+    #     queue="default",
+    #     options={"queue": "default", "routing_key": "default"},
+    # )
+    # sender.add_periodic_task(
+    #     20.0,
+    #     v2_network_online_to_redis_flatmap.s(),
+    #     queue="default",
+    #     options={"queue": "default", "routing_key": "default"},
+    # )
 
     # sender.add_periodic_task(
     #     10.0,
@@ -386,12 +389,12 @@ def setup_periodic_tasks(sender, **kwargs):
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
-    sender.add_periodic_task(
-        10.0,
-        network_online_to_redis.s(),
-        queue="default",
-        options={"queue": "default", "routing_key": "default"},
-    )
+    # sender.add_periodic_task(
+    #     10.0,
+    #     network_online_to_redis.s(),
+    #     queue="default",
+    #     options={"queue": "default", "routing_key": "default"},
+    # )
     sender.add_periodic_task(
         10.0,
         network_stats_to_redis.s(),
