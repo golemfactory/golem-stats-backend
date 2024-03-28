@@ -10,6 +10,7 @@ class Node(models.Model):
     node_id = models.CharField(max_length=42, unique=True, db_index=True)
     wallet = models.CharField(max_length=42, null=True, blank=True, db_index=True)
     online = models.BooleanField(default=False, db_index=True)
+    earnings_total = models.FloatField(null=True, blank=True)
     computing_now = models.BooleanField(default=False, db_index=True)
     version = models.CharField(max_length=7, db_index=True)
     updated_at = models.DateTimeField(auto_now=True, db_index=True)
