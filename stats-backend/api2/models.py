@@ -76,12 +76,18 @@ class GLM(models.Model):
 
 
 class NodeStatusHistory(models.Model):
-    provider = models.ForeignKey(Node, on_delete=models.CASCADE)
-    is_online = models.BooleanField()
-    timestamp = models.DateTimeField(auto_now_add=True)
+    provider = models.ForeignKey(Node, on_delete=models.CASCADE, db_index=True)
+    is_online = models.BooleanField(db_index=True)
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
 
     def __str__(self):
         return f"{self.provider.node_id} - {'Online' if self.is_online else 'Offline'} at {self.timestamp}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["provider", "timestamp"]),
+            # This compound index might be useful for queries that filter by provider and sort by timestamp
+        ]
 
 
 class ProviderWithTask(models.Model):
@@ -116,7 +122,6 @@ class RelayNodes(models.Model):
     node_id = models.CharField(max_length=42, unique=True)
 
 
-
 class GolemTransactions(models.Model):
     scanner_id = models.IntegerField(primary_key=True)
     txhash = models.CharField(max_length=66, db_index=True)
@@ -142,4 +147,3 @@ class GolemTransactions(models.Model):
 class TransactionScraperIndex(models.Model):
     indexed_before = models.BooleanField(default=False)
     latest_timestamp_indexed = models.DateTimeField(null=True, blank=True)
-
