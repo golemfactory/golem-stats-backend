@@ -7,16 +7,15 @@ from metamask.models import UserProfile
 
 
 class Node(models.Model):
-    node_id = models.CharField(max_length=42, unique=True)
-    wallet = models.CharField(max_length=42, null=True, blank=True)
-    earnings_total = models.FloatField(null=True, blank=True)
-    online = models.BooleanField(default=False)
-    computing_now = models.BooleanField(default=False)
-    version = models.CharField(max_length=7)
-    updated_at = models.DateTimeField(auto_now=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    uptime_created_at = models.DateTimeField(auto_now_add=True)
-    network = models.CharField(max_length=42, default="mainnet")
+    node_id = models.CharField(max_length=42, unique=True, db_index=True)
+    wallet = models.CharField(max_length=42, null=True, blank=True, db_index=True)
+    online = models.BooleanField(default=False, db_index=True)
+    computing_now = models.BooleanField(default=False, db_index=True)
+    version = models.CharField(max_length=7, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    uptime_created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    network = models.CharField(max_length=42, default="mainnet", db_index=True)
 
     def save(self, *args, **kwargs):
         # If online is False, set computing_now to False
@@ -139,8 +138,9 @@ class GolemTransactions(models.Model):
             models.Index(fields=["txhash"]),
             models.Index(fields=["transaction_type"]),
             models.Index(fields=["timestamp"]),
-            models.Index(fields=["receiver", "sender"]),
-            # Compound index example if you often filter by both receiver and sender
+            models.Index(
+                fields=["receiver", "sender"]
+            ),  # Compound index example if you often filter by both receiver and sender
         ]
 
 
