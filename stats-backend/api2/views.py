@@ -679,25 +679,18 @@ from django.db.models.functions import TruncDay, Coalesce
 from django.http import JsonResponse
 
 
-def daily_volume_golem_vs_chain(request):
-    data = (
-        GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
-        .values("date")
-        .annotate(
-            on_golem=Coalesce(
-                Sum("amount", filter=Q(tx_from_golem=True), output_field=FloatField()),
-                0,
-                output_field=FloatField(),
-            ),
-            not_golem=Coalesce(
-                Sum("amount", filter=Q(tx_from_golem=False), output_field=FloatField()),
-                0,
-                output_field=FloatField(),
-            ),
+async def daily_volume_golem_vs_chain(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
         )
-        .order_by("date")
-    )
-    return JsonResponse(list(data), safe=False)
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("daily_volume_golem_vs_chain")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
 
 
 from django.db.models import Count

@@ -72,11 +72,18 @@ def setup_periodic_tasks(sender, **kwargs):
         transaction_type_comparison,
         daily_transaction_type_counts,
         average_transaction_value_over_time,
+        daily_volume_golem_vs_chain,
     )
 
     sender.add_periodic_task(
         60,
         transaction_volume_over_time.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        60,
+        daily_volume_golem_vs_chain.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )

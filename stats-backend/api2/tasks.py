@@ -1584,3 +1584,28 @@ def transaction_volume_over_time():
         .order_by("date")
     )
     r.set("transaction_volume_over_time", json.dumps(list(data), cls=DjangoJSONEncoder))
+
+
+from django.db.models.functions import TruncDay, Coalesce
+
+
+@app.task
+def daily_volume_golem_vs_chain():
+    data = (
+        GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
+        .values("date")
+        .annotate(
+            on_golem=Coalesce(
+                Sum("amount", filter=Q(tx_from_golem=True), output_field=FloatField()),
+                0,
+                output_field=FloatField(),
+            ),
+            not_golem=Coalesce(
+                Sum("amount", filter=Q(tx_from_golem=False), output_field=FloatField()),
+                0,
+                output_field=FloatField(),
+            ),
+        )
+        .order_by("date")
+    )
+    r.set("daily_volume_golem_vs_chain", json.dumps(list(data), cls=DjangoJSONEncoder))
