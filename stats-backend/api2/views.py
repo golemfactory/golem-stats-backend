@@ -769,4 +769,15 @@ async def average_transaction_value_over_time(request):
         return HttpResponse(status=400)
 
 
-
+async def computing_total_over_time(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("computing_total_over_time")
+        data = json.loads(content)
+        pool.disconnect()
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)

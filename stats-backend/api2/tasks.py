@@ -1573,7 +1573,9 @@ def daily_transaction_type_counts():
             .annotate(date=TruncDay("timestamp"))
             .values("date")
             .annotate(
-                singleTransfer=Count("scanner_id", filter=Q(transaction_type="singleTransfer")),
+                singleTransfer=Count(
+                    "scanner_id", filter=Q(transaction_type="singleTransfer")
+                ),
                 batched=Count("scanner_id", filter=Q(transaction_type="batched")),
             )
             .order_by("date")
@@ -1700,16 +1702,8 @@ def transaction_volume_over_time():
             .annotate(date=TruncDay("timestamp"))
             .values("date")
             .annotate(
-                on_golem=Count(
-                    "amount",
-                    filter=Q(tx_from_golem=True),
-                    distinct=True
-                ),
-                not_golem=Count(
-                    "amount",
-                    filter=Q(tx_from_golem=False),
-                    distinct=True
-                ),
+                on_golem=Count("amount", filter=Q(tx_from_golem=True), distinct=True),
+                not_golem=Count("amount", filter=Q(tx_from_golem=False), distinct=True),
             )
             .order_by("date")
         )
@@ -1804,3 +1798,32 @@ def daily_volume_golem_vs_chain():
     r.set(
         "daily_volume_golem_vs_chain", json.dumps(formatted_data, cls=DjangoJSONEncoder)
     )
+
+
+from collector.models import ProvidersComputing
+
+
+@app.task
+def computing_total_over_time():
+    now = timezone.now()
+    formatted_data = {"7d": [], "14d": [], "1m": [], "3m": [], "6m": [], "1y": [], "All": []}
+    intervals = {
+        "7d": (now - timedelta(days=7), now),
+        "14d": (now - timedelta(days=14), now),
+        "1m": (now - timedelta(days=30), now),
+        "3m": (now - timedelta(days=90), now),
+        "6m": (now - timedelta(days=180), now),
+        "1y": (now - timedelta(days=365), now),
+        "All": (ProvidersComputingMax.objects.earliest("date").date, now),
+    }
+
+    for period, (start_date, end_date) in intervals.items():
+        data = ProvidersComputingMax.objects\
+                .filter(date__range=(start_date, end_date))\
+                .annotate(truncated_date=TruncDay("date"))\
+                .values("truncated_date")\
+                .annotate(total=Sum("total"))\
+                .order_by("truncated_date")
+        formatted_data[period] = list(data)
+        
+    r.set("computing_total_over_time", json.dumps(formatted_data, cls=DjangoJSONEncoder))
