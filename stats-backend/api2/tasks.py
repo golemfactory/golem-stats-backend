@@ -1504,13 +1504,62 @@ def fetch_latest_glm_tx():
 
 @app.task
 def average_transaction_value_over_time():
-    data = (
-        GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
-        .values("date")
-        .annotate(average_value=Avg("amount"))
-        .order_by("date")
+    def aggregate_average_value(start_date, end_date):
+        return (
+            GolemTransactions.objects.filter(timestamp__range=(start_date, end_date))
+            .annotate(date=TruncDay("timestamp"))
+            .values("date")
+            .annotate(
+                on_golem=Coalesce(
+                    Avg(
+                        "amount",
+                        filter=Q(tx_from_golem=True),
+                        output_field=FloatField(),
+                    ),
+                    0,
+                    output_field=FloatField(),
+                ),
+                not_golem=Coalesce(
+                    Avg(
+                        "amount",
+                        filter=Q(tx_from_golem=False),
+                        output_field=FloatField(),
+                    ),
+                    0,
+                    output_field=FloatField(),
+                ),
+            )
+            .order_by("date")
+        )
+
+    now = timezone.now()
+    formatted_data = {
+        "7d": [],
+        "14d": [],
+        "1m": [],
+        "3m": [],
+        "6m": [],
+        "1y": [],
+        "All": [],
+    }
+    intervals = {
+        "7d": (now - timedelta(days=7), now),
+        "14d": (now - timedelta(days=14), now),
+        "1m": (now - timedelta(days=30), now),
+        "3m": (now - timedelta(days=90), now),
+        "6m": (now - timedelta(days=180), now),
+        "1y": (now - timedelta(days=365), now),
+        "All": (GolemTransactions.objects.earliest("timestamp").timestamp, now),
+    }
+
+    for period, (start_date, end_date) in intervals.items():
+        data = aggregate_average_value(start_date, end_date)
+        formatted_data[period] = list(data)
+
+    r.set(
+        "average_transaction_value_over_time",
+        json.dumps(formatted_data, cls=DjangoJSONEncoder),
     )
-    r.set("average_transaction_value", json.dumps(list(data), cls=DjangoJSONEncoder))
 
 
 from django.db.models import IntegerField, ExpressionWrapper, Case, When, Avg
@@ -1518,72 +1567,181 @@ from django.db.models import IntegerField, ExpressionWrapper, Case, When, Avg
 
 @app.task
 def daily_transaction_type_counts():
-    data = (
-        GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
-        .values("date")
-        .annotate(
-            singleTransfer=Sum(
-                ExpressionWrapper(
-                    Case(
-                        When(transaction_type="singleTransfer", then=1),
-                        default=0,
-                        output_field=IntegerField(),
-                    ),
-                    output_field=IntegerField(),
-                )
-            ),
-            batched=Sum(
-                ExpressionWrapper(
-                    Case(
-                        When(transaction_type="batched", then=1),
-                        default=0,
-                        output_field=IntegerField(),
-                    ),
-                    output_field=IntegerField(),
-                )
-            ),
+    def aggregate_counts(start_date, end_date):
+        return (
+            GolemTransactions.objects.filter(timestamp__range=(start_date, end_date))
+            .annotate(date=TruncDay("timestamp"))
+            .values("date")
+            .annotate(
+                singleTransfer=Count("scanner_id", filter=Q(transaction_type="singleTransfer")),
+                batched=Count("scanner_id", filter=Q(transaction_type="batched")),
+            )
+            .order_by("date")
         )
-        .order_by("date")
-    )
+
+    now = timezone.now()
+    formatted_data = {
+        "7d": [],
+        "14d": [],
+        "1m": [],
+        "3m": [],
+        "6m": [],
+        "1y": [],
+        "All": [],
+    }
+    intervals = {
+        "7d": (now - timedelta(days=7), now),
+        "14d": (now - timedelta(days=14), now),
+        "1m": (now - timedelta(days=30), now),
+        "3m": (now - timedelta(days=90), now),
+        "6m": (now - timedelta(days=180), now),
+        "1y": (now - timedelta(days=365), now),
+        "All": (GolemTransactions.objects.earliest("timestamp").timestamp, now),
+    }
+
+    for period, (start_date, end_date) in intervals.items():
+        data = aggregate_counts(start_date, end_date)
+        formatted_data[period] = list(data)
 
     r.set(
-        "daily_transaction_type_counts", json.dumps(list(data), cls=DjangoJSONEncoder)
+        "daily_transaction_type_counts",
+        json.dumps(formatted_data, cls=DjangoJSONEncoder),
     )
 
 
 @app.task
 def transaction_type_comparison():
-    data = (
-        GolemTransactions.objects.filter(
-            transaction_type__in=["singleTransfer", "batched"]
+    now = timezone.now()
+    formatted_data = {
+        "7d": [],
+        "14d": [],
+        "1m": [],
+        "3m": [],
+        "6m": [],
+        "1y": [],
+        "All": [],
+    }
+    intervals = {
+        "7d": (now - timedelta(days=7), now),
+        "14d": (now - timedelta(days=14), now),
+        "1m": (now - timedelta(days=30), now),
+        "3m": (now - timedelta(days=90), now),
+        "6m": (now - timedelta(days=180), now),
+        "1y": (now - timedelta(days=365), now),
+        "All": (GolemTransactions.objects.earliest("timestamp").timestamp, now),
+    }
+
+    def aggregate_types(start_date, end_date):
+        return (
+            GolemTransactions.objects.filter(
+                timestamp__range=(start_date, end_date),
+                transaction_type__in=["singleTransfer", "batched"],
+            )
+            .values("transaction_type")
+            .annotate(total=Count("scanner_id"))
+            .order_by("transaction_type")
         )
-        .values("transaction_type")
-        .annotate(total=Count("scanner_id"))
-        .order_by("transaction_type")
+
+    for period, (start_date, end_date) in intervals.items():
+        data = aggregate_types(start_date, end_date)
+        formatted_data[period] = list(data)
+
+    r.set(
+        "transaction_type_comparison", json.dumps(formatted_data, cls=DjangoJSONEncoder)
     )
-    r.set("transaction_type_comparison", json.dumps(list(data), cls=DjangoJSONEncoder))
 
 
 @app.task
 def amount_transferred_over_time():
-    data = (
-        GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
-        .values("date")
-        .annotate(total_amount=Sum("amount"))
-        .order_by("date")
+    def aggregate_amount(start_date, end_date):
+        return (
+            GolemTransactions.objects.filter(timestamp__range=(start_date, end_date))
+            .annotate(date=TruncDay("timestamp"))
+            .values("date")
+            .annotate(total_amount=Sum("amount"))
+            .order_by("date")
+        )
+
+    now = timezone.now()
+    formatted_data = {
+        "7d": [],
+        "14d": [],
+        "1m": [],
+        "3m": [],
+        "6m": [],
+        "1y": [],
+        "All": [],
+    }
+    intervals = {
+        "7d": (now - timedelta(days=7), now),
+        "14d": (now - timedelta(days=14), now),
+        "1m": (now - timedelta(days=30), now),
+        "3m": (now - timedelta(days=90), now),
+        "6m": (now - timedelta(days=180), now),
+        "1y": (now - timedelta(days=365), now),
+        "All": (GolemTransactions.objects.earliest("timestamp").timestamp, now),
+    }
+
+    for period, (start_date, end_date) in intervals.items():
+        data = aggregate_amount(start_date, end_date)
+        formatted_data[period] = list(data)
+
+    r.set(
+        "amount_transferred_over_time",
+        json.dumps(formatted_data, cls=DjangoJSONEncoder),
     )
-    r.set("amount_transferred_over_time", json.dumps(list(data), cls=DjangoJSONEncoder))
 
 
 @app.task
 def transaction_volume_over_time():
-    data = (
-        GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
-        .values("date")
-        .annotate(total_transactions=Count("scanner_id"))
-        .order_by("date")
+    def aggregate_transactions(start_date, end_date):
+        return (
+            GolemTransactions.objects.filter(timestamp__range=(start_date, end_date))
+            .annotate(date=TruncDay("timestamp"))
+            .values("date")
+            .annotate(
+                on_golem=Count(
+                    "amount",
+                    filter=Q(tx_from_golem=True),
+                    distinct=True
+                ),
+                not_golem=Count(
+                    "amount",
+                    filter=Q(tx_from_golem=False),
+                    distinct=True
+                ),
+            )
+            .order_by("date")
+        )
+
+    now = timezone.now()
+    formatted_data = {
+        "7d": [],
+        "14d": [],
+        "1m": [],
+        "3m": [],
+        "6m": [],
+        "1y": [],
+        "All": [],
+    }
+    intervals = {
+        "7d": (now - timedelta(days=7), now),
+        "14d": (now - timedelta(days=14), now),
+        "1m": (now - timedelta(days=30), now),
+        "3m": (now - timedelta(days=90), now),
+        "6m": (now - timedelta(days=180), now),
+        "1y": (now - timedelta(days=365), now),
+        "All": (GolemTransactions.objects.earliest("timestamp").timestamp, now),
+    }
+
+    for period, (start_date, end_date) in intervals.items():
+        data = aggregate_transactions(start_date, end_date)
+        formatted_data[period] = list(data)
+
+    r.set(
+        "transaction_volume_over_time",
+        json.dumps(formatted_data, cls=DjangoJSONEncoder),
     )
-    r.set("transaction_volume_over_time", json.dumps(list(data), cls=DjangoJSONEncoder))
 
 
 from django.db.models.functions import TruncDay, Coalesce
@@ -1591,21 +1749,58 @@ from django.db.models.functions import TruncDay, Coalesce
 
 @app.task
 def daily_volume_golem_vs_chain():
-    data = (
-        GolemTransactions.objects.annotate(date=TruncDay("timestamp"))
-        .values("date")
-        .annotate(
-            on_golem=Coalesce(
-                Sum("amount", filter=Q(tx_from_golem=True), output_field=FloatField()),
-                0,
-                output_field=FloatField(),
-            ),
-            not_golem=Coalesce(
-                Sum("amount", filter=Q(tx_from_golem=False), output_field=FloatField()),
-                0,
-                output_field=FloatField(),
-            ),
+    def aggregate_volume(start_date, end_date):
+        return (
+            GolemTransactions.objects.filter(timestamp__range=(start_date, end_date))
+            .annotate(date=TruncDay("timestamp"))
+            .values("date")
+            .annotate(
+                on_golem=Coalesce(
+                    Sum(
+                        "amount",
+                        filter=Q(tx_from_golem=True),
+                        output_field=FloatField(),
+                    ),
+                    0,
+                    output_field=FloatField(),
+                ),
+                not_golem=Coalesce(
+                    Sum(
+                        "amount",
+                        filter=Q(tx_from_golem=False),
+                        output_field=FloatField(),
+                    ),
+                    0,
+                    output_field=FloatField(),
+                ),
+            )
+            .order_by("date")
         )
-        .order_by("date")
+
+    now = timezone.now()
+    formatted_data = {
+        "7d": [],
+        "14d": [],
+        "1m": [],
+        "3m": [],
+        "6m": [],
+        "1y": [],
+        "All": [],
+    }
+    intervals = {
+        "7d": (now - timedelta(days=7), now),
+        "14d": (now - timedelta(days=14), now),
+        "1m": (now - timedelta(days=30), now),
+        "3m": (now - timedelta(days=90), now),
+        "6m": (now - timedelta(days=180), now),
+        "1y": (now - timedelta(days=365), now),
+        "All": (GolemTransactions.objects.earliest("timestamp").timestamp, now),
+    }
+
+    for period, (start_date, end_date) in intervals.items():
+        data = aggregate_volume(start_date, end_date)
+        formatted_data[period] = list(data)
+
+    r.set(
+        "daily_volume_golem_vs_chain", json.dumps(formatted_data, cls=DjangoJSONEncoder)
     )
-    r.set("daily_volume_golem_vs_chain", json.dumps(list(data), cls=DjangoJSONEncoder))
