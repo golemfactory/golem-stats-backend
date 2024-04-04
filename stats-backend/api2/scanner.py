@@ -118,9 +118,6 @@ def update_providers_info(node_props):
                     # You might want to log this situation or set a default behavior
                     print("EC2 monthly price is zero, cannot compare offer prices.")
 
-        offerobj.is_overpriced = False
-        offerobj.overpriced_compared_to = None
-
         offerobj.properties = data
         offerobj.save()
         obj.runtime = data["golem.runtime.name"]
