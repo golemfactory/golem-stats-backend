@@ -106,6 +106,10 @@ def update_providers_info(node_props):
                         else None
                     )
 
+                    offerobj.suggest_env_per_hour_price = (
+                        float(closest_ec2.price_usd) / glm_usd_value.current_price
+                    )
+
                     # Update Offer object fields for cheaper comparison
                     offerobj.cheaper_than = closest_ec2 if offer_is_cheaper else None
                     offerobj.times_cheaper = (
