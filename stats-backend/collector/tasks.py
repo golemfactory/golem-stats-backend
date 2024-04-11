@@ -455,13 +455,64 @@ def network_versions_to_redis():
         versions_nonsorted = []
         versions = []
         data = content[0]["data"]["result"]
-        # Append to array so we can sort
         for obj in data:
             versions_nonsorted.append(
                 {"version": int(obj["metric"]["version"]), "count": obj["values"][0][1]}
             )
 
         versions_nonsorted.sort(key=lambda x: x["version"], reverse=False)
+
+        # Function to fetch all pages of releases
+        def fetch_all_releases(url, access_token):
+            headers = {"Authorization": f"token {access_token}"}
+            releases = []
+            while url:
+                response = requests.get(url, headers=headers)
+                page_releases = response.json()
+                if page_releases:
+                    releases.extend(page_releases)
+                    if "Link" in response.headers:
+                        links = response.headers["Link"].split(", ")
+                        next_link = [link for link in links if 'rel="next"' in link]
+                        if next_link:
+                            url = next_link[0][
+                                next_link[0].find("<") + 1 : next_link[0].find(">")
+                            ]
+                        else:
+                            url = None
+                    else:
+                        url = None
+                else:
+                    break
+            return releases
+
+        releases_data = fetch_all_releases(
+            "https://api.github.com/repos/golemfactory/yagna/releases",
+            os.environ.get("GITHUB_AUTH_TOKEN_NON_PRIVILEDGED"),
+        )
+
+        def find_release_by_tag(tag, releases_data):
+            # Check for an exact match first
+            for release in releases_data:
+                if release["tag_name"].lower() == tag.lower():
+                    return "official"
+
+            # If no exact match is found, check for partial matches where "prerelease": true
+            for release in releases_data:
+                if (
+                    tag.lower() in release["tag_name"].lower()
+                    and release["prerelease"] == True
+                ):
+                    return "rc"
+            return "rc"
+
+        versions_nonsorted.sort(key=lambda x: x["version"], reverse=False)
+
+        # Calculate the total count for all versions
+        total_count = sum(int(obj["count"]) for obj in versions_nonsorted)
+
+        # Function definitions for fetch_all_releases and find_release_by_tag remain the same...
+
         for obj in versions_nonsorted:
             version = str(obj["version"])
             count = obj["count"]
@@ -469,12 +520,32 @@ def network_versions_to_redis():
                 concatinated = "0." + version[0] + "." + version[1]
             elif len(version) == 3:
                 concatinated = "0." + version[0] + version[1] + "." + version[2]
-            versions.append(
-                {
-                    "version": concatinated,
-                    "count": count,
-                }
-            )
+
+            tag_to_search = "v" + concatinated
+            release_status = find_release_by_tag(tag_to_search, releases_data)
+
+            # Calculate the percentage of the total for this version
+            percentage_of_total = round((int(count) / total_count) * 100, 2)
+
+            if release_status == "official":
+                versions.append(
+                    {
+                        "version": concatinated,
+                        "count": count,
+                        "rc": False,
+                        "percentage": percentage_of_total,
+                    }
+                )
+            elif release_status == "rc":
+                versions.append(
+                    {
+                        "version": "RC-" + concatinated,
+                        "count": count,
+                        "rc": True,
+                        "percentage": percentage_of_total,
+                    }
+                )
+
         serialized = json.dumps(versions)
         r.set("network_versions", serialized)
 
@@ -544,9 +615,11 @@ def network_total_earnings():
         )
         update_total_earnings(domain)
 
+
 from api2.models import GolemTransactions
 from django.db.models import Sum
 from django.utils.timezone import now
+
 
 @app.task
 def network_earnings_overview_new():
@@ -568,18 +641,18 @@ def network_earnings_overview_new():
         }
 
     all_time_earnings = (
-        GolemTransactions.objects.filter(tx_from_golem=True).aggregate(
-            Sum("amount")
-        )["amount__sum"]
+        GolemTransactions.objects.filter(tx_from_golem=True).aggregate(Sum("amount"))[
+            "amount__sum"
+        ]
         or 0.0
     )
-
 
     response_data["network_total_earnings"] = {
         "total_earnings": float(all_time_earnings)
     }
 
     r.set("network_earnings_overview_new", json.dumps(response_data))
+
 
 def update_total_earnings(domain):
     data = get_stats_data(domain)
@@ -679,9 +752,6 @@ def provider_accepted_invoices_1h():
 
 
 import urllib.parse
-
-
-
 
 
 def get_earnings_for_node_on_platform(user_node_id, platform):
