@@ -142,7 +142,6 @@ def node_uptime(request, yagna_id):
             },
             status=404,
         )
-
     statuses = NodeStatusHistory.objects.filter(provider=node).order_by("timestamp")
     response_data, downtime_periods = [], []
     current_time = timezone.now()
@@ -150,7 +149,6 @@ def node_uptime(request, yagna_id):
     today_date = current_time.date()
     total_days = (today_date - first_seen_date).days + 1  # Including today
     last_offline_timestamp = None
-
     for day_offset in range(total_days):
         day = first_seen_date + timedelta(days=day_offset)
         day_start = timezone.make_aware(datetime.combine(day, datetime.min.time()))
@@ -158,8 +156,15 @@ def node_uptime(request, yagna_id):
         data_points_for_day = statuses.filter(
             timestamp__range=(day_start, day_end)
         ).distinct("timestamp")
-
         if data_points_for_day.exists():
+            online_count = data_points_for_day.filter(is_online=True).count()
+            offline_count = data_points_for_day.filter(is_online=False).count()
+            if online_count == 0:
+                status = "offline"
+            elif offline_count == 0:
+                status = "online"
+            else:
+                status = "outage"
             for point in data_points_for_day:
                 if not point.is_online:
                     if last_offline_timestamp is None:
@@ -170,17 +175,16 @@ def node_uptime(request, yagna_id):
                             process_downtime(last_offline_timestamp, point.timestamp)
                         )
                         last_offline_timestamp = None
-
-                response_data.append(
-                    {
-                        "tooltip": (
-                            "Today"
-                            if day == today_date
-                            else f"{total_days - day_offset - 1} day{'s' if (total_days - day_offset - 1) > 1 else ''} ago"
-                        ),
-                        "status": "online" if point.is_online else "offline",
-                    }
-                )
+            response_data.append(
+                {
+                    "tooltip": (
+                        "Today"
+                        if day == today_date
+                        else f"{total_days - day_offset - 1} day{'s' if (total_days - day_offset - 1) > 1 else ''} ago"
+                    ),
+                    "status": status,
+                }
+            )
         else:
             # Assume the status did not change this day, infer from last known status if available
             last_known_status = statuses.filter(timestamp__lt=day_start).last()
@@ -198,11 +202,9 @@ def node_uptime(request, yagna_id):
                     "status": "online" if inferred_status else "offline",
                 }
             )
-
     # Handling ongoing downtime
     if last_offline_timestamp is not None:
         downtime_periods.append(process_downtime(last_offline_timestamp, current_time))
-
     return JsonResponse(
         {
             "first_seen": node.uptime_created_at.strftime("%Y-%m-%d %H:%M:%S"),
