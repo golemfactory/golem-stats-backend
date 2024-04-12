@@ -208,7 +208,7 @@ def node_uptime(request, yagna_id):
             else:
                 status = "outage"
 
-            downtime_period = None
+            downtime_periods = []
             for point in data_points_for_day:
                 if not point.is_online:
                     if last_offline_timestamp is None:
@@ -218,13 +218,14 @@ def node_uptime(request, yagna_id):
                         downtime_period = process_downtime(
                             last_offline_timestamp, point.timestamp
                         )
+                        downtime_periods.append(downtime_period)
                         last_offline_timestamp = None
 
             response_data.append(
                 {
                     "date": day.strftime("%d %B, %Y"),
                     "status": status,
-                    "downtime": downtime_period,
+                    "downtimes": downtime_periods,
                 }
             )
         else:
@@ -293,7 +294,16 @@ def process_downtime(start_time, end_time):
         parts.append(f"{int(seconds)} second{'s' if seconds != 1 else ''}")
 
     human_readable = f"Down for {' and '.join(parts)}"
-    return {"date": down_date, "human_period": human_readable}
+
+    time_period = (
+        f"From {start_time.strftime('%I:%M %p')} to {end_time.strftime('%I:%M %p')}"
+    )
+
+    return {
+        "date": down_date,
+        "human_period": human_readable,
+        "time_period": time_period,
+    }
 
 
 def calculate_time_diff(check_time, granularity, node):
