@@ -56,7 +56,6 @@ def setup_periodic_tasks(sender, **kwargs):
         median_and_average_pricing_past_hour,
         chart_pricing_data_for_frontend,
         v2_network_online_to_redis_new_stats_page,
-        get_provider_task_data,
         online_nodes_uptime_donut_data,
         v2_network_stats_to_redis,
         sum_highest_runtime_resources,
@@ -191,12 +190,7 @@ def setup_periodic_tasks(sender, **kwargs):
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
-    sender.add_periodic_task(
-        crontab(minute="*/11"),
-        get_provider_task_data.s(),
-        queue="default",
-        options={"queue": "default", "routing_key": "default"},
-    )
+
     sender.add_periodic_task(
         crontab(minute="*/10"),
         chart_pricing_data_for_frontend.s(),

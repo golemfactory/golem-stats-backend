@@ -41,15 +41,55 @@ async def pricing_past_hour(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-async def task_pricing(request):
+from django.core.paginator import Paginator
+from django.http import JsonResponse
+from .models import ProviderWithTask
+
+
+def task_pricing(request):
     try:
-        pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+        network = request.GET.get("network", "mainnet")
+        timeframe = request.GET.get("timeframe", "All")
+        page = int(request.GET.get("page", 1))
+        per_page = int(request.GET.get("per_page", 10))
+
+        data = (
+            ProviderWithTask.objects.filter(network=network)
+            .prefetch_related("instance", "offer")
+            .select_related("offer__cheaper_than", "offer__overpriced_compared_to")
+            .order_by("created_at")
         )
-        r = aioredis.Redis(connection_pool=pool)
-        pricing_data = json.loads(await r.get("provider_task_price_data"))
-        pool.disconnect()
-        return JsonResponse(pricing_data)
+
+        if timeframe != "All":
+            start_date = datetime.now() - timedelta(days=int(timeframe[:-1]))
+            data = data.filter(created_at__gte=start_date)
+
+        paginator = Paginator(data, per_page)
+        page_data = paginator.get_page(page)
+
+        response_data = {
+            "results": [],
+            "page": page,
+            "per_page": per_page,
+            "total_pages": paginator.num_pages,
+            "total_results": paginator.count,
+        }
+
+        for entry in page_data:
+            entry_data = {
+                "providerName": entry.offer.properties.get("golem.node.id.name", ""),
+                "providerId": entry.instance.node_id,
+                "cores": entry.offer.properties.get("golem.inf.cpu.threads", 0),
+                "memory": entry.offer.properties.get("golem.inf.mem.gib", 0),
+                "disk": entry.offer.properties.get("golem.inf.storage.gib", 0),
+                "cpuh": entry.cpu_per_hour,
+                "envh": entry.env_per_hour,
+                "start": entry.start_price,
+                "date": entry.created_at.timestamp(),
+            }
+            response_data["results"].append(entry_data)
+
+        return JsonResponse(response_data)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 

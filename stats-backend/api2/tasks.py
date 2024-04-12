@@ -1109,50 +1109,6 @@ def sum_highest_runtime_resources():
     )
 
 
-@app.task
-def get_provider_task_data():
-    response = {
-        "testnet": {"1d": [], "7d": [], "1m": [], "1y": [], "All": []},
-        "mainnet": {"1d": [], "7d": [], "1m": [], "1y": [], "All": []},
-    }
-
-    networks = ["testnet", "mainnet"]
-
-    timeframes = {
-        "1d": datetime.now() - timedelta(days=1),
-        "7d": datetime.now() - timedelta(days=7),
-        "1m": datetime.now() - timedelta(days=30),
-        "1y": datetime.now() - timedelta(days=365),
-    }
-
-    for network in networks:
-        data = (
-            ProviderWithTask.objects.filter(network=network)
-            .prefetch_related("instance", "offer")
-            .select_related("offer__cheaper_than", "offer__overpriced_compared_to")
-            .order_by("created_at")
-        )
-
-        for entry in data:
-            entry_data = {
-                "providerName": entry.offer.properties.get("golem.node.id.name", ""),
-                "providerId": entry.instance.node_id,
-                "cores": entry.offer.properties.get("golem.inf.cpu.threads", 0),
-                "memory": entry.offer.properties.get("golem.inf.mem.gib", 0),
-                "disk": entry.offer.properties.get("golem.inf.storage.gib", 0),
-                "cpuh": entry.cpu_per_hour,
-                "envh": entry.env_per_hour,
-                "start": entry.start_price,
-                "date": entry.created_at.timestamp(),
-            }
-
-            response[network]["All"].append(entry_data)
-
-            for timeframe, start_date in timeframes.items():
-                if entry.created_at > start_date:
-                    response[network][timeframe].append(entry_data)
-
-    r.set("provider_task_price_data", json.dumps(response))
 
 
 from django.db.models import Count, F, Window
