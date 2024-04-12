@@ -177,18 +177,19 @@ def node_uptime(request, yagna_id):
             {
                 "first_seen": None,
                 "data": [],
-                "downtime_periods": [],
                 "status": "offline",
             },
             status=404,
         )
+
     statuses = NodeStatusHistory.objects.filter(provider=node).order_by("timestamp")
-    response_data, downtime_periods = [], []
+    response_data = []
     current_time = timezone.now()
     first_seen_date = node.uptime_created_at.date()
     today_date = current_time.date()
     total_days = (today_date - first_seen_date).days + 1  # Including today
     last_offline_timestamp = None
+
     for day_offset in range(total_days):
         day = first_seen_date + timedelta(days=day_offset)
         day_start = timezone.make_aware(datetime.combine(day, datetime.min.time()))
@@ -196,6 +197,7 @@ def node_uptime(request, yagna_id):
         data_points_for_day = statuses.filter(
             timestamp__range=(day_start, day_end)
         ).distinct("timestamp")
+
         if data_points_for_day.exists():
             online_count = data_points_for_day.filter(is_online=True).count()
             offline_count = data_points_for_day.filter(is_online=False).count()
@@ -205,24 +207,24 @@ def node_uptime(request, yagna_id):
                 status = "online"
             else:
                 status = "outage"
+
+            downtime_period = None
             for point in data_points_for_day:
                 if not point.is_online:
                     if last_offline_timestamp is None:
                         last_offline_timestamp = point.timestamp
                 else:
                     if last_offline_timestamp is not None:
-                        downtime_periods.append(
-                            process_downtime(last_offline_timestamp, point.timestamp)
+                        downtime_period = process_downtime(
+                            last_offline_timestamp, point.timestamp
                         )
                         last_offline_timestamp = None
+
             response_data.append(
                 {
-                    "tooltip": (
-                        "Today"
-                        if day == today_date
-                        else f"{total_days - day_offset - 1} day{'s' if (total_days - day_offset - 1) > 1 else ''} ago"
-                    ),
+                    "date": day.strftime("%d %B, %Y"),
                     "status": status,
+                    "downtime": downtime_period,
                 }
             )
         else:
@@ -231,26 +233,24 @@ def node_uptime(request, yagna_id):
             inferred_status = (
                 last_known_status.is_online if last_known_status else False
             )  # default to offline if unknown
-            tooltip = (
-                "Today"
-                if day == today_date
-                else f"{total_days - day_offset - 1} day{'s' if (total_days - day_offset - 1) > 1 else ''} ago"
-            )
             response_data.append(
                 {
-                    "tooltip": tooltip,
+                    "date": day.strftime("%d %B, %Y"),
                     "status": "online" if inferred_status else "offline",
+                    "downtime": None,
                 }
             )
+
     # Handling ongoing downtime
     if last_offline_timestamp is not None:
-        downtime_periods.append(process_downtime(last_offline_timestamp, current_time))
+        ongoing_downtime = process_downtime(last_offline_timestamp, current_time)
+        response_data[-1]["downtime"] = ongoing_downtime
+
     return JsonResponse(
         {
             "first_seen": node.uptime_created_at.strftime("%Y-%m-%d %H:%M:%S"),
             "uptime_percentage": calculate_uptime_percentage(yagna_id, node),
             "data": response_data,
-            "downtime_periods": downtime_periods,
             "current_status": "online" if node.online else "offline",
         }
     )
@@ -277,22 +277,23 @@ def process_downtime(start_time, end_time):
     duration = (end_time - start_time).total_seconds()
     days, remainder = divmod(duration, 86400)
     hours, remainder = divmod(remainder, 3600)
-    minutes = remainder // 60
-    down_timestamp = (
-        f"From {start_time.strftime('%I:%M %p')} on {start_time.strftime('%B %d, %Y')} "
-        f"to {end_time.strftime('%I:%M %p')} on {end_time.strftime('%B %d, %Y')}"
-    )
+    minutes, seconds = divmod(remainder, 60)
+
+    date_format = "%d %B, %Y"
+    down_date = start_time.strftime(date_format)
 
     parts = []
     if days:
         parts.append(f"{int(days)} day{'s' if days != 1 else ''}")
     if hours:
         parts.append(f"{int(hours)} hour{'s' if hours != 1 else ''}")
-    if minutes or not parts:
+    if minutes:
         parts.append(f"{int(minutes)} minute{'s' if minutes != 1 else ''}")
+    if seconds or not parts:
+        parts.append(f"{int(seconds)} second{'s' if seconds != 1 else ''}")
 
-    human_readable = f"Down for {', '.join(parts)}"
-    return {"timestamp": down_timestamp, "human_period": human_readable}
+    human_readable = f"Down for {' and '.join(parts)}"
+    return {"date": down_date, "human_period": human_readable}
 
 
 def calculate_time_diff(check_time, granularity, node):
