@@ -51,6 +51,7 @@ def update_providers_info(node_props):
         ):
             for key, value in enumerate(data["golem.com.usage.vector"]):
                 vectors[value] = key
+            MAX_PRICE_CAP_VALUE = 9999999  # This is an ugly cap to prevent providers from setting an obscure pricing value that results in the math below returning "Infinity" which caused the frontend to error out because its not valid JSON
             monthly_pricing = (
                 (
                     data["golem.com.pricing.model.linear.coeffs"][
@@ -69,11 +70,16 @@ def update_providers_info(node_props):
             )
             if not monthly_pricing:
                 print(f"Monthly price is {monthly_pricing}")
-            offerobj.monthly_price_glm = monthly_pricing
-            offerobj.monthly_price_usd = monthly_pricing * glm_usd_value.current_price
-            offerobj.hourly_price_glm = monthly_pricing / hours_in_current_month
-            offerobj.hourly_price_usd = (
-                offerobj.monthly_price_usd / hours_in_current_month
+            offerobj.monthly_price_glm = min(monthly_pricing, MAX_PRICE_CAP_VALUE)
+            offerobj.monthly_price_usd = min(
+                monthly_pricing * glm_usd_value.current_price, MAX_PRICE_CAP_VALUE
+            )
+            offerobj.hourly_price_glm = min(
+                monthly_pricing / hours_in_current_month, MAX_PRICE_CAP_VALUE
+            )
+            offerobj.hourly_price_usd = min(
+                (offerobj.monthly_price_usd / hours_in_current_month),
+                MAX_PRICE_CAP_VALUE,
             )
             vcpu_needed = data.get("golem.inf.cpu.threads", 0)
             memory_needed = data.get("golem.inf.mem.gib", 0.0)
@@ -87,8 +93,8 @@ def update_providers_info(node_props):
             )
 
             if closest_ec2 and monthly_pricing:
-                offer_price_usd = monthly_pricing * glm_usd_value.current_price
-                ec2_monthly_price = closest_ec2.price_usd * 730
+                offer_price_usd = min(monthly_pricing * glm_usd_value.current_price, MAX_PRICE_CAP_VALUE)
+                ec2_monthly_price = min(closest_ec2.price_usd * 730, MAX_PRICE_CAP_VALUE)
 
                 # Check if ec2_monthly_price is not zero to avoid ZeroDivisionError
                 if ec2_monthly_price != 0:
