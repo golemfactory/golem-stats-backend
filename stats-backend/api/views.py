@@ -851,3 +851,20 @@ def store_benchmarks(request):
             return HttpResponse(status=400)
     else:
         return HttpResponse(status=400)
+
+
+from collector.models import Feedback
+
+
+def store_feedback(request):
+    """
+    Store feedback results
+    """
+    if request.method == "POST":
+        received_json_data = json.loads(request.body)
+        store_feedback = Feedback.objects.create(
+            feedback=received_json_data["feedback"],
+        )
+        return HttpResponse(status=200)
+    else:
+        return HttpResponse(status=400)

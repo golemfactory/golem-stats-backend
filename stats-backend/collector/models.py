@@ -108,3 +108,8 @@ class Requestors(models.Model):
 
 class requestor_scraper_check(models.Model):
     indexed_before = models.BooleanField(default=False)
+
+
+class Feedback(models.Model):
+    feedback = models.TextField()
+    created_at = models.DateTimeField(default=timezone.now)

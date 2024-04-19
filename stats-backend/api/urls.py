@@ -56,4 +56,5 @@ urlpatterns = [
     path("api/collect/benchmark", views.store_benchmarks),
     path("api/hybridwinners/<wallet>", views.hybrid_net_winner_indexer),
     path("api/yagna/releases", views.yagna_releases),
+    path("feedback", views.store_feedback),
 ]
