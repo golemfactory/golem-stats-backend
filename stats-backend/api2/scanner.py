@@ -93,8 +93,12 @@ def update_providers_info(node_props):
             )
 
             if closest_ec2 and monthly_pricing:
-                offer_price_usd = min(monthly_pricing * glm_usd_value.current_price, MAX_PRICE_CAP_VALUE)
-                ec2_monthly_price = min(closest_ec2.price_usd * 730, MAX_PRICE_CAP_VALUE)
+                offer_price_usd = min(
+                    monthly_pricing * glm_usd_value.current_price, MAX_PRICE_CAP_VALUE
+                )
+                ec2_monthly_price = min(
+                    closest_ec2.price_usd * 730, MAX_PRICE_CAP_VALUE
+                )
 
                 # Check if ec2_monthly_price is not zero to avoid ZeroDivisionError
                 if ec2_monthly_price != 0:
@@ -166,6 +170,7 @@ from .yapapi_utils import build_parser, print_env_info, format_usage  # noqa: E4
 import redis
 
 
+@app.task
 def update_nodes_status(provider_id, is_online_now):
     provider, created = Node.objects.get_or_create(node_id=provider_id)
 
@@ -186,7 +191,7 @@ def update_nodes_data(node_props):
         issuer_id = props["node_id"]
         is_online_now = check_node_status(issuer_id)
         try:
-            update_nodes_status(issuer_id, is_online_now)
+            update_nodes_status.delay(issuer_id, is_online_now)
             r.set(f"provider:{issuer_id}:status", str(is_online_now))
         except Exception as e:
             print(f"Error updating NodeStatus for {issuer_id}: {e}")
@@ -210,7 +215,7 @@ def update_nodes_data(node_props):
         is_online_now = check_node_status(issuer_id)
 
         try:
-            update_nodes_status(issuer_id, is_online_now)
+            update_nodes_status.delay(issuer_id, is_online_now)
             r.set(f"provider:{issuer_id}:status", str(is_online_now))
         except Exception as e:
             print(f"Error verifying/updating NodeStatus for {issuer_id}: {e}")
