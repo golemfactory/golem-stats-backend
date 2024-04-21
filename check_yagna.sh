@@ -14,3 +14,7 @@ fi
 curl -H "Authorization: Bearer ${KEY}" 127.0.0.1:7465/me
 
 yagna payment status
+celery -A core inspect ping
+
+# Ping redis with a limit of 3 echo requests
+ping -c 3 redis
