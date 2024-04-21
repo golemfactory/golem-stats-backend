@@ -486,3 +486,4 @@ app.conf.task_routes = {
     "app.tasks.default": {"queue": "default"},
     "app.tasks.yagna": {"queue": "yagna"},
 }
+app.conf.broker_connection_retry_on_startup = True
