@@ -226,7 +226,9 @@ def update_nodes_data(node_props):
             r.set(f"provider:{issuer_id}:status", str(is_online_now))
         except Exception as e:
             print(f"Error verifying/updating NodeStatus for {issuer_id}: {e}")
-    print(f"Done updating {len(provider_ids_not_in_scan)} OFFLINE providers")
+    print(
+        f"Finished updating {len(provider_ids_not_in_scan)} providers that we didn't find in the scan, but were online in our previous scan."
+    )
 
 
 def check_node_status(issuer_id):
