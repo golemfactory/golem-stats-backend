@@ -19,10 +19,15 @@ class Node(models.Model):
     network = models.CharField(max_length=42, default="mainnet", db_index=True)
 
     def save(self, *args, **kwargs):
-        # If online is False, set computing_now to False
         if not self.online:
             self.computing_now = False
         super(Node, self).save(*args, **kwargs)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["online", "computing_now"]),
+            models.Index(fields=["network", "online"]),
+        ]
 
 
 class EC2Instance(models.Model):
@@ -57,10 +62,12 @@ class Offer(models.Model):
     times_cheaper = models.FloatField(null=True)
 
     class Meta:
-        unique_together = (
-            "runtime",
-            "provider",
-        )
+        unique_together = ("runtime", "provider")
+        indexes = [
+            models.Index(fields=["provider", "runtime"]),
+            models.Index(fields=["is_overpriced", "overpriced_compared_to"]),
+            models.Index(fields=["cheaper_than"]),
+        ]
 
 
 class HealtcheckTask(models.Model):
@@ -86,7 +93,6 @@ class NodeStatusHistory(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=["provider", "timestamp"]),
-            # This compound index might be useful for queries that filter by provider and sort by timestamp
         ]
 
 
