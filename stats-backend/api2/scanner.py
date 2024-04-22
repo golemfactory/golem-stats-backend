@@ -31,6 +31,7 @@ r = redis.Redis(connection_pool=pool)
 
 @app.task(queue="yagna", options={"queue": "yagna", "routing_key": "yagna"})
 def update_providers_info(node_props):
+    is_online_checked_providers = set()
     unique_providers = set()  # Initialize a set to track unique providers
     now = timezone.now()
     days_in_current_month = calendar.monthrange(now.year, now.month)[1]
@@ -141,10 +142,13 @@ def update_providers_info(node_props):
         offerobj.save()
         obj.runtime = data["golem.runtime.name"]
         obj.wallet = wallet
-        # Verify each node's status
-        is_online = check_node_status(obj.node_id)
+        if not obj.node_id in is_online_checked_providers:
+            # Verify each node's status
+            is_online = check_node_status(obj.node_id)
+            obj.online = is_online
+            is_online_checked_providers.add(obj.node_id)
         obj.network = identify_network_by_offer(offerobj)
-        obj.online = is_online
+
         obj.save()
     print(f"Done updating {len(unique_providers)} providers")
 
@@ -164,29 +168,82 @@ from .yapapi_utils import build_parser, print_env_info, format_usage  # noqa: E4
 
 
 @app.task
-def update_nodes_status(provider_id, is_online_now):
-    provider, created = Node.objects.get_or_create(node_id=provider_id)
+def update_nodes_status(nodes_to_update):
+    for provider_id, is_online_now in nodes_to_update.items():
 
-    # Check the last status in the NodeStatusHistory
-    last_status = NodeStatusHistory.objects.filter(provider=provider).last()
+        # Get the latest status from Redis
+        latest_status = r.get(f"node_status:{provider_id}")
 
-    if not last_status or last_status.is_online != is_online_now:
-        # Create a new status entry if there's a change in status
-        NodeStatusHistory.objects.create(provider=provider, is_online=is_online_now)
+        if latest_status is None:
+            print(f"Status not found in Redis for provider {provider_id}")
+            # Status not found in Redis, fetch the latest status from the database
+            provider, created = Node.objects.get_or_create(node_id=provider_id)
+            latest_status_subquery = (
+                NodeStatusHistory.objects.filter(provider=provider)
+                .order_by("-timestamp")
+                .values("is_online")[:1]
+            )
+
+            latest_status_from_db = NodeStatusHistory.objects.filter(
+                provider=provider, is_online=Subquery(latest_status_subquery)
+            ).first()
+
+            if latest_status_from_db:
+                # Compare the latest status from the database with the current status
+                if latest_status_from_db.is_online != is_online_now:
+                    # Status has changed, update the database
+                    NodeStatusHistory.objects.create(
+                        provider=provider, is_online=is_online_now
+                    )
+            else:
+                # No previous status found in the database, create a new entry
+                NodeStatusHistory.objects.create(
+                    provider=provider, is_online=is_online_now
+                )
+
+            # Store the current status in Redis for future lookups
+            r.set(f"node_status:{provider_id}", str(is_online_now))
+        else:
+            print(f"Status found in Redis for provider {provider_id}")
+            # Compare the latest status from Redis with the current status
+            if latest_status.decode() != str(is_online_now):
+                print(f"Status has changed for provider {provider_id}")
+                # Status has changed, update the database
+                provider, created = Node.objects.get_or_create(node_id=provider_id)
+                NodeStatusHistory.objects.create(
+                    provider=provider, is_online=is_online_now
+                )
+
+                # Update the status in Redis
+                r.set(f"node_status:{provider_id}", str(is_online_now))
+
+
+from celery import group
 
 
 @app.task(queue="yagna", options={"queue": "yagna", "routing_key": "yagna"})
 def update_nodes_data(node_props):
+    is_online_checked_providers = set()
+    chunk_size = 100
+    nodes_status_to_update = {}
     for props in node_props:
         props = json.loads(props)
         issuer_id = props["node_id"]
-        is_online_now = check_node_status(issuer_id)
-        try:
-            update_nodes_status.delay(issuer_id, is_online_now)
-            r.set(f"provider:{issuer_id}:status", str(is_online_now))
-        except Exception as e:
-            print(f"Error updating NodeStatus for {issuer_id}: {e}")
-    print(f"Done updating {len(node_props)} providers")
+        if not issuer_id in is_online_checked_providers:
+            is_online_now = check_node_status(issuer_id)
+            is_online_checked_providers.add(issuer_id)
+            nodes_status_to_update[issuer_id] = is_online_now
+
+    chunks = [
+        dict(list(nodes_status_to_update.items())[i : i + chunk_size])
+        for i in range(0, len(nodes_status_to_update), chunk_size)
+    ]
+
+    # Create a group of Celery tasks to be executed in parallel
+    task_group = group(update_nodes_status.s(chunk) for chunk in chunks)
+
+    # Dispatch the group of tasks
+    result_group = task_group.apply_async()
     # Deserialize each element in node_props into a dictionary
     deserialized_node_props = [json.loads(props) for props in node_props]
 
@@ -207,15 +264,23 @@ def update_nodes_data(node_props):
     provider_ids_not_in_scan = (
         set(previously_online_providers_ids) - provider_ids_in_props
     )
-
+    nodes_status_to_update_not_in_scan = {}
     for issuer_id in provider_ids_not_in_scan:
         is_online_now = check_node_status(issuer_id)
 
-        try:
-            update_nodes_status.delay(issuer_id, is_online_now)
-            r.set(f"provider:{issuer_id}:status", str(is_online_now))
-        except Exception as e:
-            print(f"Error verifying/updating NodeStatus for {issuer_id}: {e}")
+        nodes_status_to_update_not_in_scan[issuer_id] = is_online_now
+
+    # Create chunks of the dictionary
+    chunks = [
+        dict(list(nodes_status_to_update_not_in_scan.items())[i : i + chunk_size])
+        for i in range(0, len(nodes_status_to_update_not_in_scan), chunk_size)
+    ]
+
+    # Create a group of Celery tasks to be executed in parallel
+    task_group = group(update_nodes_status.s(chunk) for chunk in chunks)
+
+    # Dispatch the group of tasks
+    result_group = task_group.apply_async()
     print(
         f"Finished updating {len(provider_ids_not_in_scan)} providers that we didn't find in the scan, but were online in our previous scan."
     )
