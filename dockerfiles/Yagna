@@ -45,4 +45,4 @@ COPY ./stats-backend/ /stats-backend/
 RUN apk add nodejs npm
 
 # CMD will run when this dockerfile is running
-CMD ["/bin/sh", "-c", "/wait-for-it.sh postgres:5432 -- /stats-backend/start.sh; celery -A core worker -l INFO -Q yagna"]
+CMD ["/bin/sh", "-c", "/wait-for-it.sh postgres:5432 -- /stats-backend/start.sh; celery -A core worker -l INFO -Q yagna --without-mingle --without-gossip"]
