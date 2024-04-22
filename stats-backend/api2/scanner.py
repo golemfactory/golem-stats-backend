@@ -2,6 +2,7 @@
 import asyncio
 import csv
 import json
+import redis
 import pathlib
 import sys
 import subprocess
@@ -22,6 +23,9 @@ from django.db import transaction
 import calendar
 from .utils import identify_network_by_offer
 from django.db import transaction
+
+pool = redis.ConnectionPool(host="redis", port=6379, db=0)
+r = redis.Redis(connection_pool=pool)
 
 
 @app.task(queue="yagna", options={"queue": "yagna", "routing_key": "yagna"})
@@ -167,8 +171,6 @@ examples_dir = pathlib.Path(__file__).resolve().parent.parent
 sys.path.append(str(examples_dir))
 from .yapapi_utils import build_parser, print_env_info, format_usage  # noqa: E402
 
-import redis
-
 
 @app.task
 def update_nodes_status(provider_id, is_online_now):
@@ -184,8 +186,6 @@ def update_nodes_status(provider_id, is_online_now):
 
 @app.task(queue="yagna", options={"queue": "yagna", "routing_key": "yagna"})
 def update_nodes_data(node_props):
-    r = redis.Redis(host="redis", port=6379, db=0)
-
     for props in node_props:
         props = json.loads(props)
         issuer_id = props["node_id"]
