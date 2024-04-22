@@ -23,6 +23,7 @@ from django.db import transaction
 import calendar
 from .utils import identify_network_by_offer
 from django.db import transaction
+from django.db.models import OuterRef, Subquery
 
 pool = redis.ConnectionPool(host="redis", port=6379, db=0)
 r = redis.Redis(connection_pool=pool)
@@ -201,9 +202,15 @@ def update_nodes_data(node_props):
 
     # Now create the set
     provider_ids_in_props = {props["node_id"] for props in deserialized_node_props}
+    latest_online_status = (
+        NodeStatusHistory.objects.filter(provider=OuterRef("pk"))
+        .order_by("-timestamp")
+        .values("is_online")[:1]
+    )
+
     previously_online_providers_ids = (
-        Node.objects.filter(nodestatushistory__is_online=True)
-        .distinct()
+        Node.objects.annotate(latest_online=Subquery(latest_online_status))
+        .filter(latest_online=True)
         .values_list("node_id", flat=True)
     )
 
