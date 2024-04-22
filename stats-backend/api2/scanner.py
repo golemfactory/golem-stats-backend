@@ -146,16 +146,6 @@ def update_providers_info(node_props):
         obj.network = identify_network_by_offer(offerobj)
         obj.online = is_online
         obj.save()
-
-    online_nodes = Node.objects.filter(online=True)
-    for node in online_nodes:
-        if not node.node_id in unique_providers:
-            command = f"yagna net find {node.node_id}"
-            result = subprocess.run(command, shell=True, capture_output=True, text=True)
-            is_online = "Exiting..., error details: Request failed" not in result.stderr
-            node.online = is_online
-            node.computing_now = False
-            node.save(update_fields=["online", "computing_now"])
     print(f"Done updating {len(unique_providers)} providers")
 
 
