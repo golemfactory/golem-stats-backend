@@ -1109,8 +1109,6 @@ def sum_highest_runtime_resources():
     )
 
 
-
-
 from django.db.models import Count, F, Window
 from django.db.models.functions import Lag, TruncHour
 from django.utils import timezone
@@ -1258,35 +1256,24 @@ from .models import RelayNodes
 @app.task
 def fetch_and_store_relay_nodes():
     base_url = "http://yacn2.dev.golem.network:9000/nodes/"
-    all_nodes = []
 
     for prefix in range(256):
         try:
-            r = requests.get(f"{base_url}{prefix:02x}")
-            r.raise_for_status()  # Raises an HTTPError if the status is 4xx, 5xx
-            data = r.json()
+            response = requests.get(f"{base_url}{prefix:02x}")
+            response.raise_for_status()
+            data = response.json()
 
-            # Process keys (node IDs) and prepare them for bulk insertion
-            node_ids = [key.strip().lower() for key in data.keys()]
-            all_nodes.extend(node_ids)
+            for node_id, sessions in data.items():
+                node_id = node_id.strip().lower()
+                ip_port = sessions[0]["peer"].split(":")
+                ip, port = ip_port[0], int(ip_port[1])
+
+                obj, created = RelayNodes.objects.update_or_create(
+                    node_id=node_id, defaults={"ip_address": ip, "port": port}
+                )
 
         except requests.RequestException as e:
-            pass  # Error logging implementation
-
-    # Retrieve all existing node_ids to avoid IntegrityError on insert
-    existing_node_ids = set(
-        RelayNodes.objects.filter(node_id__in=set(all_nodes)).values_list(
-            "node_id", flat=True
-        )
-    )
-    new_nodes = [
-        RelayNodes(node_id=nid)
-        for nid in set(all_nodes)
-        if nid not in existing_node_ids
-    ]
-
-    # Bulk insert new nodes
-    RelayNodes.objects.bulk_create(new_nodes, ignore_conflicts=True)
+            print(f"Error fetching data for prefix {prefix:02x}: {e}")
 
 
 from .models import TransactionScraperIndex, GolemTransactions
@@ -1762,7 +1749,15 @@ from collector.models import ProvidersComputing
 @app.task
 def computing_total_over_time():
     now = timezone.now()
-    formatted_data = {"7d": [], "14d": [], "1m": [], "3m": [], "6m": [], "1y": [], "All": []}
+    formatted_data = {
+        "7d": [],
+        "14d": [],
+        "1m": [],
+        "3m": [],
+        "6m": [],
+        "1y": [],
+        "All": [],
+    }
     intervals = {
         "7d": (now - timedelta(days=7), now),
         "14d": (now - timedelta(days=14), now),
@@ -1774,12 +1769,15 @@ def computing_total_over_time():
     }
 
     for period, (start_date, end_date) in intervals.items():
-        data = ProvidersComputingMax.objects\
-                .filter(date__range=(start_date, end_date))\
-                .annotate(truncated_date=TruncDay("date"))\
-                .values("truncated_date")\
-                .annotate(total=Sum("total"))\
-                .order_by("truncated_date")
+        data = (
+            ProvidersComputingMax.objects.filter(date__range=(start_date, end_date))
+            .annotate(truncated_date=TruncDay("date"))
+            .values("truncated_date")
+            .annotate(total=Sum("total"))
+            .order_by("truncated_date")
+        )
         formatted_data[period] = list(data)
-        
-    r.set("computing_total_over_time", json.dumps(formatted_data, cls=DjangoJSONEncoder))
+
+    r.set(
+        "computing_total_over_time", json.dumps(formatted_data, cls=DjangoJSONEncoder)
+    )

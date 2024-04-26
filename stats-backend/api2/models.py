@@ -126,6 +126,8 @@ class PricingSnapshot(models.Model):
 
 class RelayNodes(models.Model):
     node_id = models.CharField(max_length=42, unique=True)
+    ip_address = models.CharField(max_length=15, null=True, blank=True)
+    port = models.IntegerField(null=True, blank=True)
 
 
 class GolemTransactions(models.Model):
