@@ -1788,16 +1788,16 @@ def extract_wallets_and_ids():
     from itertools import chain
     from collections import defaultdict
     import json
-    from django.db.models import Q, Subquery, OuterRef
+    from django.db.models import OuterRef, Subquery
 
     # Subquery to find the latest NodeStatusHistory entry for each provider and check its online status
     latest_status_subquery = (
-        NodeStatusHistory.objects.filter(provider=OuterRef("provider"))
+        NodeStatusHistory.objects.filter(provider_id=OuterRef("provider_id"))
         .order_by("-timestamp")
         .values("is_online")[:1]
     )
 
-    # Modify the query to prefetch_related providers whose latest status is online
+    # Fetch offers with providers whose latest status is online
     offers = (
         Offer.objects.prefetch_related("provider")
         .annotate(latest_online=Subquery(latest_status_subquery))
