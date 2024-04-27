@@ -1791,24 +1791,27 @@ def extract_wallets_and_ids():
     from django.db.models import Q, Subquery, OuterRef
 
     # Get the latest NodeStatusHistory for each provider
-    latest_status = NodeStatusHistory.objects.filter(
-        provider=OuterRef('pk')
-    ).order_by('-timestamp')
+    latest_status = NodeStatusHistory.objects.filter(provider=OuterRef("pk")).order_by(
+        "-timestamp"
+    )
 
     # Filter offers for online providers only
-    online_providers = Node.objects.annotate(
-        latest_is_online=Subquery(latest_status.values('is_online')[:1])
-    ).filter(latest_is_online=True).values_list('id', flat=True)
+    online_providers = (
+        Node.objects.annotate(
+            latest_is_online=Subquery(latest_status.values("is_online")[:1])
+        )
+        .filter(latest_is_online=True)
+        .values_list("id", flat=True)
+    )
 
-    offers = Offer.objects.filter(provider_id__in=online_providers).values('properties', 'provider__node_id')
-
+    offers = Offer.objects.filter(provider_id__in=online_providers)
     wallets_dict = defaultdict(set)
     providers_dict = defaultdict(list)
 
     for offer in offers:
-        properties = offer['properties']
-        if not properties:
+        if not offer.properties:
             continue
+        properties = offer.properties
         provider_id = properties.get("id", "")
         provider_name = properties.get("golem.node.id.name", "")
 
@@ -1819,7 +1822,7 @@ def extract_wallets_and_ids():
 
         # Update providers dictionary
         if provider_id and provider_name:
-            providers_dict[(provider_id, provider_name)].append(offer['provider__node_id'])
+            providers_dict[(provider_id, provider_name)].append(offer.provider.node_id)
 
     # Convert wallet sets to counts of unique providers using each wallet
     wallets_list = [
