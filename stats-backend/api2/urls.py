@@ -52,4 +52,5 @@ urlpatterns = [
         name="get_healthcheck_status",
     ),
     path("healthcheck/status", healthcheck_status, name="healthcheck_status"),
+    path("search-list", views.wallets_and_ids, name="search_list"),
 ]

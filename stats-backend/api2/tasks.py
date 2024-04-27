@@ -1781,3 +1781,44 @@ def computing_total_over_time():
     r.set(
         "computing_total_over_time", json.dumps(formatted_data, cls=DjangoJSONEncoder)
     )
+
+
+@app.task
+def extract_wallets_and_ids():
+    from itertools import chain
+    from collections import defaultdict
+    from django.db.models import Q
+
+    offers = Offer.objects.prefetch_related("provider").all()
+    wallets_list = []
+    providers_dict = defaultdict(list)
+
+    for offer in offers:
+        if not offer.properties:
+            continue
+        properties = offer.properties
+        provider_id = properties.get("id", "")
+        provider_name = properties.get("golem.node.id.name", "")
+        wallets = [
+            v
+            for k, v in properties.items()
+            if k.startswith("golem.com.payment.platform") and v
+        ]
+
+        # Update wallets list
+        wallets_list.extend(wallets)
+
+        # Update providers dictionary
+        if provider_id and provider_name:
+            providers_dict[(provider_id, provider_name)].append(offer.provider.node_id)
+
+    # Deduplicate wallets
+    wallets_list = list(set(wallets_list))
+
+    # Convert providers to list of dictionaries
+    providers_list = [
+        {"provider_name": name, "id": _id}
+        for (_id, name), nodes in providers_dict.items()
+    ]
+    data = {"wallets": wallets_list, "providers": providers_list}
+    r.set("wallets_and_ids", json.dumps(data))

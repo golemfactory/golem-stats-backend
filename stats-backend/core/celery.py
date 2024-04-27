@@ -73,6 +73,7 @@ def setup_periodic_tasks(sender, **kwargs):
         average_transaction_value_over_time,
         daily_volume_golem_vs_chain,
         computing_total_over_time,
+        extract_wallets_and_ids,
     )
 
     sender.add_periodic_task(
@@ -474,6 +475,12 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         30.0,
         network_versions_to_redis.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        20,
+        extract_wallets_and_ids.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
