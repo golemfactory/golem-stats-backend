@@ -835,15 +835,38 @@ async def computing_total_over_time(request):
     else:
         return HttpResponse(status=400)
 
+
+from django.http import JsonResponse, HttpResponse
+import json
+import aioredis
+
+
 async def wallets_and_ids(request):
     if request.method == "GET":
+        query = request.GET.get(
+            "query", ""
+        ).lower()  # Get the query parameter from the request
         pool = aioredis.ConnectionPool.from_url(
             "redis://redis:6379/0", decode_responses=True
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("wallets_and_ids")
         data = json.loads(content)
+
+        # Filter logic based on query
+        filtered_data = {"wallets": [], "providers": []}
+        for item in data.get("wallets", []):
+            if query in item.get("address", "").lower():
+                filtered_data["wallets"].append(item)
+
+        for item in data.get("providers", []):
+            if (
+                query in item.get("provider_name", "").lower()
+                or query in str(item.get("id", "")).lower()
+            ):
+                filtered_data["providers"].append(item)
+
         pool.disconnect()
-        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+        return JsonResponse(filtered_data, safe=False, json_dumps_params={"indent": 4})
     else:
         return HttpResponse(status=400)
