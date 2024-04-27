@@ -1812,7 +1812,7 @@ def extract_wallets_and_ids():
         if not offer.properties:
             continue
         properties = offer.properties
-        provider_id = properties.get("id", "")
+        provider_id = properties.get("node_id", "")
         provider_name = properties.get("golem.node.id.name", "")
 
         # Extract wallet addresses and associate with provider ID
