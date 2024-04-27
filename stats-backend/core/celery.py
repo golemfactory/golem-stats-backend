@@ -479,7 +479,7 @@ def setup_periodic_tasks(sender, **kwargs):
         options={"queue": "default", "routing_key": "default"},
     )
     sender.add_periodic_task(
-        20,
+        30,
         extract_wallets_and_ids.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},

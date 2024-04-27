@@ -1783,46 +1783,43 @@ def computing_total_over_time():
     )
 
 
-from django.db.models import OuterRef, Subquery
-from collections import defaultdict
-import json
-
-
 @app.task
 def extract_wallets_and_ids():
-    # Subquery to fetch the latest is_online status for each provider
-    latest_status_subquery = (
-        NodeStatusHistory.objects.filter(provider=OuterRef("provider"))
-        .order_by("-timestamp")
-        .values("is_online")[:1]
-    )
+    from itertools import chain
+    from collections import defaultdict
+    import json
+    from django.db.models import Q, Subquery, OuterRef
 
-    # Annotate each offer with the latest online status of its provider
-    offers = Offer.objects.annotate(
-        latest_online=Subquery(latest_status_subquery)
-    ).filter(
-        latest_online=True
-    )  # Select only offers where the latest status is online
+    # Get the latest NodeStatusHistory for each provider
+    latest_status = NodeStatusHistory.objects.filter(
+        provider=OuterRef('pk')
+    ).order_by('-timestamp')
+
+    # Filter offers for online providers only
+    online_providers = Node.objects.annotate(
+        latest_is_online=Subquery(latest_status.values('is_online')[:1])
+    ).filter(latest_is_online=True).values_list('id', flat=True)
+
+    offers = Offer.objects.filter(provider_id__in=online_providers).values('properties', 'provider__node_id')
 
     wallets_dict = defaultdict(set)
     providers_dict = defaultdict(list)
 
     for offer in offers:
-        if not offer.properties:
+        properties = offer['properties']
+        if not properties:
             continue
-
-        properties = offer.properties
         provider_id = properties.get("id", "")
         provider_name = properties.get("golem.node.id.name", "")
 
-        # Extract wallet addresses and associate them with provider ID
+        # Extract wallet addresses and associate with provider ID
         for k, v in properties.items():
             if k.startswith("golem.com.payment.platform") and v:
                 wallets_dict[v].add(provider_id)
 
-        # Update providers dictionary if both ID and name are present
+        # Update providers dictionary
         if provider_id and provider_name:
-            providers_dict[(provider_id, provider_name)].append(offer.provider.node_id)
+            providers_dict[(provider_id, provider_name)].append(offer['provider__node_id'])
 
     # Convert wallet sets to counts of unique providers using each wallet
     wallets_list = [
@@ -1836,8 +1833,5 @@ def extract_wallets_and_ids():
         for (_id, name), nodes in providers_dict.items()
     ]
 
-    # Serialize data and save to Redis
     data = {"wallets": wallets_list, "providers": providers_list}
     r.set("wallets_and_ids", json.dumps(data))
-
-    return data  # Optionally return data for debugging/verification
