@@ -238,43 +238,53 @@ def network_historical_stats_to_redis_v2():
 
 @app.task
 def v2_network_online_to_redis():
-    # Fetch your existing nodes
-    data = Node.objects.filter(online=True)
-    serializer = NodeSerializer(data, many=True)
-    serialized_data = serializer.data
+    # Fetch and process data from the new external domain
+    response = requests.get(
+        "https://reputation.dev-test.golem.network/stats/providers/online"
+    )
+    if response.status_code == 200:
+        external_data = response.json()
 
-    # Fetch and process data from the new external domain for each node
-    for node in serialized_data:
-        node_id = node["node_id"]
-        response = requests.get(
-            f"https://reputation.dev-test.golem.network/stats/provider/{node_id}/status"
-        )
-        if response.status_code == 200:
-            external_data = response.json()
+        # Mapping of node_id to successRate and blacklist status
+        reputation_mapping = {
+            provider["node_id"]: {
+                "success_rate": provider["success_rate"],
+                "is_blacklisted_provider": provider["is_blacklisted_provider"],
+                "is_blacklisted_wallet": provider["is_blacklisted_wallet"],
+            }
+            for provider in external_data
+        }
+
+        # Fetch your existing nodes
+        data = Node.objects.filter(online=True)
+        serializer = NodeSerializer(data, many=True)
+        serialized_data = serializer.data
+
+        # Attach successRate and blacklist status to each node
+        for node in serialized_data:
+            node_id = node["node_id"]
 
             node["reputation"] = {}
             node["reputation"]["blacklisted"] = False
             node["reputation"]["blacklistedReason"] = None
 
-            if external_data["is_blacklisted_provider"] and external_data["is_blacklisted_wallet"]:
-                node["reputation"]["blacklisted"] = True
-                node["reputation"]["blacklistedReason"] = "Blacklisted by both provider and wallet"
-            elif external_data["is_blacklisted_provider"]:
-                node["reputation"]["blacklisted"] = True
-                node["reputation"]["blacklistedReason"] = "Blacklisted by provider"
-            elif external_data["is_blacklisted_wallet"]:
-                node["reputation"]["blacklisted"] = True
-                node["reputation"]["blacklistedReason"] = "Blacklisted by wallet"
+            if node_id in reputation_mapping:
+                node["reputation"]["blacklisted"] = (
+                    reputation_mapping[node_id]["is_blacklisted_provider"]
+                    or reputation_mapping[node_id]["is_blacklisted_wallet"]
+                )
+                if node["reputation"]["blacklisted"]:
+                    node["reputation"]["blacklistedReason"] = "Blacklisted by provider or wallet"
+                node["reputation"]["taskReputation"] = reputation_mapping[node_id]["success_rate"]
 
-            node["reputation"]["taskReputation"] = external_data["success_rate"]
-        else:
-            print(
-                f"Failed to retrieve data for node {node_id} from the reputation system!", response.status_code
-            )
-
-    # Serialize and save to Redis
-    test = json.dumps(serialized_data, default=str)
-    r.set("v2_online", test)
+        # Serialize and save to Redis
+        test = json.dumps(serialized_data, default=str)
+        r.set("v2_online", test)
+    else:
+        print(
+            "Failed to retrieve data from the reputation system!", response.status_code
+        )
+        pass
 
 
 @app.task
