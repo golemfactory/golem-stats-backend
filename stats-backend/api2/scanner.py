@@ -166,7 +166,6 @@ examples_dir = pathlib.Path(__file__).resolve().parent.parent
 sys.path.append(str(examples_dir))
 from .yapapi_utils import build_parser, print_env_info, format_usage  # noqa: E402
 
-
 @app.task
 def update_nodes_status(nodes_to_update):
     for provider_id, is_online_now in nodes_to_update.items():
@@ -191,15 +190,19 @@ def update_nodes_status(nodes_to_update):
             if latest_status_from_db:
                 # Compare the latest status from the database with the current status
                 if latest_status_from_db.is_online != is_online_now:
-                    # Status has changed, update the database
+                    # Status has changed, update the database and Node.online field
                     NodeStatusHistory.objects.create(
                         provider=provider, is_online=is_online_now
                     )
+                    provider.online = is_online_now
+                    provider.save()
             else:
                 # No previous status found in the database, create a new entry
                 NodeStatusHistory.objects.create(
                     provider=provider, is_online=is_online_now
                 )
+                provider.online = is_online_now
+                provider.save()
 
             # Store the current status in Redis for future lookups
             r.set(f"node_status:{provider_id}", str(is_online_now))
@@ -208,15 +211,16 @@ def update_nodes_status(nodes_to_update):
             # Compare the latest status from Redis with the current status
             if latest_status.decode() != str(is_online_now):
                 print(f"Status has changed for provider {provider_id}")
-                # Status has changed, update the database
+                # Status has changed, update the database and Node.online field
                 provider, created = Node.objects.get_or_create(node_id=provider_id)
                 NodeStatusHistory.objects.create(
                     provider=provider, is_online=is_online_now
                 )
+                provider.online = is_online_now
+                provider.save()
 
                 # Update the status in Redis
                 r.set(f"node_status:{provider_id}", str(is_online_now))
-
 
 from celery import group
 
