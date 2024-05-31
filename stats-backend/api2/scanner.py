@@ -169,14 +169,14 @@ from .yapapi_utils import build_parser, print_env_info, format_usage  # noqa: E4
 @app.task
 def update_nodes_status(nodes_to_update):
     for provider_id, is_online_now in nodes_to_update.items():
-
+        provider, created = Node.objects.get_or_create(node_id=provider_id)
         # Get the latest status from Redis
         latest_status = r.get(f"node_status:{provider_id}")
 
         if latest_status is None:
             print(f"Status not found in Redis for provider {provider_id}")
             # Status not found in Redis, fetch the latest status from the database
-            provider, created = Node.objects.get_or_create(node_id=provider_id)
+            
             latest_status_subquery = (
                 NodeStatusHistory.objects.filter(provider=provider)
                 .order_by("-timestamp")
@@ -221,6 +221,8 @@ def update_nodes_status(nodes_to_update):
 
                 # Update the status in Redis
                 r.set(f"node_status:{provider_id}", str(is_online_now))
+        provider.online = is_online_now
+        provider.save()
 
 from celery import group
 
