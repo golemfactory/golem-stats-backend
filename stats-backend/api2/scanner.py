@@ -211,7 +211,6 @@ def update_nodes_status(nodes_to_update):
             if latest_status.decode() != str(is_online_now):
                 print(f"Status has changed for provider {provider_id}")
                 # Status has changed, update the database and Node.online field
-                provider, created = Node.objects.get_or_create(node_id=provider_id)
                 NodeStatusHistory.objects.create(
                     provider=provider, is_online=is_online_now
                 )
@@ -221,7 +220,8 @@ def update_nodes_status(nodes_to_update):
                 r.set(f"node_status:{provider_id}", str(is_online_now))
         providers_to_update[provider_id] = is_online_now
     # Bulk update the online status of providers
-    Node.objects.filter(node_id__in=providers_to_update.keys()).update(online=providers_to_update)
+    for provider_id, is_online in providers_to_update.items():
+        Node.objects.filter(node_id=provider_id).update(online=is_online)
 
 from celery import group
 
