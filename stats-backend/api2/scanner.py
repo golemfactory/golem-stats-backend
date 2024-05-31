@@ -168,6 +168,7 @@ from .yapapi_utils import build_parser, print_env_info, format_usage  # noqa: E4
 
 @app.task
 def update_nodes_status(nodes_to_update):
+    providers_to_update = {}
     for provider_id, is_online_now in nodes_to_update.items():
         provider, created = Node.objects.get_or_create(node_id=provider_id)
         # Get the latest status from Redis
@@ -194,15 +195,13 @@ def update_nodes_status(nodes_to_update):
                     NodeStatusHistory.objects.create(
                         provider=provider, is_online=is_online_now
                     )
-                    provider.online = is_online_now
-                    provider.save()
+                    providers_to_update[provider_id] = is_online_now
             else:
                 # No previous status found in the database, create a new entry
                 NodeStatusHistory.objects.create(
                     provider=provider, is_online=is_online_now
                 )
-                provider.online = is_online_now
-                provider.save()
+                providers_to_update[provider_id] = is_online_now
 
             # Store the current status in Redis for future lookups
             r.set(f"node_status:{provider_id}", str(is_online_now))
@@ -216,13 +215,13 @@ def update_nodes_status(nodes_to_update):
                 NodeStatusHistory.objects.create(
                     provider=provider, is_online=is_online_now
                 )
-                provider.online = is_online_now
-                provider.save()
+                providers_to_update[provider_id] = is_online_now
 
                 # Update the status in Redis
                 r.set(f"node_status:{provider_id}", str(is_online_now))
-        provider.online = is_online_now
-        provider.save()
+        providers_to_update[provider_id] = is_online_now
+    # Bulk update the online status of providers
+    Node.objects.filter(node_id__in=providers_to_update.keys()).update(online=providers_to_update)
 
 from celery import group
 
