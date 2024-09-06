@@ -21,7 +21,7 @@ from django.db.models import Case, When, Value, F
 from django.db.models.functions import Abs
 from django.db import transaction
 import calendar
-from .utils import identify_network_by_offer
+from .utils import identify_network_by_offer,identify_wallet_and_network
 from django.db import transaction
 from django.db.models import OuterRef, Subquery
 
@@ -147,20 +147,13 @@ def update_providers_info(node_props):
             is_online = check_node_status(obj.node_id)
             obj.online = is_online
             is_online_checked_providers.add(obj.node_id)
-        obj.network = identify_network_by_offer(offerobj)
+        obj.network = data['network']
 
         obj.save()
     print(f"Done updating {len(unique_providers)} providers")
 
 
-TESTNET_KEYS = [
-    "golem.com.payment.platform.erc20-goerli-tglm.address",
-    "golem.com.payment.platform.erc20-mumbai-tglm.address",
-    "golem.com.payment.platform.erc20-holesky-tglm.address",
-    "golem.com.payment.platform.erc20next-goerli-tglm.address",
-    "golem.com.payment.platform.erc20next-mumbai-tglm.address",
-    "golem.com.payment.platform.erc20next-holesky-tglm.address",
-]
+
 
 examples_dir = pathlib.Path(__file__).resolve().parent.parent
 sys.path.append(str(examples_dir))
@@ -326,72 +319,9 @@ async def list_offers(
                 data = event.props
                 if not event.issuer in current_scan_providers:
                     current_scan_providers.add(event.issuer)
-                if "golem.com.payment.platform.zksync-mainnet-glm.address" in str(
-                    event.props
-                ):
-                    data["wallet"] = event.props[
-                        "golem.com.payment.platform.zksync-mainnet-glm.address"
-                    ]
-                elif "golem.com.payment.platform.zksync-rinkeby-tglm.address" in str(
-                    event.props
-                ):
-                    data["wallet"] = event.props[
-                        "golem.com.payment.platform.zksync-rinkeby-tglm.address"
-                    ]
-                elif "golem.com.payment.platform.erc20-mainnet-glm.address" in str(
-                    event.props
-                ):
-                    data["wallet"] = event.props[
-                        "golem.com.payment.platform.erc20-mainnet-glm.address"
-                    ]
-                elif "golem.com.payment.platform.erc20-polygon-glm.address" in str(
-                    event.props
-                ):
-                    data["wallet"] = event.props[
-                        "golem.com.payment.platform.erc20-polygon-glm.address"
-                    ]
-                elif "golem.com.payment.platform.erc20-goerli-tglm.address" in str(
-                    event.props
-                ):
-                    data["wallet"] = event.props[
-                        "golem.com.payment.platform.erc20-goerli-tglm.address"
-                    ]
-                elif "golem.com.payment.platform.erc20-rinkeby-tglm.address" in str(
-                    event.props
-                ):
-                    data["wallet"] = event.props[
-                        "golem.com.payment.platform.erc20-rinkeby-tglm.address"
-                    ]
-                elif "golem.com.payment.platform.polygon-polygon-glm.address" in str(
-                    event.props
-                ):
-                    data["wallet"] = event.props[
-                        "golem.com.payment.platform.polygon-polygon-glm.address"
-                    ]
-                elif "golem.com.payment.platform.erc20next-mainnet-glm.address" in str(
-                    event.props
-                ):
-                    data["wallet"] = event.props[
-                        "golem.com.payment.platform.erc20next-mainnet-glm.address"
-                    ]
-                elif "golem.com.payment.platform.erc20next-polygon-glm.address" in str(
-                    event.props
-                ):
-                    data["wallet"] = event.props[
-                        "golem.com.payment.platform.erc20next-polygon-glm.address"
-                    ]
-                elif "golem.com.payment.platform.erc20next-goerli-tglm.address" in str(
-                    event.props
-                ):
-                    data["wallet"] = event.props[
-                        "golem.com.payment.platform.erc20next-goerli-tglm.address"
-                    ]
-                elif "golem.com.payment.platform.erc20next-rinkeby-tglm.address" in str(
-                    event.props
-                ):
-                    data["wallet"] = event.props[
-                        "golem.com.payment.platform.erc20next-rinkeby-tglm.address"
-                    ]
+                wallet, network = identify_wallet_and_network(event.props)
+                data["wallet"] = wallet
+                data["network"] = network
                 data["node_id"] = event.issuer
                 node_props.append(json.dumps(data))
 

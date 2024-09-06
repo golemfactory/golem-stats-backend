@@ -5,10 +5,22 @@ from .models import Offer, EC2Instance
 
 
 def identify_network_by_offer(offer):
-    for driver in settings.GOLEM_MAINNET_PAYMENT_DRIVERS:
-        if f"golem.com.payment.platform.{driver}.address" in offer.properties:
+    for key in settings.GOLEM_MAINNET_KEYS:
+        if key in offer.properties:
             return "mainnet"
-    return "testnet"
+    for key in settings.GOLEM_TESTNET_KEYS:
+        if key in offer.properties:
+            return "testnet"
+    return "unknown"  # If neither mainnet nor testnet keys are found
+
+def identify_wallet_and_network(event_props):
+    for key in settings.GOLEM_MAINNET_KEYS:
+        if key in event_props:
+            return event_props[key], "mainnet"
+    for key in settings.GOLEM_TESTNET_KEYS:
+        if key in event_props:
+            return event_props[key], "testnet"
+    return None, "unknown"
 
 
 def is_provider_online(provider):
