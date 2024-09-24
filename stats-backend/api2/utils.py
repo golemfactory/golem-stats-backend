@@ -180,3 +180,41 @@ def headers_setup():
         "accept": "application/json",
         "authorization": f'Bearer {os.environ.get("VANTAGE_API_KEY")}',
     }
+
+
+import requests
+def check_node_status(node_id):
+    node_id_no_prefix = node_id[2:] if node_id.startswith('0x') else node_id
+    url = f"http://yacn2.dev.golem.network:9000/nodes/{node_id_no_prefix}"
+    try:
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        
+        # If the response is an empty dictionary, the node is considered offline
+        if not data:
+            return False
+        
+        node_key = node_id.lower()
+        node_info = data.get(node_key)
+
+        if node_info:
+            if isinstance(node_info, list):
+                if node_info == [] or node_info == [None]:
+                    return False
+                else:
+                    return any('seen' in item for item in node_info if item)
+            else:
+                return False
+        else:
+            return False
+    except requests.exceptions.RequestException as e:
+        print(url, node_id)
+        # Log the error and return False
+        print(f"HTTP request exception when checking node status for {node_id}: {e}")
+        return False
+    except Exception as e:
+        # Log the error and return False
+        print(url, node_id)
+        print(f"Unexpected error checking node status for {node_id}: {e}")
+        return False

@@ -1104,7 +1104,7 @@ def get_online_counts():
         NodeStatusHistory.objects.filter(timestamp__gte=last_24_hours, is_online=True)
         .annotate(hour=TruncHour("timestamp"))
         .values("hour")
-        .annotate(online_count=Count("provider", distinct=True))
+        .annotate(online_count=Count("node_id", distinct=True))
         .annotate(
             prev_count=Window(
                 expression=Lag("online_count", default=None), order_by=F("hour").asc()
@@ -1773,8 +1773,8 @@ def extract_wallets_and_ids():
     import json
     from django.db.models import Q, Subquery, OuterRef
 
-    # Get the latest NodeStatusHistory for each provider
-    latest_status = NodeStatusHistory.objects.filter(provider=OuterRef("pk")).order_by(
+    # Get the latest NodeStatusHistory for each node_id
+    latest_status = NodeStatusHistory.objects.filter(node_id=OuterRef("node_id")).order_by(
         "-timestamp"
     )
 
@@ -1784,10 +1784,10 @@ def extract_wallets_and_ids():
             latest_is_online=Subquery(latest_status.values("is_online")[:1])
         )
         .filter(latest_is_online=True)
-        .values_list("id", flat=True)
+        .values_list("node_id", flat=True)
     )
 
-    offers = Offer.objects.filter(provider_id__in=online_providers)
+    offers = Offer.objects.filter(provider__node_id__in=online_providers)
     wallets_dict = defaultdict(set)
     providers_dict = defaultdict(list)
 
@@ -1821,3 +1821,93 @@ def extract_wallets_and_ids():
 
     data = {"wallets": wallets_list, "providers": providers_list}
     r.set("wallets_and_ids", json.dumps(data))
+
+
+from django.db import transaction
+from django.db.models import Case, When, Value, BooleanField
+from .models import NodeStatusHistory, Node
+
+@app.task
+def bulk_update_node_statuses(nodes_data):
+    status_history_to_create = []
+    redis_updates = {}
+    node_updates = []
+
+    for node_id, is_online in nodes_data:
+        latest_status = r.get(f"provider:{node_id}:status")
+        
+        if latest_status is None or latest_status.decode() != str(is_online):
+            # Check the latest status in the database
+            latest_db_status = NodeStatusHistory.objects.filter(node_id=node_id).order_by('-timestamp').first()
+            
+            if not latest_db_status or latest_db_status.is_online != is_online:
+                status_history_to_create.append(
+                    NodeStatusHistory(node_id=node_id, is_online=is_online)
+                )
+                redis_updates[f"provider:{node_id}:status"] = str(is_online)
+                node_updates.append((node_id, is_online))
+
+    if status_history_to_create or node_updates:
+        with transaction.atomic():
+            if status_history_to_create:
+                NodeStatusHistory.objects.bulk_create(status_history_to_create)
+            
+            if node_updates:
+                # Prepare the Case-When for bulk update
+                case_statement = Case(
+                    *[When(node_id=node_id, then=Value(is_online)) for node_id, is_online in node_updates],
+                    default=F('online'),
+                    output_field=BooleanField()
+                )
+                
+                # Perform bulk update on Node objects
+                Node.objects.filter(node_id__in=[node_id for node_id, _ in node_updates]).update(
+                    online=case_statement
+                )
+
+    if redis_updates:
+        r.mset(redis_updates)
+
+from .utils import check_node_status
+@app.task
+def fetch_and_update_relay_nodes_online_status():
+    base_url = "http://yacn2.dev.golem.network:9000/nodes/"
+    current_online_nodes = set()
+    nodes_to_update = []
+
+    for prefix in range(256):
+        try:
+            response = requests.get(f"{base_url}{prefix:02x}", timeout=5)
+            response.raise_for_status()
+            data = response.json()
+
+            for node_id, sessions in data.items():
+                node_id = node_id.strip().lower()
+                is_online = bool(sessions) and any('seen' in item for item in sessions if item)
+                current_online_nodes.add(node_id)
+                nodes_to_update.append((node_id, is_online))
+
+        except requests.RequestException as e:
+            print(f"Error fetching data for prefix {prefix:02x}: {e}")
+
+    # Bulk update node statuses
+    bulk_update_node_statuses.delay(nodes_to_update)
+
+    # Check providers that were previously online but not found in the current scan
+    previously_online = set(NodeStatusHistory.objects.filter(
+        is_online=True
+    ).order_by('node_id', '-timestamp').distinct('node_id').values_list('node_id', flat=True))
+
+    missing_nodes = previously_online - current_online_nodes
+    if missing_nodes:
+        check_missing_nodes.delay(list(missing_nodes))
+
+
+@app.task
+def check_missing_nodes(missing_nodes):
+    nodes_to_update = []
+    for node_id in missing_nodes:
+        is_online = check_node_status(node_id)
+        nodes_to_update.append((node_id, is_online))
+    
+    bulk_update_node_statuses(nodes_to_update)

@@ -78,7 +78,8 @@ def update_providers_info(node_props):
 
     # Get existing Offers
     existing_offers = Offer.objects.filter(
-        provider__node_id__in=provider_ids, runtime__in=[data["golem.runtime.name"] for _, data in provider_data_list]
+        provider__node_id__in=provider_ids,
+        runtime__in=[data["golem.runtime.name"] for _, data in provider_data_list]
     ).select_related('provider')
 
     existing_offers_dict = {(offer.provider.node_id, offer.runtime): offer for offer in existing_offers}
@@ -98,7 +99,7 @@ def update_providers_info(node_props):
         Offer.objects.bulk_create(new_offers)
 
     # Update existing_offers_dict with newly created offers
-    updated_offers = Offer.objects.filter(provider__node_id__in=provider_ids)
+    updated_offers = Offer.objects.filter(provider__node_id__in=provider_ids).select_related('provider')
     existing_offers_dict.update({(offer.provider.node_id, offer.runtime): offer for offer in updated_offers})
 
     # Now process and update offers
@@ -150,8 +151,11 @@ def update_providers_info(node_props):
                 else:
                     print("EC2 monthly price is zero, cannot compare offer prices.")
 
-        offer.properties = data
-        offers_to_update.append(offer)
+        # Always update the offer if any properties have changed
+        # Compare existing properties with new data
+        if offer.properties != data:
+            offer.properties = data
+            offers_to_update.append(offer)
 
     # Bulk update offers if any
     if offers_to_update:
@@ -182,159 +186,7 @@ examples_dir = pathlib.Path(__file__).resolve().parent.parent
 sys.path.append(str(examples_dir))
 from .yapapi_utils import build_parser, print_env_info, format_usage  # noqa: E402
 
-@app.task
-def update_nodes_data(node_props):
-    # Collect issuer_ids
-    is_online_checked_providers = set()
-    issuer_ids = []
-    for props in node_props:
-        props = json.loads(props)
-        issuer_id = props["node_id"]
-        if issuer_id not in is_online_checked_providers:
-            issuer_ids.append(issuer_id)
-            is_online_checked_providers.add(issuer_id)
 
-    # Check node status in parallel using ThreadPoolExecutor
-    def check_status(issuer_id):
-        return issuer_id, check_node_status(issuer_id)
-
-    with ThreadPoolExecutor() as executor:
-        results = list(executor.map(check_status, issuer_ids))
-    nodes_status_to_update = dict(results)
-
-    # Get previously online providers not in scan
-    deserialized_node_props = [json.loads(props) for props in node_props]
-    provider_ids_in_props = {props["node_id"] for props in deserialized_node_props}
-
-    latest_online_status = (
-        NodeStatusHistory.objects.filter(provider=OuterRef("pk"))
-        .order_by("-timestamp")
-        .values("is_online")[:1]
-    )
-    previously_online_providers_ids = set(
-        Node.objects.annotate(latest_online=Subquery(latest_online_status))
-        .filter(latest_online=True)
-        .values_list("node_id", flat=True)
-    )
-
-    provider_ids_not_in_scan = previously_online_providers_ids - provider_ids_in_props
-    with ThreadPoolExecutor() as executor:
-        results = list(executor.map(check_status, provider_ids_not_in_scan))
-    nodes_status_to_update_not_in_scan = dict(results)
-    nodes_status_to_update.update(nodes_status_to_update_not_in_scan)
-
-    print(
-        f"Finished checking statuses of {len(nodes_status_to_update)} providers."
-    )
-
-    # Now, update node statuses in bulk
-    # Fetch Nodes
-    provider_ids = list(nodes_status_to_update.keys())
-
-    # Get existing Nodes
-    existing_nodes = Node.objects.filter(node_id__in=provider_ids)
-    existing_nodes_dict = {node.node_id: node for node in existing_nodes}
-
-    # Find which nodes are new
-    existing_provider_ids = set(existing_nodes_dict.keys())
-    new_provider_ids = set(provider_ids) - existing_provider_ids
-
-    # Create new Node instances if any
-    new_nodes = [Node(node_id=provider_id) for provider_id in new_provider_ids]
-    if new_nodes:
-        Node.objects.bulk_create(new_nodes)
-
-    # Update existing_nodes_dict with newly created nodes
-    updated_nodes = Node.objects.filter(node_id__in=new_provider_ids)
-    for node in updated_nodes:
-        existing_nodes_dict[node.node_id] = node
-
-    # Get latest statuses from Redis in batch
-    redis_keys = [f"node_status:{provider_id}" for provider_id in provider_ids]
-    latest_statuses = r.mget(redis_keys)
-    latest_status_dict = dict(zip(provider_ids, latest_statuses))
-
-    providers_to_update_online_status = {}
-    node_status_history_to_create = []
-    for provider_id in provider_ids:
-        is_online_now = nodes_status_to_update[provider_id]
-        provider = existing_nodes_dict[provider_id]
-        latest_status = latest_status_dict.get(provider_id)
-
-        if latest_status is None:
-            # Fetch latest status from database
-            latest_status_from_db = NodeStatusHistory.objects.filter(
-                provider=provider
-            ).order_by("-timestamp").first()
-            if latest_status_from_db:
-                if latest_status_from_db.is_online != is_online_now:
-                    node_status_history_to_create.append(
-                        NodeStatusHistory(provider=provider, is_online=is_online_now)
-                    )
-                    providers_to_update_online_status[provider_id] = is_online_now
-            else:
-                node_status_history_to_create.append(
-                    NodeStatusHistory(provider=provider, is_online=is_online_now)
-                )
-                providers_to_update_online_status[provider_id] = is_online_now
-            r.set(f"node_status:{provider_id}", str(is_online_now))
-        else:
-            if latest_status.decode() != str(is_online_now):
-                node_status_history_to_create.append(
-                    NodeStatusHistory(provider=provider, is_online=is_online_now)
-                )
-                providers_to_update_online_status[provider_id] = is_online_now
-                r.set(f"node_status:{provider_id}", str(is_online_now))
-
-    # Bulk create NodeStatusHistory entries if any
-    if node_status_history_to_create:
-        NodeStatusHistory.objects.bulk_create(node_status_history_to_create)
-
-    # Bulk update the online status of providers
-    if providers_to_update_online_status:
-        # Build a list of Nodes to update
-        nodes_to_update = []
-        for provider_id, is_online_now in providers_to_update_online_status.items():
-            provider = existing_nodes_dict[provider_id]
-            provider.online = is_online_now
-            nodes_to_update.append(provider)
-        Node.objects.bulk_update(nodes_to_update, ['online'])
-
-
-def check_node_status(issuer_id):
-    node_id_no_prefix = issuer_id[2:] if issuer_id.startswith('0x') else issuer_id
-    url = f"http://yacn2.dev.golem.network:9000/nodes/{node_id_no_prefix}"
-    try:
-        response = requests.get(url, timeout=5)
-        response.raise_for_status()
-        data = response.json()
-        node_key = issuer_id.lower()
-        node_info = data.get(node_key)
-
-        if node_info:
-            if isinstance(node_info, list):
-                if node_info == []:
-                    return False  # Offline
-                elif node_info == [None]:
-                    return False  # Offline
-                else:
-                    # Check if 'seen' is present
-                    for item in node_info:
-                        if item and 'seen' in item:
-                            return True
-                    return False
-            else:
-                # Unexpected format
-                return False
-        else:
-            # Empty dict, node is offline
-            return False
-    except requests.exceptions.RequestException as e:
-        print(f"HTTP request exception when checking node status for {issuer_id}: {e}")
-        return False
-    except Exception as e:
-        print(f"Unexpected error checking node status for {issuer_id}: {e}")
-        return False
 
 
 async def list_offers(
@@ -381,4 +233,3 @@ async def monitor_nodes_status(subnet_tag: str = "public"):
     # Delay update_nodes_data call using Celery
 
     update_providers_info.delay(node_props)
-    update_nodes_data.delay(node_props)

@@ -83,17 +83,18 @@ class GLM(models.Model):
 
 
 class NodeStatusHistory(models.Model):
-    provider = models.ForeignKey(Node, on_delete=models.CASCADE, db_index=True)
+    node_id = models.CharField(max_length=42)
     is_online = models.BooleanField(db_index=True)
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
 
     def __str__(self):
-        return f"{self.provider.node_id} - {'Online' if self.is_online else 'Offline'} at {self.timestamp}"
+        return f"{self.node_id} - {'Online' if self.is_online else 'Offline'} at {self.timestamp}"
 
     class Meta:
         indexes = [
-            models.Index(fields=["provider", "timestamp"]),
+            models.Index(fields=["node_id", "timestamp"]),
         ]
+
 
 
 class ProviderWithTask(models.Model):
