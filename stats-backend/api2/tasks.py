@@ -1829,43 +1829,53 @@ from .models import NodeStatusHistory, Node
 
 @app.task
 def bulk_update_node_statuses(nodes_data):
+    node_ids = [node_id for node_id, _ in nodes_data]
+    is_online_dict = dict(nodes_data)
+
+    # Fetch latest statuses from Redis in bulk
+    redis_keys = [f"provider:{node_id}:status" for node_id in node_ids]
+    redis_values = r.mget(redis_keys)
+    redis_statuses = dict(zip(node_ids, redis_values))
+
+    # Fetch latest database statuses in bulk
+    latest_db_statuses = dict(
+        NodeStatusHistory.objects.filter(node_id__in=node_ids)
+        .order_by('node_id', '-timestamp')
+        .distinct('node_id')
+        .values_list('node_id', 'is_online')
+    )
+
     status_history_to_create = []
     redis_updates = {}
     node_updates = []
 
     for node_id, is_online in nodes_data:
-        latest_status = r.get(f"provider:{node_id}:status")
-        
-        if latest_status is None or latest_status.decode() != str(is_online):
-            # Check the latest status in the database
-            latest_db_status = NodeStatusHistory.objects.filter(node_id=node_id).order_by('-timestamp').first()
-            
-            if not latest_db_status or latest_db_status.is_online != is_online:
-                status_history_to_create.append(
-                    NodeStatusHistory(node_id=node_id, is_online=is_online)
-                )
-                redis_updates[f"provider:{node_id}:status"] = str(is_online)
-                node_updates.append((node_id, is_online))
+        redis_status = redis_statuses.get(node_id)
+        db_status = latest_db_statuses.get(node_id)
 
-    if status_history_to_create or node_updates:
-        with transaction.atomic():
-            if status_history_to_create:
-                NodeStatusHistory.objects.bulk_create(status_history_to_create)
-            
-            if node_updates:
-                # Prepare the Case-When for bulk update
-                case_statement = Case(
-                    *[When(node_id=node_id, then=Value(is_online)) for node_id, is_online in node_updates],
-                    default=F('online'),
-                    output_field=BooleanField()
-                )
-                
-                # Perform bulk update on Node objects
-                Node.objects.filter(node_id__in=[node_id for node_id, _ in node_updates]).update(
-                    online=case_statement
-                )
+        if redis_status is None or redis_status.decode() != str(is_online) or db_status != is_online:
+            status_history_to_create.append(
+                NodeStatusHistory(node_id=node_id, is_online=is_online)
+            )
+            redis_updates[f"provider:{node_id}:status"] = str(is_online)
+            node_updates.append(node_id)
+
+    if status_history_to_create:
+        # Bulk create NodeStatusHistory objects
+        NodeStatusHistory.objects.bulk_create(status_history_to_create)
+
+    if node_updates:
+        # Bulk update Node objects
+        Node.objects.filter(node_id__in=node_updates).update(
+            online=Case(
+                *[When(node_id=node_id, then=Value(is_online_dict[node_id])) for node_id in node_updates],
+                default=F('online'),
+                output_field=BooleanField()
+            )
+        )
 
     if redis_updates:
+        # Update Redis in bulk
         r.mset(redis_updates)
 
 from .utils import check_node_status
