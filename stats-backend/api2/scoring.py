@@ -4,6 +4,8 @@ from django.utils import timezone
 
 
 def calculate_uptime_percentage(node_id, node=None):
+    if node is None:
+        node = Node.objects.get(node_id=node_id)
     statuses = NodeStatusHistory.objects.filter(node_id=node_id).order_by("timestamp")
 
     online_duration = timedelta(0)
