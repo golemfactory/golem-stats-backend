@@ -182,7 +182,7 @@ def node_uptime(request, yagna_id):
             status=404,
         )
 
-    statuses = NodeStatusHistory.objects.filter(provider=node).order_by("timestamp")
+    statuses = NodeStatusHistory.objects.filter(node_id=node.node_id).order_by("timestamp")
     response_data = []
     current_time = timezone.now()
     first_seen_date = node.uptime_created_at.date()
