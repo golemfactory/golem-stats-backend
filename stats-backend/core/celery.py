@@ -76,7 +76,7 @@ def setup_periodic_tasks(sender, **kwargs):
         extract_wallets_and_ids,
         fetch_and_update_relay_nodes_online_status,
     )
-    fetch_and_store_relay_nodes.delay()
+    fetch_and_update_relay_nodes_online_status.delay()
     sender.add_periodic_task(
         60,
         computing_total_over_time.s(),

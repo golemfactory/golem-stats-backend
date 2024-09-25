@@ -1911,7 +1911,7 @@ def fetch_and_update_relay_nodes_online_status():
     missing_nodes = previously_online - current_online_nodes
     if missing_nodes:
         check_missing_nodes.delay(list(missing_nodes))
-    fetch_and_store_relay_nodes.apply_async(countdown=15)
+    fetch_and_update_relay_nodes_online_status.apply_async(countdown=15)
 
 
 @app.task
