@@ -182,16 +182,19 @@ def node_uptime(request, yagna_id):
             status=404,
         )
 
-    statuses = NodeStatusHistory.objects.filter(node_id=node.node_id).order_by("timestamp")
-    response_data = []
     current_time = timezone.now()
-    first_seen_date = node.uptime_created_at.date()
-    today_date = current_time.date()
-    total_days = (today_date - first_seen_date).days + 1  # Including today
+    thirty_days_ago = current_time - timedelta(days=30)
+
+    statuses = NodeStatusHistory.objects.filter(
+        node_id=yagna_id,
+        timestamp__gte=thirty_days_ago
+    ).order_by("timestamp")
+
+    response_data = []
     last_offline_timestamp = None
 
-    for day_offset in range(total_days):
-        day = first_seen_date + timedelta(days=day_offset)
+    for day_offset in range(30):
+        day = (current_time - timedelta(days=day_offset)).date()
         day_start = timezone.make_aware(datetime.combine(day, datetime.min.time()))
         day_end = day_start + timedelta(days=1)
         data_points_for_day = statuses.filter(
@@ -229,30 +232,38 @@ def node_uptime(request, yagna_id):
                 }
             )
         else:
-            # Assume the status did not change this day, infer from last known status if available
-            last_known_status = statuses.filter(timestamp__lt=day_start).last()
-            inferred_status = (
-                last_known_status.is_online if last_known_status else False
-            )  # default to offline if unknown
+            # If the node was created after this day, mark as "unregistered"
+            if day < node.uptime_created_at.date():
+                status = "unregistered"
+            else:
+                # Infer status from last known status
+                last_known_status = statuses.filter(timestamp__lt=day_start).last()
+                status = "online" if last_known_status and last_known_status.is_online else "offline"
+
             response_data.append(
                 {
                     "date": day.strftime("%d %B, %Y"),
-                    "status": "online" if inferred_status else "offline",
-                    "downtime": None,
+                    "status": status,
+                    "downtimes": [],
                 }
             )
 
     # Handling ongoing downtime
     if last_offline_timestamp is not None:
         ongoing_downtime = process_downtime(last_offline_timestamp, current_time)
-        response_data[-1]["downtime"] = ongoing_downtime
+        response_data[0]["downtimes"].append(ongoing_downtime)
+
+    # Reverse the list so that the most recent day is first
+    response_data.reverse()
+
+    latest_status = statuses.last()
 
     return JsonResponse(
         {
             "first_seen": node.uptime_created_at.strftime("%Y-%m-%d %H:%M:%S"),
             "uptime_percentage": calculate_uptime_percentage(yagna_id, node),
             "data": response_data,
-            "current_status": "online" if node.online else "offline",
+            "current_status": "online" if latest_status and latest_status.is_online else "offline",
         }
     )
 
