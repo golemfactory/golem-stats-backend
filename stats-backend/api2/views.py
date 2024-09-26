@@ -169,6 +169,13 @@ async def historical_pricing_data(request):
 from datetime import datetime
 
 
+
+from datetime import datetime, timedelta
+from django.http import JsonResponse
+from rest_framework.decorators import api_view
+from .models import Node, NodeStatusHistory
+
+
 @api_view(["GET"])
 def node_uptime(request, yagna_id):
     node = Node.objects.filter(node_id=yagna_id).first()
@@ -182,8 +189,19 @@ def node_uptime(request, yagna_id):
             status=404,
         )
 
-    current_time = timezone.now()
+    current_time = datetime.utcnow()
     thirty_days_ago = current_time - timedelta(days=30)
+
+    # Get the first status record for this node
+    first_status = NodeStatusHistory.objects.filter(
+        node_id=yagna_id
+    ).order_by('timestamp').first()
+
+    # Get the last status before the 30-day window
+    last_status_before_window = NodeStatusHistory.objects.filter(
+        node_id=yagna_id,
+        timestamp__lt=thirty_days_ago
+    ).order_by('-timestamp').first()
 
     statuses = NodeStatusHistory.objects.filter(
         node_id=yagna_id,
@@ -191,81 +209,64 @@ def node_uptime(request, yagna_id):
     ).order_by("timestamp")
 
     response_data = []
-    last_offline_timestamp = None
-
-    # Get the last known status before the 30-day period
-    last_known_status_before_period = NodeStatusHistory.objects.filter(
-        node_id=yagna_id,
-        timestamp__lt=thirty_days_ago
-    ).order_by('-timestamp').first()
-
-    # Initialize the default status based on the last known status or the node's current status
-    default_status = "online" if (last_known_status_before_period and last_known_status_before_period.is_online) or node.online else "offline"
+    current_status = last_status_before_window.is_online if last_status_before_window else None
+    last_status_change = last_status_before_window.timestamp if last_status_before_window else None
 
     for day_offset in range(30):
-        day = (current_time - timedelta(days=day_offset)).date()
-        day_start = timezone.make_aware(datetime.combine(day, datetime.min.time()))
+        day = (current_time - timedelta(days=29-day_offset)).date()
+        day_start = datetime.combine(day, datetime.min.time())
         day_end = day_start + timedelta(days=1)
-        data_points_for_day = statuses.filter(
-            timestamp__range=(day_start, day_end)
-        ).distinct("timestamp")
+        
+        # Check if the day is before the first status record
+        if first_status and day_end <= first_status.timestamp:
+            response_data.append({
+                "date": day.strftime("%d %B, %Y"),
+                "status": "unregistered",
+                "downtimes": []
+            })
+            continue
+        
+        day_statuses = statuses.filter(timestamp__range=(day_start, day_end))
+        
+        if current_status is None and day_statuses.exists():
+            current_status = day_statuses.first().is_online
+            last_status_change = day_statuses.first().timestamp
+        
+        day_data = {
+            "date": day.strftime("%d %B, %Y"),
+            "status": "online" if current_status else "offline",
+            "downtimes": []
+        }
+        
+        if day_statuses.exists():
+            had_outage = False
+            for status in day_statuses:
+                if status.is_online != current_status:
+                    if not current_status:
+                        downtime = process_downtime(last_status_change, status.timestamp)
+                        day_data["downtimes"].append(downtime)
+                        had_outage = True
+                    current_status = status.is_online
+                    last_status_change = status.timestamp
+            
+            if had_outage:
+                day_data["status"] = "outage"
+        
+        response_data.append(day_data)
 
-        if data_points_for_day.exists():
-            online_count = data_points_for_day.filter(is_online=True).count()
-            offline_count = data_points_for_day.filter(is_online=False).count()
-            if online_count == 0:
-                status = "offline"
-            elif offline_count == 0:
-                status = "online"
-            else:
-                status = "outage"
-
-            downtime_periods = []
-            for point in data_points_for_day:
-                if not point.is_online:
-                    if last_offline_timestamp is None:
-                        last_offline_timestamp = point.timestamp
-                else:
-                    if last_offline_timestamp is not None:
-                        downtime_period = process_downtime(
-                            last_offline_timestamp, point.timestamp
-                        )
-                        downtime_periods.append(downtime_period)
-                        last_offline_timestamp = None
-
-            response_data.append(
-                {
-                    "date": day.strftime("%d %B, %Y"),
-                    "status": status,
-                    "downtimes": downtime_periods,
-                }
-            )
-        else:
-            # If no data points for the day, use the default status
-            response_data.append(
-                {
-                    "date": day.strftime("%d %B, %Y"),
-                    "status": default_status,
-                    "downtimes": [],
-                }
-            )
-
-    # Handling ongoing downtime
-    if last_offline_timestamp is not None:
-        ongoing_downtime = process_downtime(last_offline_timestamp, current_time)
-        response_data[0]["downtimes"].append(ongoing_downtime)
-
-    # Reverse the list so that the most recent day is first
-    response_data.reverse()
-
-    latest_status = statuses.last()
+    # Handle ongoing downtime
+    if current_status is not None and not current_status:
+        ongoing_downtime = process_downtime(last_status_change, current_time)
+        response_data[-1]["downtimes"].append(ongoing_downtime)
+        if response_data[-1]["status"] == "online":
+            response_data[-1]["status"] = "outage"
 
     return JsonResponse(
         {
             "first_seen": node.uptime_created_at.strftime("%Y-%m-%d %H:%M:%S"),
             "uptime_percentage": calculate_uptime_percentage(yagna_id, node),
             "data": response_data,
-            "current_status": "online" if latest_status and latest_status.is_online else "offline",
+            "current_status": "online" if node.online else "offline",
         }
     )
 
@@ -309,7 +310,7 @@ def process_downtime(start_time, end_time):
     human_readable = f"Down for {' and '.join(parts)}"
 
     time_period = (
-        f"From {start_time.strftime('%I:%M %p')} to {end_time.strftime('%I:%M %p')}"
+        f"From {start_time.strftime('%I:%M %p %Z')} to {end_time.strftime('%I:%M %p %Z')}"
     )
 
     return {
@@ -317,7 +318,6 @@ def process_downtime(start_time, end_time):
         "human_period": human_readable,
         "time_period": time_period,
     }
-
 
 
 
