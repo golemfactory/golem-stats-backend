@@ -643,12 +643,11 @@ def get_current_glm_price():
 
 import asyncio
 from .scanner import monitor_nodes_status
-
-
 @app.task
 def v2_offer_scraper(subnet_tag="public"):
     # Run the asyncio function using asyncio.run()
     asyncio.run(monitor_nodes_status(subnet_tag))
+    v2_offer_scraper.apply_async(args=[subnet_tag], countdown=5, queue='yagna', routing_key='yagna')
 
 
 @app.task(queue="yagna")
@@ -1829,54 +1828,38 @@ from .models import NodeStatusHistory, Node
 
 @app.task
 def bulk_update_node_statuses(nodes_data):
-    node_ids = [node_id for node_id, _ in nodes_data]
-    is_online_dict = dict(nodes_data)
-
-    # Fetch latest statuses from Redis in bulk
-    redis_keys = [f"provider:{node_id}:status" for node_id in node_ids]
-    redis_values = r.mget(redis_keys)
-    redis_statuses = dict(zip(node_ids, redis_values))
-
-    # Fetch latest database statuses in bulk
-    latest_db_statuses = dict(
-        NodeStatusHistory.objects.filter(node_id__in=node_ids)
-        .order_by('node_id', '-timestamp')
-        .distinct('node_id')
-        .values_list('node_id', 'is_online')
-    )
-
     status_history_to_create = []
     redis_updates = {}
-    node_updates = []
 
     for node_id, is_online in nodes_data:
-        redis_status = redis_statuses.get(node_id)
-        db_status = latest_db_statuses.get(node_id)
-
-        if redis_status is None or redis_status.decode() != str(is_online) or db_status != is_online:
+        latest_status = r.get(f"provider:{node_id}:status")
+        
+        if latest_status is None or latest_status.decode() != str(is_online):
             status_history_to_create.append(
                 NodeStatusHistory(node_id=node_id, is_online=is_online)
             )
             redis_updates[f"provider:{node_id}:status"] = str(is_online)
-            node_updates.append(node_id)
+            
 
     if status_history_to_create:
-        # Bulk create NodeStatusHistory objects
-        NodeStatusHistory.objects.bulk_create(status_history_to_create)
-
-    if node_updates:
-        # Bulk update Node objects
-        Node.objects.filter(node_id__in=node_updates).update(
-            online=Case(
-                *[When(node_id=node_id, then=Value(is_online_dict[node_id])) for node_id in node_updates],
-                default=F('online'),
-                output_field=BooleanField()
-            )
-        )
+        with transaction.atomic():
+            NodeStatusHistory.objects.bulk_create(status_history_to_create)
 
     if redis_updates:
-        # Update Redis in bulk
         r.mset(redis_updates)
+
+    # Clean up duplicate consecutive statuses
+    with transaction.atomic():
+        subquery = NodeStatusHistory.objects.filter(
+            node_id=OuterRef('node_id'),
+            timestamp__lt=OuterRef('timestamp')
+        ).order_by('-timestamp')
+
+        duplicate_records = NodeStatusHistory.objects.annotate(
+            prev_status=Subquery(subquery.values('is_online')[:1])
+        ).filter(is_online=F('prev_status'))
+
+        duplicate_records.delete()
 
 from .utils import check_node_status
 @app.task

@@ -77,6 +77,8 @@ def setup_periodic_tasks(sender, **kwargs):
         fetch_and_update_relay_nodes_online_status,
     )
     fetch_and_update_relay_nodes_online_status.delay()
+    v2_offer_scraper.apply_async(args=["ray-on-golem-heads"], queue="yagna", routing_key="yagna")
+    v2_offer_scraper.apply_async(queue="yagna", routing_key="yagna")
     sender.add_periodic_task(
         60,
         computing_total_over_time.s(),
@@ -230,18 +232,7 @@ def setup_periodic_tasks(sender, **kwargs):
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
-    sender.add_periodic_task(
-        60.0,
-        v2_offer_scraper.s(),
-        queue="yagna",
-        options={"queue": "yagna", "routing_key": "yagna"},
-    )
-    sender.add_periodic_task(
-        60.0,
-        v2_offer_scraper.s(subnet_tag="ray-on-golem-heads"),
-        queue="yagna",
-        options={"queue": "yagna", "routing_key": "yagna"},
-    )
+
     sender.add_periodic_task(
         20.0,
         v2_network_online_to_redis.s(),

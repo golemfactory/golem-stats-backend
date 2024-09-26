@@ -193,6 +193,15 @@ def node_uptime(request, yagna_id):
     response_data = []
     last_offline_timestamp = None
 
+    # Get the last known status before the 30-day period
+    last_known_status_before_period = NodeStatusHistory.objects.filter(
+        node_id=yagna_id,
+        timestamp__lt=thirty_days_ago
+    ).order_by('-timestamp').first()
+
+    # Initialize the default status based on the last known status or the node's current status
+    default_status = "online" if (last_known_status_before_period and last_known_status_before_period.is_online) or node.online else "offline"
+
     for day_offset in range(30):
         day = (current_time - timedelta(days=day_offset)).date()
         day_start = timezone.make_aware(datetime.combine(day, datetime.min.time()))
@@ -232,18 +241,11 @@ def node_uptime(request, yagna_id):
                 }
             )
         else:
-            # If the node was created after this day, mark as "unregistered"
-            if day < node.uptime_created_at.date():
-                status = "unregistered"
-            else:
-                # Infer status from last known status
-                last_known_status = statuses.filter(timestamp__lt=day_start).last()
-                status = "online" if last_known_status and last_known_status.is_online else "offline"
-
+            # If no data points for the day, use the default status
             response_data.append(
                 {
                     "date": day.strftime("%d %B, %Y"),
-                    "status": status,
+                    "status": default_status,
                     "downtimes": [],
                 }
             )
@@ -317,15 +319,6 @@ def process_downtime(start_time, end_time):
     }
 
 
-def calculate_time_diff(check_time, granularity, node):
-    if granularity >= 86400:
-        return f"{(check_time - node.uptime_created_at).days} days ago"
-    elif granularity >= 3600:
-        hours_ago = int((timezone.now() - check_time).total_seconds() / 3600)
-        return f"{hours_ago} hours ago" if hours_ago > 1 else "1 hour ago"
-    else:
-        minutes_ago = int((timezone.now() - check_time).total_seconds() / 60)
-        return f"{minutes_ago} minutes ago" if minutes_ago > 1 else "1 minute ago"
 
 
 def globe_data(request):

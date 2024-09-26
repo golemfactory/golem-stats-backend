@@ -25,7 +25,6 @@ import calendar
 from .utils import identify_network_by_offer, identify_wallet_and_network
 from django.db import transaction
 from django.db.models import OuterRef, Subquery
-
 from concurrent.futures import ThreadPoolExecutor
 
 pool = redis.ConnectionPool(host="redis", port=6379, db=0)
@@ -230,6 +229,6 @@ async def monitor_nodes_status(subnet_tag: str = "public"):
     except asyncio.TimeoutError:
         print("Scan timeout reached")
     print(f"In the current scan, we found {len(current_scan_providers)} providers")
-    # Delay update_nodes_data call using Celery
+# Delay update_nodes_data call using Celery
 
     update_providers_info.delay(node_props)
