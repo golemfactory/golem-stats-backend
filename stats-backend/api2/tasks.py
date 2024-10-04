@@ -1830,8 +1830,8 @@ from .models import NodeStatusHistory, Node
 def bulk_update_node_statuses(nodes_data):
     status_history_to_create = []
     redis_updates = {}
-    nodes_to_update = []
-
+    offline_nodes = []
+    online_nodes = []
     for node_id, is_online in nodes_data:
         latest_status = r.get(f"provider:{node_id}:status")
         
@@ -1841,16 +1841,18 @@ def bulk_update_node_statuses(nodes_data):
             )
             redis_updates[f"provider:{node_id}:status"] = str(is_online)
             
-            if not is_online:
-                nodes_to_update.append(node_id)
+            if is_online:
+                online_nodes.append(node_id)
+            else:
+                offline_nodes.append(node_id)
 
     if status_history_to_create:
         with transaction.atomic():
             NodeStatusHistory.objects.bulk_create(status_history_to_create)
             
             # Efficiently update Node objects for offline nodes
-            Node.objects.filter(node_id__in=nodes_to_update).update(online=False)
-
+            Node.objects.filter(node_id__in=offline_nodes).update(online=False)
+            Node.objects.filter(node_id__in=online_nodes).update(online=True)
     if redis_updates:
         r.mset(redis_updates)
 
