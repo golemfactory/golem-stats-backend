@@ -57,7 +57,7 @@ def task_pricing(request):
             ProviderWithTask.objects.filter(network=network)
             .prefetch_related("instance", "offer")
             .select_related("offer__cheaper_than", "offer__overpriced_compared_to")
-            .order_by("created_at")
+            .order_by("-created_at")
         )
 
         if timeframe != "All":
