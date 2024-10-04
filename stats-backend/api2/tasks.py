@@ -1856,7 +1856,7 @@ def bulk_update_node_statuses(nodes_data):
     if redis_updates:
         r.mset(redis_updates)
 
-    # Clean up duplicate consecutive statuses
+    #Clean up duplicate consecutive statuses
     with transaction.atomic():
         subquery = NodeStatusHistory.objects.filter(
             node_id=OuterRef('node_id'),
