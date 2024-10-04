@@ -6,7 +6,7 @@ from django.utils import timezone
 def calculate_uptime_percentage(node_id, node=None):
     if node is None:
         node = Node.objects.get(node_id=node_id)
-    statuses = NodeStatusHistory.objects.filter(node_id=node_id, is_online=True).order_by("timestamp")
+    statuses = NodeStatusHistory.objects.filter(node_id=node_id).order_by("timestamp")
     first_online_status = statuses.first()
     
     if not first_online_status:
