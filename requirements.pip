@@ -75,3 +75,4 @@ PyJWT
 djangorestframework-simplejwt
 django-ninja
 numpy
+celery-singleton

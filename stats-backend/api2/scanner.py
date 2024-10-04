@@ -57,7 +57,7 @@ def update_providers_info(node_props):
     new_provider_ids = set(provider_ids) - existing_provider_ids
 
     # Create new Node instances if any
-    new_nodes = [Node(node_id=provider_id) for provider_id in new_provider_ids]
+    new_nodes = [Node(node_id=provider_id, type="provider") for provider_id in new_provider_ids]
     if new_nodes:
         Node.objects.bulk_create(new_nodes)
 
@@ -174,9 +174,10 @@ def update_providers_info(node_props):
         node = existing_nodes_dict[provider_id]
         node.wallet = data.get("wallet")
         node.network = data.get('network', 'mainnet')
+        node.type = "provider"
         nodes_to_update.append(node)
     if nodes_to_update:
-        Node.objects.bulk_update(nodes_to_update, ['wallet', 'network', 'updated_at'])
+        Node.objects.bulk_update(nodes_to_update, ['wallet', 'network', 'updated_at', 'type'])
     print(f"Done updating {len(provider_ids)} providers")
 
 
