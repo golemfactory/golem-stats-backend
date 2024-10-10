@@ -1856,18 +1856,7 @@ def bulk_update_node_statuses(nodes_data):
     if redis_updates:
         r.mset(redis_updates)
 
-    #Clean up duplicate consecutive statuses
-    with transaction.atomic():
-        subquery = NodeStatusHistory.objects.filter(
-            node_id=OuterRef('node_id'),
-            timestamp__lt=OuterRef('timestamp')
-        ).order_by('-timestamp')
 
-        duplicate_records = NodeStatusHistory.objects.annotate(
-            prev_status=Subquery(subquery.values('is_online')[:1])
-        ).filter(is_online=F('prev_status'))
-
-        duplicate_records.delete()
 
 from .utils import check_node_status
 @app.task
@@ -1911,4 +1900,4 @@ def check_missing_nodes(missing_nodes):
         is_online = check_node_status(node_id)
         nodes_to_update.append((node_id, is_online))
     
-    bulk_update_node_statuses(nodes_to_update)
+    bulk_update_node_statuses.delay(nodes_to_update)
