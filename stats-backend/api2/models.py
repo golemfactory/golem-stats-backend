@@ -12,11 +12,12 @@ class Node(models.Model):
     online = models.BooleanField(default=False, db_index=True)
     earnings_total = models.FloatField(null=True, blank=True)
     computing_now = models.BooleanField(default=False, db_index=True)
-    version = models.CharField(max_length=7, db_index=True)
+    version = models.CharField(max_length=7, db_index=True, null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     uptime_created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     network = models.CharField(max_length=42, default="mainnet", db_index=True)
+    type = models.CharField(max_length=42, default="provider", db_index=True)
 
     def save(self, *args, **kwargs):
         if not self.online:
