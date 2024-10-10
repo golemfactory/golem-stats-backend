@@ -7,7 +7,10 @@ def calculate_uptime_percentage(node_id, node=None):
     if node is None:
         node = Node.objects.get(node_id=node_id)
     statuses = NodeStatusHistory.objects.filter(node_id=node_id).order_by("timestamp")
-
+    first_online_status = statuses.first()
+    
+    if not first_online_status:
+        return 0  # Return 0% if the node has never been online
     online_duration = timedelta(0)
     last_online_time = None
 
@@ -22,7 +25,7 @@ def calculate_uptime_percentage(node_id, node=None):
     if last_online_time is not None:
         online_duration += timezone.now() - last_online_time
 
-    total_duration = timezone.now() - node.uptime_created_at
+    total_duration = timezone.now() - first_online_status.timestamp
     uptime_percentage = (
         online_duration.total_seconds() / total_duration.total_seconds()
     ) * 100

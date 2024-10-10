@@ -1831,8 +1831,8 @@ from django.db import IntegrityError
 def bulk_update_node_statuses(nodes_data):
     status_history_to_create = []
     redis_updates = {}
-    nodes_to_update = []
-
+    offline_nodes = []
+    online_nodes = []
     for node_id, is_online in nodes_data:
         latest_status = r.get(f"provider:{node_id}:status")
         
@@ -1861,31 +1861,22 @@ def bulk_update_node_statuses(nodes_data):
             )
             redis_updates[f"provider:{node_id}:status"] = str(is_online)
             
-            if not is_online:
-                nodes_to_update.append(node_id)
+            if is_online:
+                online_nodes.append(node_id)
+            else:
+                offline_nodes.append(node_id)
 
     if status_history_to_create:
         with transaction.atomic():
             NodeStatusHistory.objects.bulk_create(status_history_to_create)
             
             # Efficiently update Node objects for offline nodes
-            Node.objects.filter(node_id__in=nodes_to_update).update(online=False)
-
+            Node.objects.filter(node_id__in=offline_nodes).update(online=False)
+            Node.objects.filter(node_id__in=online_nodes).update(online=True)
     if redis_updates:
         r.mset(redis_updates)
 
-    # Clean up duplicate consecutive statuses
-    with transaction.atomic():
-        subquery = NodeStatusHistory.objects.filter(
-            node_id=OuterRef('node_id'),
-            timestamp__lt=OuterRef('timestamp')
-        ).order_by('-timestamp')
 
-        duplicate_records = NodeStatusHistory.objects.annotate(
-            prev_status=Subquery(subquery.values('is_online')[:1])
-        ).filter(is_online=F('prev_status'))
-
-        duplicate_records.delete()
 
 from .utils import check_node_status
 import aiohttp
@@ -1954,6 +1945,7 @@ def initial_relay_nodes_scan():
     listen_for_relay_events.delay()
 
 
+
 @app.task
 def check_missing_nodes(missing_nodes):
     nodes_to_update = []
@@ -1961,4 +1953,4 @@ def check_missing_nodes(missing_nodes):
         is_online = check_node_status(node_id)
         nodes_to_update.append((node_id, is_online))
     
-    bulk_update_node_statuses(nodes_to_update)
+    bulk_update_node_statuses.delay(nodes_to_update)
