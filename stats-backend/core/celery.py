@@ -75,17 +75,9 @@ def setup_periodic_tasks(sender, **kwargs):
         daily_volume_golem_vs_chain,
         computing_total_over_time,
         extract_wallets_and_ids,
-        fetch_and_update_relay_nodes_online_status,
     )
     v2_offer_scraper.apply_async(args=["ray-on-golem-heads"], queue="yagna", routing_key="yagna")
     v2_offer_scraper.apply_async(queue="yagna", routing_key="yagna")
-    
-    sender.add_periodic_task(
-        30,
-        fetch_and_update_relay_nodes_online_status.s(),
-        queue="default",
-        options={"queue": "default", "routing_key": "default"},
-    )
     sender.add_periodic_task(
         60,
         computing_total_over_time.s(),

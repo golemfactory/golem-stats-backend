@@ -1826,86 +1826,30 @@ from django.db import transaction
 from django.db.models import Case, When, Value, BooleanField
 from .models import NodeStatusHistory, Node
 
+
 @app.task
 def bulk_update_node_statuses(nodes_data):
     status_history_to_create = []
-    redis_updates = {}
-    offline_nodes = []
-    online_nodes = []
-    nodes_to_create = []
-    for node_id, is_online in nodes_data:
-        latest_status = r.get(f"provider:{node_id}:status")
-        
-        if latest_status is None or latest_status.decode() != str(is_online):
+    nodes_to_update = []
+
+    with transaction.atomic():
+        for node_id, is_online in nodes_data:
+            try:
+                node = Node.objects.select_for_update().get(node_id=node_id)
+                if node.online != is_online:
+                    node.online = is_online
+                    nodes_to_update.append(node)
+            except ObjectDoesNotExist:
+                node = Node(node_id=node_id, online=is_online, type="requestor")
+                nodes_to_update.append(node)
+
             status_history_to_create.append(
                 NodeStatusHistory(node_id=node_id, is_online=is_online)
             )
-            redis_updates[f"provider:{node_id}:status"] = str(is_online)
-            
-            if is_online:
-                online_nodes.append(node_id)
-            else:
-                offline_nodes.append(node_id)
 
-        # Check if the node exists, if not, prepare to create it
-        if not Node.objects.filter(node_id=node_id).exists():
-            nodes_to_create.append(Node(node_id=node_id, online=is_online))
+        # Bulk create new nodes and update existing ones
+        Node.objects.bulk_create([n for n in nodes_to_update if n._state.adding], ignore_conflicts=True)
+        Node.objects.bulk_update([n for n in nodes_to_update if not n._state.adding], ['online'])
 
-    if status_history_to_create or nodes_to_create:
-        with transaction.atomic():
-            NodeStatusHistory.objects.bulk_create(status_history_to_create)
-            
-            # Create new nodes if any
-            Node.objects.bulk_create(nodes_to_create, ignore_conflicts=True)
-            
-            # Efficiently update Node objects for offline and online nodes
-            Node.objects.filter(node_id__in=offline_nodes).update(online=False)
-            Node.objects.filter(node_id__in=online_nodes).update(online=True)
-    if redis_updates:
-        r.mset(redis_updates)
-
-
-
-from .utils import check_node_status
-@app.task
-def fetch_and_update_relay_nodes_online_status():
-    base_url = "http://yacn2.dev.golem.network:9000/nodes/"
-    current_online_nodes = set()
-    nodes_to_update = []
-
-    for prefix in range(256):
-        try:
-            response = requests.get(f"{base_url}{prefix:02x}", timeout=5)
-            response.raise_for_status()
-            data = response.json()
-
-            for node_id, sessions in data.items():
-                node_id = node_id.strip().lower()
-                is_online = bool(sessions) and any('seen' in item for item in sessions if item)
-                current_online_nodes.add(node_id)
-                nodes_to_update.append((node_id, is_online))
-
-        except requests.RequestException as e:
-            print(f"Error fetching data for prefix {prefix:02x}: {e}")
-
-    # Bulk update node statuses
-    bulk_update_node_statuses.delay(nodes_to_update)
-
-    # Check providers that were previously online but not found in the current scan
-    previously_online = set(NodeStatusHistory.objects.filter(
-        is_online=True
-    ).order_by('node_id', '-timestamp').distinct('node_id').values_list('node_id', flat=True))
-
-    missing_nodes = previously_online - current_online_nodes
-    if missing_nodes:
-        check_missing_nodes.delay(list(missing_nodes))
-
-
-@app.task
-def check_missing_nodes(missing_nodes):
-    nodes_to_update = []
-    for node_id in missing_nodes:
-        is_online = check_node_status(node_id)
-        nodes_to_update.append((node_id, is_online))
-    
-    bulk_update_node_statuses.delay(nodes_to_update)
+        # Bulk create status history
+        NodeStatusHistory.objects.bulk_create(status_history_to_create)
