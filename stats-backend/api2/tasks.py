@@ -1825,10 +1825,7 @@ def extract_wallets_and_ids():
 from django.db import transaction
 from django.db.models import Case, When, Value, BooleanField
 from .models import NodeStatusHistory, Node
-from django.db import transaction
-from django.db.models import F
-from django.core.exceptions import ObjectDoesNotExist
-import redis
+
 
 @app.task
 def bulk_update_node_statuses(nodes_data):
@@ -1856,7 +1853,3 @@ def bulk_update_node_statuses(nodes_data):
 
         # Bulk create status history
         NodeStatusHistory.objects.bulk_create(status_history_to_create)
-
-
-
-
