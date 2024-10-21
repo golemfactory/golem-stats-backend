@@ -1,30 +1,3 @@
-from django.db.models import IntegerField, ExpressionWrapper, Case, When, Avg
-from django.db.models import Count
-from django.db.models.functions import TruncDay, Coalesce
-from django.db.models import Sum, Q, FloatField
-from .models import GolemTransactions
-from .tasks import healthcheck_provider
-from web3 import Web3
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework import status
-from .models import RelayNodes
-from collector.models import Requestors
-from .models import Node, NodeStatusHistory
-from datetime import datetime, timedelta
-from datetime import datetime
-from .models import ProviderWithTask
-from django.http import JsonResponse
-from django.core.paginator import Paginator
-from .scoring import calculate_uptime_percentage
-from math import ceil
-from .models import EC2Instance, Offer, Node
-from rest_framework.response import Response
-from rest_framework.decorators import api_view
-from django.utils import timezone
-from .models import Node, NodeStatusHistory, Offer, EC2Instance
-from typing import List
-from datetime import timedelta
 from collector.models import Node as NodeV1
 from api.serializers import FlatNodeSerializer
 from django.shortcuts import render
@@ -40,6 +13,20 @@ from django.http import JsonResponse, HttpResponse
 pool = redis.ConnectionPool(host="redis", port=6379, db=0)
 r = redis.Redis(connection_pool=pool)
 
+from datetime import timedelta
+from typing import List
+from .models import Node, NodeStatusHistory, Offer, EC2Instance
+from django.utils import timezone
+
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
+
+from .models import EC2Instance, Offer, Node
+from math import ceil
+from .scoring import calculate_uptime_percentage
+
 
 async def pricing_past_hour(request):
     try:
@@ -52,6 +39,11 @@ async def pricing_past_hour(request):
         return JsonResponse(pricing_data)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+from django.core.paginator import Paginator
+from django.http import JsonResponse
+from .models import ProviderWithTask
 
 
 def task_pricing(request):
@@ -174,6 +166,16 @@ async def historical_pricing_data(request):
         return HttpResponse(status=400)
 
 
+from datetime import datetime
+
+
+
+from datetime import datetime, timedelta
+from django.http import JsonResponse
+from rest_framework.decorators import api_view
+from .models import Node, NodeStatusHistory
+
+
 @api_view(["GET"])
 def node_uptime(request, yagna_id):
     node = Node.objects.filter(node_id=yagna_id).first()
@@ -214,7 +216,7 @@ def node_uptime(request, yagna_id):
         day = (current_time - timedelta(days=29-day_offset)).date()
         day_start = datetime.combine(day, datetime.min.time())
         day_end = day_start + timedelta(days=1)
-
+        
         # Check if the day is before the first status record
         if first_status and day_end <= first_status.timestamp:
             response_data.append({
@@ -223,34 +225,33 @@ def node_uptime(request, yagna_id):
                 "downtimes": []
             })
             continue
-
+        
         day_statuses = statuses.filter(timestamp__range=(day_start, day_end))
-
+        
         if current_status is None and day_statuses.exists():
             current_status = day_statuses.first().is_online
             last_status_change = day_statuses.first().timestamp
-
+        
         day_data = {
             "date": day.strftime("%d %B, %Y"),
             "status": "online" if current_status else "offline",
             "downtimes": []
         }
-
+        
         if day_statuses.exists():
             had_outage = False
             for status in day_statuses:
                 if status.is_online != current_status:
                     if not current_status:
-                        downtime = process_downtime(
-                            last_status_change, status.timestamp)
+                        downtime = process_downtime(last_status_change, status.timestamp)
                         day_data["downtimes"].append(downtime)
                         had_outage = True
                     current_status = status.is_online
                     last_status_change = status.timestamp
-
+            
             if had_outage:
                 day_data["status"] = "outage"
-
+        
         response_data.append(day_data)
 
     # Handle ongoing downtime
@@ -309,8 +310,7 @@ def process_downtime(start_time, end_time):
     human_readable = f"Down for {' and '.join(parts)}"
 
     time_period = (
-        f"From {start_time.strftime('%I:%M %p %Z')} to {
-            end_time.strftime('%I:%M %p %Z')}"
+        f"From {start_time.strftime('%I:%M %p %Z')} to {end_time.strftime('%I:%M %p %Z')}"
     )
 
     return {
@@ -318,6 +318,7 @@ def process_downtime(start_time, end_time):
         "human_period": human_readable,
         "time_period": time_period,
     }
+
 
 
 def globe_data(request):
@@ -478,11 +479,14 @@ async def cpu_architecture_stats(request):
         return HttpResponse(status=400)
 
 
+from collector.models import Requestors
+from .models import RelayNodes
+
+
 def get_transfer_sum(request, node_id, epoch):
     try:
         epoch_now = int(timezone.now().timestamp())
-        url = f"http://erc20-api/erc20/api/stats/transfers?chain=137&receiver={
-            node_id}&from={epoch}&to={epoch_now}"
+        url = f"http://erc20-api/erc20/api/stats/transfers?chain=137&receiver={node_id}&from={epoch}&to={epoch_now}"
         response = requests.get(url)
         if response.status_code != 200:
             return JsonResponse({"error": "Failed to get data from API"}, status=500)
@@ -615,8 +619,7 @@ def cheapest_by_cores(request):
         provider = {}
         provider["name"] = obj["properties"]["golem.node.id.name"]
         provider["id"] = obj["properties"]["id"]
-        provider["usd_monthly"] = float(
-            price) * float(obj["monthly_price_glm"])
+        provider["usd_monthly"] = float(price) * float(obj["monthly_price_glm"])
         provider["cores"] = float(obj["properties"]["golem.inf.cpu.threads"])
         provider["memory"] = float(obj["properties"]["golem.inf.mem.gib"])
         provider["disk"] = float(obj["properties"]["golem.inf.storage.gib"])
@@ -643,6 +646,14 @@ async def cheapest_offer(request):
         return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
     else:
         return HttpResponse(status=400)
+
+
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from web3 import Web3
+from .tasks import healthcheck_provider
 
 
 @api_view(["POST"])
@@ -717,6 +728,14 @@ def get_healthcheck_status(request):
         )
 
 
+from .models import GolemTransactions
+
+from django.db.models import Sum, Q, FloatField
+from django.db.models.functions import TruncDay, Coalesce
+
+from django.http import JsonResponse
+
+
 async def daily_volume_golem_vs_chain(request):
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
@@ -729,6 +748,9 @@ async def daily_volume_golem_vs_chain(request):
         return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
     else:
         return HttpResponse(status=400)
+
+
+from django.db.models import Count
 
 
 async def transaction_volume_over_time(request):
@@ -773,6 +795,9 @@ async def transaction_type_comparison(request):
         return HttpResponse(status=400)
 
 
+from django.db.models import IntegerField, ExpressionWrapper, Case, When, Avg
+
+
 async def daily_transaction_type_counts(request):
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
@@ -813,6 +838,11 @@ async def computing_total_over_time(request):
         return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
     else:
         return HttpResponse(status=400)
+
+
+from django.http import JsonResponse, HttpResponse
+import json
+import aioredis
 
 
 async def wallets_and_ids(request):
