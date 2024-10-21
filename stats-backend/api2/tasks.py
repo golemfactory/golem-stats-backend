@@ -16,6 +16,7 @@ from collector.models import Node as NodeV1
 from django.db.models import F
 from django.db.models.functions import Abs
 from django.core.serializers.json import DjangoJSONEncoder
+from django.core.exceptions import ObjectDoesNotExist
 
 from decimal import Decimal
 from .utils import (
