@@ -1854,3 +1854,14 @@ def bulk_update_node_statuses(nodes_data):
 
         # Bulk create status history
         NodeStatusHistory.objects.bulk_create(status_history_to_create)
+
+        #Clean up duplicate consecutive statuses !IMPORTANT KEEP HERE FOR NOW
+        subquery = NodeStatusHistory.objects.filter(
+            node_id=OuterRef('node_id'),
+            timestamp__lt=OuterRef('timestamp')
+        ).order_by('-timestamp')
+
+        duplicate_records = NodeStatusHistory.objects.annotate(
+            prev_status=Subquery(subquery.values('is_online')[:1])
+        ).filter(is_online=F('prev_status'))
+        duplicate_records.delete()
