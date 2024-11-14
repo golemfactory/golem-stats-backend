@@ -92,10 +92,17 @@ def update_providers_info(node_props):
     for offer_key in new_offer_keys:
         provider_id, runtime = offer_key
         provider = existing_nodes_dict[provider_id]
-        new_offers.append(Offer(provider=provider, runtime=runtime))
+        offer, created = Offer.objects.get_or_create(
+            provider=provider,
+            runtime=runtime,
+            defaults={
+                'properties': offer_data[offer_key]
+            }
+        )
+        if created:
+            new_offers.append(offer)
+        existing_offers_dict[(provider_id, runtime)] = offer
 
-    if new_offers:
-        Offer.objects.bulk_create(new_offers)
 
     # Update existing_offers_dict with newly created offers
     updated_offers = Offer.objects.filter(provider__node_id__in=provider_ids).select_related('provider')
