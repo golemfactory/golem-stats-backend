@@ -57,9 +57,16 @@ def update_providers_info(node_props):
     new_provider_ids = set(provider_ids) - existing_provider_ids
 
     # Create new Node instances if any
-    new_nodes = [Node(node_id=provider_id, type="provider") for provider_id in new_provider_ids]
-    if new_nodes:
-        Node.objects.bulk_create(new_nodes)
+    new_nodes = []
+    for provider_id in new_provider_ids:
+        node, created = Node.objects.get_or_create(
+            node_id=provider_id,
+            defaults={'type': 'provider'}
+        )
+        if created:
+            new_nodes.append(node)
+        existing_nodes_dict[node.node_id] = node
+
 
     # Update existing_nodes_dict with newly created nodes
     updated_nodes = Node.objects.filter(node_id__in=new_provider_ids)
