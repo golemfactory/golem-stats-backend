@@ -39,3 +39,4 @@ jobs:
                       docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery:${{ github.sha }} golemstats_celery
                       docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery-beat:${{ github.sha }} golemstats_celery_beat
                       docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery-yagna:${{ github.sha }} golemstats_yagna_node
+                      docker service update --force --image ghcr.io/golemfactory/golem-stats-backend:latest:${{ github.sha }} golemstats_uptime_monitor
