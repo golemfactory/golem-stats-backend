@@ -22,7 +22,8 @@ async def list_offers(conf: Configuration, subnet_tag: str):
     async with conf.market() as client:
         market_api = Market(client)
         dbuild = DemandBuilder()
-        dbuild.add(yp.NodeInfo(name="Golem Stats Indexer", subnet_tag=subnet_tag))
+        dbuild.add(yp.NodeInfo(
+            name="Golem Stats Indexer", subnet_tag=subnet_tag))
         dbuild.add(yp.Activity(expiration=datetime.now(timezone.utc)))
         async with market_api.subscribe(
             dbuild.properties, dbuild.constraints
@@ -132,7 +133,9 @@ def main():
         asyncio.get_event_loop().run_until_complete(
             asyncio.wait_for(
                 list_offers(
-                    Configuration(api_config=ApiConfig()),  # YAGNA_APPKEY will be loaded from env
+                    Configuration(api_config=ApiConfig(
+                        app_key="stats"
+                    )),  # YAGNA_APPKEY will be loaded from env
                     subnet_tag="public",
                 ),
                 timeout=60,
