@@ -144,15 +144,23 @@ def update_providers_info(node_props):
                 data["golem.com.pricing.model.linear.coeffs"][vectors["golem.usage.cpu_sec"]] * seconds_current_month * data["golem.inf.cpu.threads"] +
                 data["golem.com.pricing.model.linear.coeffs"][-1]
             )
-            if not monthly_pricing:
-                print(f"Monthly price is {monthly_pricing}")
-            offer.monthly_price_glm = min(monthly_pricing, MAX_PRICE_CAP_VALUE)
-            offer.monthly_price_usd = min(
-                monthly_pricing * glm_usd_value.current_price, MAX_PRICE_CAP_VALUE)
-            offer.hourly_price_glm = min(
-                monthly_pricing / hours_in_current_month, MAX_PRICE_CAP_VALUE)
-            offer.hourly_price_usd = min(
-                offer.monthly_price_usd / hours_in_current_month, MAX_PRICE_CAP_VALUE)
+            
+            # Set prices even if they're 0
+            new_monthly_price_glm = min(monthly_pricing, MAX_PRICE_CAP_VALUE)
+            new_monthly_price_usd = min(monthly_pricing * glm_usd_value.current_price, MAX_PRICE_CAP_VALUE)
+            new_hourly_price_glm = min(monthly_pricing / hours_in_current_month, MAX_PRICE_CAP_VALUE)
+            new_hourly_price_usd = min(new_monthly_price_usd / hours_in_current_month, MAX_PRICE_CAP_VALUE)
+
+            # Check if any price values have changed
+            if (offer.monthly_price_glm != new_monthly_price_glm or
+                offer.monthly_price_usd != new_monthly_price_usd or
+                offer.hourly_price_glm != new_hourly_price_glm or
+                offer.hourly_price_usd != new_hourly_price_usd):
+                
+                offer.monthly_price_glm = new_monthly_price_glm
+                offer.monthly_price_usd = new_monthly_price_usd
+                offer.hourly_price_glm = new_hourly_price_glm
+                offer.hourly_price_usd = new_hourly_price_usd
 
             vcpu_needed = data.get("golem.inf.cpu.threads", 0)
             memory_needed = data.get("golem.inf.mem.gib", 0.0)
