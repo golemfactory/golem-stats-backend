@@ -1837,31 +1837,31 @@ def bulk_update_node_statuses(nodes_data):
         for node_id, is_online in nodes_data:
             try:
                 node = Node.objects.select_for_update().get(node_id=node_id)
+                # Only do something if the status actually changed
                 if node.online != is_online:
                     node.online = is_online
                     nodes_to_update.append(node)
+                    status_history_to_create.append(
+                        NodeStatusHistory(node_id=node_id, is_online=is_online)
+                    )
             except ObjectDoesNotExist:
+                # New node, so presumably its status changed from "unknown" to is_online
                 node = Node(node_id=node_id, online=is_online, type="requestor")
                 nodes_to_update.append(node)
+                status_history_to_create.append(
+                    NodeStatusHistory(node_id=node_id, is_online=is_online)
+                )
 
-            status_history_to_create.append(
-                NodeStatusHistory(node_id=node_id, is_online=is_online)
-            )
+        # Bulk create new nodes (only those _state.adding == True)
+        Node.objects.bulk_create(
+            [n for n in nodes_to_update if n._state.adding], 
+            ignore_conflicts=True
+        )
+        # Bulk update existing nodes
+        Node.objects.bulk_update(
+            [n for n in nodes_to_update if not n._state.adding],
+            ['online']
+        )
 
-        # Bulk create new nodes and update existing ones
-        Node.objects.bulk_create([n for n in nodes_to_update if n._state.adding], ignore_conflicts=True)
-        Node.objects.bulk_update([n for n in nodes_to_update if not n._state.adding], ['online'])
-
-        # Bulk create status history
+        # Bulk create status history ONLY for changed/new statuses
         NodeStatusHistory.objects.bulk_create(status_history_to_create)
-
-        #Clean up duplicate consecutive statuses !IMPORTANT KEEP HERE FOR NOW
-        subquery = NodeStatusHistory.objects.filter(
-            node_id=OuterRef('node_id'),
-            timestamp__lt=OuterRef('timestamp')
-        ).order_by('-timestamp')
-
-        duplicate_records = NodeStatusHistory.objects.annotate(
-            prev_status=Subquery(subquery.values('is_online')[:1])
-        ).filter(is_online=F('prev_status'))
-        duplicate_records.delete()
