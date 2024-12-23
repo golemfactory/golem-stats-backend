@@ -8,11 +8,13 @@ from metamask.models import UserProfile
 
 class Node(models.Model):
     node_id = models.CharField(max_length=42, unique=True, db_index=True)
-    wallet = models.CharField(max_length=42, null=True, blank=True, db_index=True)
+    wallet = models.CharField(max_length=42, null=True,
+                              blank=True, db_index=True)
     online = models.BooleanField(default=False, db_index=True)
     earnings_total = models.FloatField(null=True, blank=True)
     computing_now = models.BooleanField(default=False, db_index=True)
-    version = models.CharField(max_length=7, db_index=True, null=True, blank=True)
+    version = models.CharField(
+        max_length=7, db_index=True, null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     uptime_created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -94,8 +96,9 @@ class NodeStatusHistory(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=["node_id", "timestamp"]),
+            models.Index(fields=["node_id", "is_online", "timestamp"]),
+            models.Index(fields=["timestamp", "is_online"]),
         ]
-
 
 
 class ProviderWithTask(models.Model):
@@ -109,7 +112,8 @@ class ProviderWithTask(models.Model):
     env_per_hour = models.FloatField(
         null=True, blank=True
     )  # Pricing per second for duration/env/h
-    start_price = models.FloatField(null=True, blank=True)  # Static start price
+    start_price = models.FloatField(
+        null=True, blank=True)  # Static start price
     created_at = models.DateTimeField(auto_now_add=True)
     network = models.CharField(max_length=42, default="mainnet")
 
