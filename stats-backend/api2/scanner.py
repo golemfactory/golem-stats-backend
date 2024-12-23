@@ -39,6 +39,7 @@ def normalize_properties(data):
             data[key] = sorted(value)
     return dict(sorted(data.items()))  # Return sorted dictionary
 
+
 @app.task
 def update_providers_info(node_props):
     now = timezone.now()
@@ -144,19 +145,22 @@ def update_providers_info(node_props):
                 data["golem.com.pricing.model.linear.coeffs"][vectors["golem.usage.cpu_sec"]] * seconds_current_month * data["golem.inf.cpu.threads"] +
                 data["golem.com.pricing.model.linear.coeffs"][-1]
             )
-            
+
             # Set prices even if they're 0
             new_monthly_price_glm = min(monthly_pricing, MAX_PRICE_CAP_VALUE)
-            new_monthly_price_usd = min(monthly_pricing * glm_usd_value.current_price, MAX_PRICE_CAP_VALUE)
-            new_hourly_price_glm = min(monthly_pricing / hours_in_current_month, MAX_PRICE_CAP_VALUE)
-            new_hourly_price_usd = min(new_monthly_price_usd / hours_in_current_month, MAX_PRICE_CAP_VALUE)
+            new_monthly_price_usd = min(
+                monthly_pricing * glm_usd_value.current_price, MAX_PRICE_CAP_VALUE)
+            new_hourly_price_glm = min(
+                monthly_pricing / hours_in_current_month, MAX_PRICE_CAP_VALUE)
+            new_hourly_price_usd = min(
+                new_monthly_price_usd / hours_in_current_month, MAX_PRICE_CAP_VALUE)
 
             # Check if any price values have changed
             if (offer.monthly_price_glm != new_monthly_price_glm or
                 offer.monthly_price_usd != new_monthly_price_usd or
                 offer.hourly_price_glm != new_hourly_price_glm or
-                offer.hourly_price_usd != new_hourly_price_usd):
-                
+                    offer.hourly_price_usd != new_hourly_price_usd):
+
                 offer.monthly_price_glm = new_monthly_price_glm
                 offer.monthly_price_usd = new_monthly_price_usd
                 offer.hourly_price_glm = new_hourly_price_glm
@@ -194,14 +198,11 @@ def update_providers_info(node_props):
         # Compare existing properties with new data
         normalized_existing = normalize_properties(offer.properties.copy())
         normalized_new = normalize_properties(data.copy())
-        
+
         if normalized_existing != normalized_new:
             print(f"DETECTED CHANGE Updating offer {offer.id}")
             offer.properties = data
             offers_to_update.append(offer)
-        else:
-            print(f"No changes in offer {offer.id}")
-
 
     # Bulk update offers if any
     if offers_to_update:
@@ -220,10 +221,10 @@ def update_providers_info(node_props):
     for provider_id, data in provider_data_list:
         node = existing_nodes_dict[provider_id]
         # Check if any field has changed before adding to update list
-        if (node.wallet != data.get("wallet") or 
-            node.network != data.get('network', 'mainnet') or 
-            node.type != "provider"):
-            
+        if (node.wallet != data.get("wallet") or
+            node.network != data.get('network', 'mainnet') or
+                node.type != "provider"):
+
             node.wallet = data.get("wallet")
             node.network = data.get('network', 'mainnet')
             node.type = "provider"
@@ -232,11 +233,11 @@ def update_providers_info(node_props):
 
     if nodes_to_update:
         Node.objects.bulk_update(
-            nodes_to_update, 
-            ['wallet', 'network', 'type', 'updated_at']  # Include updated_at in the fields list
+            nodes_to_update,
+            # Include updated_at in the fields list
+            ['wallet', 'network', 'type', 'updated_at']
         )
     print(f"Done updating {len(provider_ids)} providers")
-
 
 
 examples_dir = pathlib.Path(__file__).resolve().parent.parent
