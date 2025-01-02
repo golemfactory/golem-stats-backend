@@ -882,6 +882,12 @@ def median_and_average_pricing_past_hour():
             Q(network="testnet") | Q(network="mainnet")
         )
 
+        def safe_median(values):
+            """Calculate median safely, returning 0 if no valid values exist"""
+            values_list = list(values)
+            return median(values_list) if values_list else 0
+
+        # Get querysets
         cpu_values = ProviderWithTask.objects.filter(filters).exclude(
             cpu_per_hour__isnull=True
         )
@@ -892,67 +898,38 @@ def median_and_average_pricing_past_hour():
             start_price__isnull=True
         )
 
-        cpu_median_testnet = median(
-            cpu_values.filter(network="testnet").values_list("cpu_per_hour", flat=True)
-        )
-        cpu_average_testnet = cpu_values.filter(network="testnet").aggregate(
-            Avg("cpu_per_hour")
-        )["cpu_per_hour__avg"]
-        cpu_median_mainnet = median(
-            cpu_values.filter(network="mainnet").values_list("cpu_per_hour", flat=True)
-        )
-        cpu_average_mainnet = cpu_values.filter(network="mainnet").aggregate(
-            Avg("cpu_per_hour")
-        )["cpu_per_hour__avg"]
+        # Process each network's data safely
+        pricing_data = {}
+        for network in ["testnet", "mainnet"]:
+            network_cpu = cpu_values.filter(network=network)
+            network_env = env_values.filter(network=network)
+            network_start = start_values.filter(network=network)
 
-        env_median_testnet = median(
-            env_values.filter(network="testnet").values_list("env_per_hour", flat=True)
-        )
-        env_average_testnet = env_values.filter(network="testnet").aggregate(
-            Avg("env_per_hour")
-        )["env_per_hour__avg"]
-        env_median_mainnet = median(
-            env_values.filter(network="mainnet").values_list("env_per_hour", flat=True)
-        )
-        env_average_mainnet = env_values.filter(network="mainnet").aggregate(
-            Avg("env_per_hour")
-        )["env_per_hour__avg"]
-
-        start_median_testnet = median(
-            start_values.filter(network="testnet").values_list("start_price", flat=True)
-        )
-        start_average_testnet = start_values.filter(network="testnet").aggregate(
-            Avg("start_price")
-        )["start_price__avg"]
-        start_median_mainnet = median(
-            start_values.filter(network="mainnet").values_list("start_price", flat=True)
-        )
-        start_average_mainnet = start_values.filter(network="mainnet").aggregate(
-            Avg("start_price")
-        )["start_price__avg"]
-
-        pricing_data = {
-            "testnet": {
-                "cpu_median": cpu_median_testnet if cpu_median_testnet else 0,
-                "cpu_average": cpu_average_testnet if cpu_average_testnet else 0,
-                "env_median": env_median_testnet if env_median_testnet else 0,
-                "env_average": env_average_testnet if env_average_testnet else 0,
-                "start_median": start_median_testnet if start_median_testnet else 0,
-                "start_average": start_average_testnet if start_average_testnet else 0,
-            },
-            "mainnet": {
-                "cpu_median": cpu_median_mainnet if cpu_median_mainnet else 0,
-                "cpu_average": cpu_average_mainnet if cpu_average_mainnet else 0,
-                "env_median": env_median_mainnet if env_median_mainnet else 0,
-                "env_average": env_average_mainnet if env_average_mainnet else 0,
-                "start_median": start_median_mainnet if start_median_mainnet else 0,
-                "start_average": start_average_mainnet if start_average_mainnet else 0,
-            },
-        }
+            pricing_data[network] = {
+                "cpu_median": safe_median(
+                    network_cpu.values_list("cpu_per_hour", flat=True)
+                ),
+                "cpu_average": network_cpu.aggregate(
+                    Avg("cpu_per_hour")
+                )["cpu_per_hour__avg"] or 0,
+                "env_median": safe_median(
+                    network_env.values_list("env_per_hour", flat=True)
+                ),
+                "env_average": network_env.aggregate(
+                    Avg("env_per_hour")
+                )["env_per_hour__avg"] or 0,
+                "start_median": safe_median(
+                    network_start.values_list("start_price", flat=True)
+                ),
+                "start_average": network_start.aggregate(
+                    Avg("start_price")
+                )["start_price__avg"] or 0,
+            }
 
         r.set("pricing_past_hour_v2", json.dumps(pricing_data))
     except Exception as e:
-        print(e)  # Replace with proper logging mechanism
+        print(f"Error in median_and_average_pricing_past_hour: {e}")  # Better error logging
+
 
 
 import numpy as np
