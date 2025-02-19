@@ -1,3 +1,45 @@
+from .models import NodeStatusHistory, Node
+from django.db.models import Case, When, Value, BooleanField
+from collector.models import ProvidersComputing
+from django.db.models.functions import TruncDay, Coalesce
+from django.db.models import IntegerField, ExpressionWrapper, Case, When, Avg
+from django.utils.timezone import utc
+from collector.models import Requestors
+from .models import TransactionScraperIndex, GolemTransactions
+from .models import RelayNodes
+import urllib.parse
+from django.db.models.functions import Cast, Replace
+from django.db.models import CharField, Value
+from .models import NodeStatusHistory
+from django.db.models.functions import Lag, TruncHour
+from django.db.models import Count, F, Window
+from django.db.models import IntegerField, FloatField
+from django.db import models
+from django.db.models.fields.json import KeyTextTransform
+from django.db.models import Subquery, OuterRef
+from datetime import timedelta
+from django.db.models import Max, Sum
+import numpy as np
+from django.db.models import Q
+from numpy import median
+from django.db.models import Avg
+from .utils import identify_network_by_offer
+from .models import ProviderWithTask, Node, Offer, PricingSnapshot
+from api.utils import get_stats_data
+import time
+from .scanner import monitor_nodes_status
+import asyncio
+from django.db import transaction
+from .scoring import calculate_uptime_percentage
+from django.db.models.functions import Cast
+from django.db.models import (
+    FloatField,
+)
+from datetime import datetime, timedelta
+from django.db.models import Avg, Max
+from collector.models import NetworkStats, ProvidersComputingMax
+from collections import defaultdict
+from django.db.models.functions import TruncHour, TruncDay
 from core.celery import app
 from celery import Celery
 import json
@@ -29,21 +71,6 @@ from .utils import (
 
 pool = redis.ConnectionPool(host="redis", port=6379, db=0)
 r = redis.Redis(connection_pool=pool)
-
-from django.db.models.functions import TruncHour, TruncDay
-from collections import defaultdict
-import json
-from collector.models import NetworkStats, ProvidersComputingMax
-from django.db.models import Avg, Max
-from datetime import datetime, timedelta
-
-from django.db.models import (
-    FloatField,
-)
-from django.db.models.functions import Cast
-
-from .scoring import calculate_uptime_percentage
-from django.db import transaction
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -114,7 +141,8 @@ def compare_ec2_and_golem():
         for ec2 in ec2_instances:
             cheapest_offer = (
                 Offer.objects.annotate(
-                    vcpu=Cast("properties__golem.inf.cpu.threads", FloatField()),
+                    vcpu=Cast("properties__golem.inf.cpu.threads",
+                              FloatField()),
                     memory=Cast("properties__golem.inf.mem.gib", FloatField()),
                 )
                 .filter(
@@ -160,7 +188,8 @@ def compare_ec2_and_golem():
                 }
             )
 
-        r.set("ec2_comparison", json.dumps(comparison_results, cls=DecimalEncoder))
+        r.set("ec2_comparison", json.dumps(
+            comparison_results, cls=DecimalEncoder))
     except Exception as e:
         print(f"Error: {e}")
 
@@ -168,7 +197,8 @@ def compare_ec2_and_golem():
 @app.task
 def network_historical_stats_to_redis_v2():
     now = timezone.now()
-    runtime_names = NetworkStats.objects.values_list("runtime", flat=True).distinct()
+    runtime_names = NetworkStats.objects.values_list(
+        "runtime", flat=True).distinct()
     formatted_data = {
         runtime: {"1d": [], "7d": [], "1m": [], "1y": [], "All": []}
         for runtime in runtime_names
@@ -192,7 +222,8 @@ def network_historical_stats_to_redis_v2():
         )
         if granularity in [TruncDay, TruncHour]:
             latest_stat = (
-                NetworkStats.objects.filter(runtime=runtime_name, date__lt=end_date)
+                NetworkStats.objects.filter(
+                    runtime=runtime_name, date__lt=end_date)
                 .order_by("-date")
                 .values("online", "cores", "memory", "disk", "gpus")
                 .first()
@@ -222,7 +253,8 @@ def network_historical_stats_to_redis_v2():
             ("1y", now - timedelta(days=365)),
             (
                 "All",
-                NetworkStats.objects.filter(runtime=runtime_name).earliest("date").date,
+                NetworkStats.objects.filter(
+                    runtime=runtime_name).earliest("date").date,
             ),
         ]
         for key, start_date in time_intervals:
@@ -315,10 +347,11 @@ def v2_network_online_to_redis_new_stats_page(runtime=None):
             0 if len(serialized_data) % size == 0 else 1
         )
         for page in range(1, total_pages + 1):
-            paginated_data = serialized_data[(page - 1) * size : page * size]
+            paginated_data = serialized_data[(page - 1) * size: page * size]
             for node in paginated_data:
                 node_id = node["node_id"]
-                node["taskReputation"] = success_rate_mapping.get(node_id, None)
+                node["taskReputation"] = success_rate_mapping.get(
+                    node_id, None)
             r.set(
                 f"v2_online_{page}_{size}{page_key_suffix}",
                 json.dumps(paginated_data, default=str),
@@ -560,7 +593,8 @@ def v2_cheapest_provider():
         provider["name"] = "Golem Network"
         provider["node_id"] = obj["properties"]["node_id"]
         provider["img"] = "/golem.png"
-        provider["usd_monthly"] = float(price) * float(obj["monthly_price_glm"])
+        provider["usd_monthly"] = float(
+            price) * float(obj["monthly_price_glm"])
         provider["cores"] = float(obj["properties"]["golem.inf.cpu.threads"])
         provider["memory"] = float(obj["properties"]["golem.inf.mem.gib"])
         provider["bandwidth"] = "Unlimited"
@@ -607,7 +641,8 @@ def v2_cheapest_provider():
         ):
             sixtyfour_cores.append(provider)
 
-    sorted_two = sorted(two_cores, key=lambda element: (float(element["usd_monthly"])))
+    sorted_two = sorted(two_cores, key=lambda element: (
+        float(element["usd_monthly"])))
     sorted_eight = sorted(
         eight_cores, key=lambda element: (float(element["usd_monthly"]))
     )
@@ -642,13 +677,12 @@ def get_current_glm_price():
         print("Failed to retrieve data")
 
 
-import asyncio
-from .scanner import monitor_nodes_status
 @app.task
 def v2_offer_scraper(subnet_tag="public"):
     # Run the asyncio function using asyncio.run()
     asyncio.run(monitor_nodes_status(subnet_tag))
-    v2_offer_scraper.apply_async(args=[subnet_tag], countdown=5, queue='yagna', routing_key='yagna')
+    v2_offer_scraper.apply_async(
+        args=[subnet_tag], countdown=5, queue='yagna', routing_key='yagna')
 
 
 @app.task(queue="yagna")
@@ -702,12 +736,6 @@ def store_ec2_info(self):
         raise self.retry(exc=exc)
 
 
-import time
-from api.utils import get_stats_data
-from .models import ProviderWithTask, Node, Offer, PricingSnapshot
-from .utils import identify_network_by_offer
-
-
 @app.task
 def v2_network_stats_to_redis():
 
@@ -751,8 +779,10 @@ def v2_network_stats_to_redis():
             )
             stats["gpu_models"][gpu] = stats["gpu_models"].get(gpu, 0) + 1
 
-    total_online_mainnet = Node.objects.filter(online=True, network="mainnet").count()
-    total_online_testnet = Node.objects.filter(online=True, network="testnet").count()
+    total_online_mainnet = Node.objects.filter(
+        online=True, network="mainnet").count()
+    total_online_testnet = Node.objects.filter(
+        online=True, network="testnet").count()
     stats_by_runtime["totalOnlineMainnet"] = total_online_mainnet
     stats_by_runtime["totalOnlineTestnet"] = total_online_testnet
 
@@ -780,7 +810,7 @@ def providers_who_received_tasks():
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f"api/datasources/proxy/40/api/v1/query_range?query=increase(payment_invoices_provider_accepted%7Bjob%3D%22community.1%22%7D%5B10m%5D)%20%3E%200&start={now}&end={now}&step=5"
+        + f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=increase(payment_invoices_provider_accepted%7Bexported_job%3D%22community.1%22%7D%5B10m%5D)%20%3E%200&start={now}&end={now}&step=5"
     )
     content, status_code = get_stats_data(domain)
     if status_code == 200:
@@ -795,7 +825,8 @@ def providers_who_received_tasks():
                 pricing_model = offer.properties.get(
                     "golem.com.pricing.model.linear.coeffs", []
                 )
-                usage_vector = offer.properties.get("golem.com.usage.vector", [])
+                usage_vector = offer.properties.get(
+                    "golem.com.usage.vector", [])
                 if not usage_vector or not pricing_model:
                     continue
 
@@ -818,10 +849,6 @@ def providers_who_received_tasks():
                 print(f"Offer for node {node.node_id} not found")
 
 
-from django.db.models import Avg
-from numpy import median
-
-
 @app.task
 def create_pricing_snapshot(network):
     try:
@@ -837,9 +864,12 @@ def create_pricing_snapshot(network):
             created_at__gte=last_24_hours, network=network
         ).values_list("start_price", flat=True)
 
-        cpu_prices_cleaned = [price for price in cpu_prices if price is not None]
-        env_prices_cleaned = [price for price in env_prices if price is not None]
-        start_prices_cleaned = [price for price in start_prices if price is not None]
+        cpu_prices_cleaned = [
+            price for price in cpu_prices if price is not None]
+        env_prices_cleaned = [
+            price for price in env_prices if price is not None]
+        start_prices_cleaned = [
+            price for price in start_prices if price is not None]
 
         snapshot = PricingSnapshot(
             average_cpu_price=(
@@ -847,13 +877,15 @@ def create_pricing_snapshot(network):
                 if cpu_prices_cleaned
                 else 0
             ),
-            median_cpu_price=median(cpu_prices_cleaned) if cpu_prices_cleaned else 0,
+            median_cpu_price=median(
+                cpu_prices_cleaned) if cpu_prices_cleaned else 0,
             average_env_price=(
                 sum(env_prices_cleaned) / len(env_prices_cleaned)
                 if env_prices_cleaned
                 else 0
             ),
-            median_env_price=median(env_prices_cleaned) if env_prices_cleaned else 0,
+            median_env_price=median(
+                env_prices_cleaned) if env_prices_cleaned else 0,
             average_start_price=(
                 sum(start_prices_cleaned) / len(start_prices_cleaned)
                 if start_prices_cleaned
@@ -869,9 +901,6 @@ def create_pricing_snapshot(network):
         snapshot.save()
     except Exception as e:
         print(e)  # Replace with actual logging
-
-
-from django.db.models import Q
 
 
 @app.task
@@ -928,11 +957,8 @@ def median_and_average_pricing_past_hour():
 
         r.set("pricing_past_hour_v2", json.dumps(pricing_data))
     except Exception as e:
-        print(f"Error in median_and_average_pricing_past_hour: {e}")  # Better error logging
-
-
-
-import numpy as np
+        # Better error logging
+        print(f"Error in median_and_average_pricing_past_hour: {e}")
 
 
 @app.task
@@ -984,28 +1010,6 @@ def chart_pricing_data_for_frontend():
     r.set("pricing_data_charted_v2", json.dumps(networks_data))
 
 
-from django.db.models import Max, Sum
-from django.db.models import (
-    Count,
-    Avg,
-    StdDev,
-    FloatField,
-    Q,
-    Subquery,
-    OuterRef,
-    F,
-    Case,
-    When,
-    Max,
-)
-from django.db.models.functions import Cast
-from datetime import timedelta
-from django.db.models import Subquery, OuterRef
-from django.db.models.fields.json import KeyTextTransform
-from django.db import models
-from django.db.models import IntegerField, FloatField
-
-
 @app.task
 def sum_highest_runtime_resources():
     online_nodes = Node.objects.filter(online=True)
@@ -1023,7 +1027,8 @@ def sum_highest_runtime_resources():
                 IntegerField(),
             ),
             memory=Cast(
-                KeyTextTransform("golem.inf.mem.gib", "properties"), FloatField()
+                KeyTextTransform("golem.inf.mem.gib",
+                                 "properties"), FloatField()
             ),
             storage=Cast(
                 KeyTextTransform("golem.inf.storage.gib", "properties"),
@@ -1068,17 +1073,12 @@ def sum_highest_runtime_resources():
     )
 
 
-from django.db.models import Count, F, Window
-from django.db.models.functions import Lag, TruncHour
-from django.utils import timezone
-from .models import NodeStatusHistory
-
-
 @app.task
 def get_online_counts():
     last_24_hours = timezone.now() - timedelta(hours=24)
     data_points = (
-        NodeStatusHistory.objects.filter(timestamp__gte=last_24_hours, is_online=True)
+        NodeStatusHistory.objects.filter(
+            timestamp__gte=last_24_hours, is_online=True)
         .annotate(hour=TruncHour("timestamp"))
         .values("hour")
         .annotate(online_count=Count("node_id", distinct=True))
@@ -1111,12 +1111,6 @@ def get_online_counts():
 
     result = {"data": formatted_data, "stats": stats}
     r.set("v2_online_counts", json.dumps(result))
-
-
-from django.db.models import CharField, Value
-from django.db.models.functions import Cast, Replace
-from collections import defaultdict
-import json
 
 
 @app.task
@@ -1184,15 +1178,12 @@ def count_cpu_architecture():
     r.set("cpu_architecture_count", cpu_architecture_json)
 
 
-import urllib.parse
-
-
 @app.task
 def online_nodes_computing():
     end = round(time.time())
     start = end - 10
     query = 'activity_provider_created{job="community.1"} - activity_provider_destroyed{job="community.1"}'
-    url = f"{os.environ.get('STATS_URL')}api/datasources/proxy/40/api/v1/query_range?query={urllib.parse.quote(query)}&start={start}&end={end}&step=1"
+    url = f"{os.environ.get('STATS_URL')}api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query={urllib.parse.quote(query)}&start={start}&end={end}&step=1"
     data = get_stats_data(url)
 
     if data[1] == 200 and data[0]["status"] == "success" and data[0]["data"]["result"]:
@@ -1201,15 +1192,15 @@ def online_nodes_computing():
             for node in data[0]["data"]["result"]
             if node["values"][-1][1] == "1"
         ]
-        Node.objects.filter(node_id__in=computing_node_ids).update(computing_now=True)
-        Node.objects.exclude(node_id__in=computing_node_ids).update(computing_now=False)
-        NodeV1.objects.filter(node_id__in=computing_node_ids).update(computing_now=True)
+        Node.objects.filter(node_id__in=computing_node_ids).update(
+            computing_now=True)
+        Node.objects.exclude(node_id__in=computing_node_ids).update(
+            computing_now=False)
+        NodeV1.objects.filter(node_id__in=computing_node_ids).update(
+            computing_now=True)
         NodeV1.objects.exclude(node_id__in=computing_node_ids).update(
             computing_now=False
         )
-
-
-from .models import RelayNodes
 
 
 @app.task
@@ -1229,16 +1220,12 @@ def fetch_and_store_relay_nodes():
                     ip, port = ip_port[0], int(ip_port[1])
 
                     obj, created = RelayNodes.objects.update_or_create(
-                        node_id=node_id, defaults={"ip_address": ip, "port": port}
+                        node_id=node_id, defaults={
+                            "ip_address": ip, "port": port}
                     )
 
         except requests.RequestException as e:
             print(f"Error fetching data for prefix {prefix:02x}: {e}")
-
-
-from .models import TransactionScraperIndex, GolemTransactions
-from collector.models import Requestors
-from django.utils.timezone import utc
 
 
 @app.task
@@ -1300,15 +1287,17 @@ def init_golem_tx_scraping():
             print(f"Found {len(known_senders)} known senders")
 
             for i in range(0, len(transfers), BATCH_SIZE):
-                print(f"Processing batch {i//BATCH_SIZE + 1} of {(len(transfers)-1)//BATCH_SIZE + 1}")
+                print(
+                    f"Processing batch {i//BATCH_SIZE + 1} of {(len(transfers)-1)//BATCH_SIZE + 1}")
                 with transaction.atomic():
-                    batch = transfers[i : i + BATCH_SIZE]
+                    batch = transfers[i: i + BATCH_SIZE]
                     golem_transactions = []
                     for t in batch:
                         timestamp = datetime.utcfromtimestamp(
                             t["blockTimestamp"]
                         ).replace(tzinfo=utc)
-                        latest_timestamp = max(latest_timestamp, t["blockTimestamp"])
+                        latest_timestamp = max(
+                            latest_timestamp, t["blockTimestamp"])
                         transaction_type = (
                             "batched"
                             if t["toAddr"]
@@ -1333,7 +1322,8 @@ def init_golem_tx_scraping():
                                 tx_from_golem=t["fromAddr"] in known_senders,
                             )
                         )
-                    print(f"Bulk creating {len(golem_transactions)} transactions")
+                    print(
+                        f"Bulk creating {len(golem_transactions)} transactions")
                     GolemTransactions.objects.bulk_create(
                         golem_transactions, ignore_conflicts=True
                     )
@@ -1367,7 +1357,7 @@ def fetch_latest_glm_tx():
         epoch_now = int(timezone.now().timestamp())
         latest_timestamp = int(index.latest_timestamp_indexed.timestamp())
         print(f"Fetching transactions from {latest_timestamp} to {epoch_now}")
-        
+
         url = f"http://erc20-api/erc20/api/stats/transfers?chain=137&receiver=all&from={latest_timestamp}&to={epoch_now}"
         print(f"Making request to URL: {url}")
         response = requests.get(url)
@@ -1399,7 +1389,8 @@ def fetch_latest_glm_tx():
             timestamp = datetime.utcfromtimestamp(t["blockTimestamp"]).replace(
                 tzinfo=timezone.utc
             )
-            latest_block_timestamp = max(latest_block_timestamp, t["blockTimestamp"])
+            latest_block_timestamp = max(
+                latest_block_timestamp, t["blockTimestamp"])
             if t["toAddr"] == "0x0b220b82f3ea3b7f6d9a1d8ab58930c064a2b5bf":
                 transaction_type = "singleTransfer"
             elif t["toAddr"] == "0x50100d4faf5f3b09987dea36dc2eddd57a3e561b":
@@ -1420,12 +1411,14 @@ def fetch_latest_glm_tx():
             )
 
         print(f"Bulk creating {len(golem_transactions)} transactions")
-        GolemTransactions.objects.bulk_create(golem_transactions, ignore_conflicts=True)
+        GolemTransactions.objects.bulk_create(
+            golem_transactions, ignore_conflicts=True)
         index.latest_timestamp_indexed = datetime.utcfromtimestamp(
             latest_block_timestamp + 1
         ).replace(tzinfo=timezone.utc)
         index.save()
-        print(f"New transactions added. Latest timestamp: {latest_block_timestamp}")
+        print(
+            f"New transactions added. Latest timestamp: {latest_block_timestamp}")
     except Exception as e:
         print(f"Error occurred: {str(e)}")
         raise e
@@ -1435,7 +1428,8 @@ def fetch_latest_glm_tx():
 def average_transaction_value_over_time():
     def aggregate_average_value(start_date, end_date):
         return (
-            GolemTransactions.objects.filter(timestamp__range=(start_date, end_date))
+            GolemTransactions.objects.filter(
+                timestamp__range=(start_date, end_date))
             .annotate(date=TruncDay("timestamp"))
             .values("date")
             .annotate(
@@ -1491,21 +1485,20 @@ def average_transaction_value_over_time():
     )
 
 
-from django.db.models import IntegerField, ExpressionWrapper, Case, When, Avg
-
-
 @app.task
 def daily_transaction_type_counts():
     def aggregate_counts(start_date, end_date):
         return (
-            GolemTransactions.objects.filter(timestamp__range=(start_date, end_date))
+            GolemTransactions.objects.filter(
+                timestamp__range=(start_date, end_date))
             .annotate(date=TruncDay("timestamp"))
             .values("date")
             .annotate(
                 singleTransfer=Count(
                     "scanner_id", filter=Q(transaction_type="singleTransfer")
                 ),
-                batched=Count("scanner_id", filter=Q(transaction_type="batched")),
+                batched=Count("scanner_id", filter=Q(
+                    transaction_type="batched")),
             )
             .order_by("date")
         )
@@ -1578,7 +1571,8 @@ def transaction_type_comparison():
         formatted_data[period] = list(data)
 
     r.set(
-        "transaction_type_comparison", json.dumps(formatted_data, cls=DjangoJSONEncoder)
+        "transaction_type_comparison", json.dumps(
+            formatted_data, cls=DjangoJSONEncoder)
     )
 
 
@@ -1586,7 +1580,8 @@ def transaction_type_comparison():
 def amount_transferred_over_time():
     def aggregate_amount(start_date, end_date):
         return (
-            GolemTransactions.objects.filter(timestamp__range=(start_date, end_date))
+            GolemTransactions.objects.filter(
+                timestamp__range=(start_date, end_date))
             .annotate(date=TruncDay("timestamp"))
             .values("date")
             .annotate(total_amount=Sum("amount"))
@@ -1627,12 +1622,15 @@ def amount_transferred_over_time():
 def transaction_volume_over_time():
     def aggregate_transactions(start_date, end_date):
         return (
-            GolemTransactions.objects.filter(timestamp__range=(start_date, end_date))
+            GolemTransactions.objects.filter(
+                timestamp__range=(start_date, end_date))
             .annotate(date=TruncDay("timestamp"))
             .values("date")
             .annotate(
-                on_golem=Count("amount", filter=Q(tx_from_golem=True), distinct=True),
-                not_golem=Count("amount", filter=Q(tx_from_golem=False), distinct=True),
+                on_golem=Count("amount", filter=Q(
+                    tx_from_golem=True), distinct=True),
+                not_golem=Count("amount", filter=Q(
+                    tx_from_golem=False), distinct=True),
             )
             .order_by("date")
         )
@@ -1667,14 +1665,12 @@ def transaction_volume_over_time():
     )
 
 
-from django.db.models.functions import TruncDay, Coalesce
-
-
 @app.task
 def daily_volume_golem_vs_chain():
     def aggregate_volume(start_date, end_date):
         return (
-            GolemTransactions.objects.filter(timestamp__range=(start_date, end_date))
+            GolemTransactions.objects.filter(
+                timestamp__range=(start_date, end_date))
             .annotate(date=TruncDay("timestamp"))
             .values("date")
             .annotate(
@@ -1725,11 +1721,9 @@ def daily_volume_golem_vs_chain():
         formatted_data[period] = list(data)
 
     r.set(
-        "daily_volume_golem_vs_chain", json.dumps(formatted_data, cls=DjangoJSONEncoder)
+        "daily_volume_golem_vs_chain", json.dumps(
+            formatted_data, cls=DjangoJSONEncoder)
     )
-
-
-from collector.models import ProvidersComputing
 
 
 @app.task
@@ -1756,7 +1750,8 @@ def computing_total_over_time():
 
     for period, (start_date, end_date) in intervals.items():
         data = (
-            ProvidersComputingMax.objects.filter(date__range=(start_date, end_date))
+            ProvidersComputingMax.objects.filter(
+                date__range=(start_date, end_date))
             .annotate(truncated_date=TruncDay("date"))
             .values("truncated_date")
             .annotate(total=Sum("total"))
@@ -1765,7 +1760,8 @@ def computing_total_over_time():
         formatted_data[period] = list(data)
 
     r.set(
-        "computing_total_over_time", json.dumps(formatted_data, cls=DjangoJSONEncoder)
+        "computing_total_over_time", json.dumps(
+            formatted_data, cls=DjangoJSONEncoder)
     )
 
 
@@ -1808,7 +1804,8 @@ def extract_wallets_and_ids():
 
         # Update providers dictionary
         if provider_id and provider_name:
-            providers_dict[(provider_id, provider_name)].append(offer.provider.node_id)
+            providers_dict[(provider_id, provider_name)
+                           ].append(offer.provider.node_id)
 
     # Convert wallet sets to counts of unique providers using each wallet
     wallets_list = [
@@ -1824,11 +1821,6 @@ def extract_wallets_and_ids():
 
     data = {"wallets": wallets_list, "providers": providers_list}
     r.set("wallets_and_ids", json.dumps(data))
-
-
-from django.db import transaction
-from django.db.models import Case, When, Value, BooleanField
-from .models import NodeStatusHistory, Node
 
 
 @app.task
@@ -1849,7 +1841,8 @@ def bulk_update_node_statuses(nodes_data):
                     )
             except ObjectDoesNotExist:
                 # New node, so presumably its status changed from "unknown" to is_online
-                node = Node(node_id=node_id, online=is_online, type="requestor")
+                node = Node(node_id=node_id, online=is_online,
+                            type="requestor")
                 nodes_to_update.append(node)
                 status_history_to_create.append(
                     NodeStatusHistory(node_id=node_id, is_online=is_online)
@@ -1857,7 +1850,7 @@ def bulk_update_node_statuses(nodes_data):
 
         # Bulk create new nodes (only those _state.adding == True)
         Node.objects.bulk_create(
-            [n for n in nodes_to_update if n._state.adding], 
+            [n for n in nodes_to_update if n._state.adding],
             ignore_conflicts=True
         )
         # Bulk update existing nodes

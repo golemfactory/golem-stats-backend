@@ -1,3 +1,11 @@
+from collector.models import Feedback
+from datetime import timedelta
+from django.utils.timezone import now
+from django.db.models import Sum
+from api2.models import GolemTransactions
+from api2.models import RelayNodes
+import requests
+import urllib.parse
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -166,9 +174,6 @@ async def online_nodes(request):
         return HttpResponse(status=400)
 
 
-import urllib.parse
-
-
 async def activity_graph_provider(request, yagna_id):
     end = round(time.time())
     start = end - 86400  # 24 hours
@@ -183,7 +188,7 @@ async def activity_graph_provider(request, yagna_id):
 
     domain = (
         os.environ.get("STATS_URL")
-        + "api/datasources/proxy/40/api/v1/query_range?"
+        + "api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?"
         + f"query={encoded_query}&start={start}&end={end}&step=120"
     )
     data = await get_yastats_data(domain)
@@ -195,7 +200,7 @@ async def payments_last_n_hours_provider(request, yagna_id, hours):
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{hours}h%5D)%2F10%5E9)&time={now}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_amount_received%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{hours}h%5D)%2F10%5E9)&time={now}'
     )
     data = await get_yastats_data(domain)
     if data[1] == 200:
@@ -224,17 +229,13 @@ async def yagna_releases(request):
         return HttpResponse(status=400)
 
 
-import requests
-
-from api2.models import RelayNodes
-
-
 async def payments_earnings_provider(request, yagna_id):
     now = round(time.time())
     time_intervals = ["24", "168", "720", "2160"]
 
     earnings = {}
-    base_url = os.environ.get("STATS_URL") + "api/datasources/proxy/40/api/v1/query"
+    base_url = os.environ.get(
+        "STATS_URL") + "api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query"
 
     for interval in time_intervals:
         query_url = f'{base_url}?query=sum(increase(payment_amount_received%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{interval}h%5D)%2F10%5E9)&time={now}'
@@ -300,7 +301,7 @@ async def total_tasks_computed(request, yagna_id):
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Binstance%3D~"{yagna_id}"%2C%20reason%3D"Success"%7D%5B90d%5D))&time={now}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Binstance%3D~"{yagna_id}"%2C%20reason%3D"Success"%7D%5B90d%5D))&time={now}'
     )
     data = await get_yastats_data(domain)
     if data[1] == 200:
@@ -320,7 +321,7 @@ async def provider_seconds_computed_total(request, yagna_id):
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(activity_provider_usage_1%7Binstance%3D~"{yagna_id}"%7D%5B90d%5D))&time={now}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(activity_provider_usage_1%7Binstance%3D~"{yagna_id}"%7D%5B90d%5D))&time={now}'
     )
     data = await get_yastats_data(domain)
     if data[1] == 200:
@@ -340,7 +341,7 @@ async def provider_computing(request, yagna_id):
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/proxy/40/api/v1/query?query=activity_provider_created%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%20-%20activity_provider_destroyed%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D&time={now}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=activity_provider_created%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%20-%20activity_provider_destroyed%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D&time={now}'
     )
     data = await get_yastats_data(domain)
     if data[1] == 200:
@@ -707,13 +708,6 @@ async def network_earnings_6h(request):
         return HttpResponse(status=400)
 
 
-from api2.models import GolemTransactions
-from django.db.models import Sum
-
-from django.utils.timezone import now
-from datetime import timedelta
-
-
 async def network_earnings_overview(request):
     """
     Returns the earnings for the whole network over time for various time frames,
@@ -851,9 +845,6 @@ def store_benchmarks(request):
             return HttpResponse(status=400)
     else:
         return HttpResponse(status=400)
-
-
-from collector.models import Feedback
 
 
 def store_feedback(request):

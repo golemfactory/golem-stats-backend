@@ -1,3 +1,10 @@
+from django.db import transaction
+import urllib.parse
+from django.utils.timezone import now
+from django.db.models import Sum
+from api2.models import GolemTransactions
+from collections import defaultdict
+from django.db.models.functions import TruncHour, TruncDay
 import requests
 from django.db.models import DateField
 from django.db.models.functions import TruncDay
@@ -141,7 +148,8 @@ def computing_snapshot_yesterday():
 
     for obj in computing:
         if obj["day"] not in existing_dates:
-            ProvidersComputingMax.objects.create(total=obj["total"], date=obj["day"])
+            ProvidersComputingMax.objects.create(
+                total=obj["total"], date=obj["day"])
 
 
 @app.task
@@ -208,7 +216,8 @@ def network_average_pricing():
             if len(str(pricing_vector["golem.usage.duration_sec"])) < 5:
                 perhour.append(pricing_vector["golem.usage.duration_sec"])
             else:
-                perhour.append(pricing_vector["golem.usage.duration_sec"] * 3600)
+                perhour.append(
+                    pricing_vector["golem.usage.duration_sec"] * 3600)
 
             start.append(obj.data["golem.com.pricing.model.linear.coeffs"][2])
             if len(str(pricing_vector["golem.usage.cpu_sec"])) < 5:
@@ -262,7 +271,8 @@ def network_median_pricing():
             if len(str(pricing_vector["golem.usage.duration_sec"])) < 5:
                 perhour.append(pricing_vector["golem.usage.duration_sec"])
             else:
-                perhour.append(pricing_vector["golem.usage.duration_sec"] * 3600)
+                perhour.append(
+                    pricing_vector["golem.usage.duration_sec"] * 3600)
 
                 startprice.append(
                     (obj.data["golem.com.pricing.model.linear.coeffs"][2])
@@ -373,11 +383,6 @@ def network_stats_to_redis():
     r.set("online_stats", serialized)
 
 
-from django.db.models.functions import TruncHour, TruncDay
-from collections import defaultdict
-import json
-
-
 @app.task
 def networkstats_30m():
     now = datetime.now()
@@ -395,7 +400,7 @@ def network_utilization_to_redis():
     start = end - 21600
     domain = (
         os.environ.get("STATS_URL")
-        + f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%22%7D)&start={start}&end={end}&step=30"
+        + f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=sum(activity_provider_created%7Bexported_job%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bexported_job%3D~%22community.1%22%7D)&start={start}&end={end}&step=30"
     )
     content = get_stats_data(domain)
     if content[1] == 200:
@@ -410,7 +415,7 @@ def network_node_versions():
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/proxy/40/api/v1/query?query=yagna_version_major%7Bjob%3D"community.1"%7D*100%2Byagna_version_minor%7Bjob%3D"community.1"%7D*10%2Byagna_version_patch%7Bjob%3D"community.1"%7D&time={now}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=yagna_version_major%7Bexported_job%3D"community.1"%7D*100%2Byagna_version_minor%7Bexported_job%3D"community.1"%7D*10%2Byagna_version_patch%7Bexported_job%3D"community.1"%7D&time={now}'
     )
     data = get_stats_data(domain)
     nodes_data = data[0]["data"]["result"]
@@ -448,16 +453,18 @@ def network_versions_to_redis():
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/proxy/40/api/v1/query_range?query=count_values("version"%2C%20yagna_version_major%7Bjob%3D"community.1"%7D*100%2Byagna_version_minor%7Bjob%3D"community.1"%7D*10%2Byagna_version_patch%7Bjob%3D"community.1"%7D)&start={now}&end={now}&step=5'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=count_values("version"%2C%20yagna_version_major%7Bexported_job%3D"community.1"%7D*100%2Byagna_version_minor%7Bexported_job%3D"community.1"%7D*10%2Byagna_version_patch%7Bexported_job%3D"community.1"%7D)&start={now}&end={now}&step=5'
     )
     content = get_stats_data(domain)
+    print(content)
     if content[1] == 200:
         versions_nonsorted = []
         versions = []
         data = content[0]["data"]["result"]
         for obj in data:
             versions_nonsorted.append(
-                {"version": int(obj["metric"]["version"]), "count": obj["values"][0][1]}
+                {"version": int(obj["metric"]["version"]),
+                 "count": obj["values"][0][1]}
             )
 
         versions_nonsorted.sort(key=lambda x: x["version"], reverse=False)
@@ -473,10 +480,11 @@ def network_versions_to_redis():
                     releases.extend(page_releases)
                     if "Link" in response.headers:
                         links = response.headers["Link"].split(", ")
-                        next_link = [link for link in links if 'rel="next"' in link]
+                        next_link = [
+                            link for link in links if 'rel="next"' in link]
                         if next_link:
                             url = next_link[0][
-                                next_link[0].find("<") + 1 : next_link[0].find(">")
+                                next_link[0].find("<") + 1: next_link[0].find(">")
                             ]
                         else:
                             url = None
@@ -519,7 +527,8 @@ def network_versions_to_redis():
             if len(version) == 2:
                 concatinated = "0." + version[0] + "." + version[1]
             elif len(version) == 3:
-                concatinated = "0." + version[0] + version[1] + "." + version[2]
+                concatinated = "0." + version[0] + \
+                    version[1] + "." + version[2]
 
             tag_to_search = "v" + concatinated
             release_status = find_release_by_tag(tag_to_search, releases_data)
@@ -553,8 +562,9 @@ def network_versions_to_redis():
 def get_earnings(platform, hours):
     end = round(time.time())
     domain = (
-        os.environ.get("STATS_URL") + f"api/datasources/proxy/40/api/v1/query?query="
-        f'sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"{platform}"%7D%5B{hours}%5D)%2F10%5E9)&time={end}'
+        os.environ.get("STATS_URL") +
+        f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query="
+        f'sum(increase(payment_amount_received%7Bexported_job%3D~"community.1"%2C%20platform%3D"{platform}"%7D%5B{hours}%5D)%2F10%5E9)&time={end}'
     )
     data = get_stats_data(domain)
     if data[1] == 200 and data[0]["data"]["result"]:
@@ -568,7 +578,8 @@ def network_earnings(hours):
     platforms = settings.GOLEM_MAINNET_PAYMENT_DRIVERS
 
     # Calculating earnings for each platform
-    total_earnings = sum(get_earnings(platform, hours) for platform in platforms)
+    total_earnings = sum(get_earnings(platform, hours)
+                         for platform in platforms)
 
     content = {"total_earnings": round(total_earnings, 2)}
     serialized = json.dumps(content)
@@ -611,14 +622,9 @@ def network_total_earnings():
     for network in network_types:
         domain = (
             os.environ.get("STATS_URL")
-            + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"{network}"%7D%5B2m%5D)%2F10%5E9)&time={end}'
+            + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_amount_received%7Bexported_job%3D~"community.1"%2C%20platform%3D"{network}"%7D%5B2m%5D)%2F10%5E9)&time={end}'
         )
         update_total_earnings(domain)
-
-
-from api2.models import GolemTransactions
-from django.db.models import Sum
-from django.utils.timezone import now
 
 
 @app.task
@@ -677,12 +683,13 @@ def computing_now_to_redis():
     start = round(time.time()) - int(10)
     domain = (
         os.environ.get("STATS_URL")
-        + f"api/datasources/proxy/40/api/v1/query_range?query=sum(activity_provider_created%7Bjob%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bjob%3D~%22community.1%22%7D)&start={start}&end={end}&step=1"
+        + f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=sum(activity_provider_created%7Bexported_job%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bexported_job%3D~%22community.1%22%7D)&start={start}&end={end}&step=1"
     )
     data = get_stats_data(domain)
     if data[1] == 200:
         if data[0]["data"]["result"]:
-            content = {"computing_now": data[0]["data"]["result"][0]["values"][-1][1]}
+            content = {"computing_now": data[0]
+                       ["data"]["result"][0]["values"][-1][1]}
             ProvidersComputing.objects.create(
                 total=data[0]["data"]["result"][0]["values"][-1][1]
             )
@@ -700,11 +707,12 @@ def providers_average_earnings_to_redis():
     for platform in platforms:
         domain = (
             os.environ.get("STATS_URL")
-            + f'api/datasources/proxy/40/api/v1/query?query=avg(increase(payment_amount_received%7Bjob%3D~"community.1"%2C%20platform%3D"{platform}"%7D%5B24h%5D)%2F10%5E9)&time={end}'
+            + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=avg(increase(payment_amount_received%7Bexported_job%3D~"community.1"%2C%20platform%3D"{platform}"%7D%5B24h%5D)%2F10%5E9)&time={end}'
         )
         data = get_stats_data(domain)
         if data[1] == 200 and data[0]["data"]["result"]:
-            platform_average = round(float(data[0]["data"]["result"][0]["value"][1]), 4)
+            platform_average = round(
+                float(data[0]["data"]["result"][0]["value"][1]), 4)
         else:
             platform_average = 0.0
         total_average_earnings += platform_average
@@ -719,7 +727,7 @@ def paid_invoices_1h():
     end = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_invoices_provider_paid%7Bjob%3D~"community.1"%7D%5B1h%5D))%2Fsum(increase(payment_invoices_provider_sent%7Bjob%3D~"community.1"%7D%5B1h%5D))&time={end}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_invoices_provider_paid%7Bexported_job%3D~"community.1"%7D%5B1h%5D))%2Fsum(increase(payment_invoices_provider_sent%7Bexported_job%3D~"community.1"%7D%5B1h%5D))&time={end}'
     )
     data = get_stats_data(domain)
     if data[1] == 200:
@@ -736,7 +744,7 @@ def provider_accepted_invoices_1h():
     end = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_invoices_provider_accepted%7Bjob%3D~"community.1"%7D%5B1h%5D))%2Fsum(increase(payment_invoices_provider_sent%7Bjob%3D~"community.1"%7D%5B1h%5D))&time={end}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_invoices_provider_accepted%7Bexported_job%3D~"community.1"%7D%5B1h%5D))%2Fsum(increase(payment_invoices_provider_sent%7Bexported_job%3D~"community.1"%7D%5B1h%5D))&time={end}'
     )
     data = get_stats_data(domain)
     if data[1] == 200:
@@ -751,14 +759,11 @@ def provider_accepted_invoices_1h():
             r.set("provider_accepted_invoice_percentage", serialized)
 
 
-import urllib.parse
-
-
 def get_earnings_for_node_on_platform(user_node_id, platform):
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{user_node_id}"%2C%20platform%3D"{platform}"%7D%5B10m%5D)%2F10%5E9)&time={now}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{user_node_id}"%2C%20platform%3D"{platform}"%7D%5B10m%5D)%2F10%5E9)&time={now}'
     )
     data = get_stats_data(domain)
     try:
@@ -771,15 +776,14 @@ def get_earnings_for_node_on_platform(user_node_id, platform):
         return 0.0
 
 
-from django.db import transaction
-
-
 @app.task
 def node_earnings_total(node_version):
     if node_version == "v1":
-        providers = Node.objects.filter(online=True).only("node_id", "earnings_total")
+        providers = Node.objects.filter(
+            online=True).only("node_id", "earnings_total")
     elif node_version == "v2":
-        providers = Nodev2.objects.filter(online=True).only("node_id", "earnings_total")
+        providers = Nodev2.objects.filter(
+            online=True).only("node_id", "earnings_total")
 
     providers_updates = []
     for provider in providers:
@@ -819,7 +823,7 @@ def market_agreement_termination_reasons():
     content = {}
     domain_success = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"Success"%7D%5B1h%5D))&time={end}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"community.1"%2C%20reason%3D"Success"%7D%5B1h%5D))&time={end}'
     )
     data_success = get_stats_data(domain_success)
     if data_success[1] == 200:
@@ -830,7 +834,7 @@ def market_agreement_termination_reasons():
     # Failure
     domain_cancelled = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"Cancelled"%7D%5B6h%5D))&time={end}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"community.1"%2C%20reason%3D"Cancelled"%7D%5B6h%5D))&time={end}'
     )
     data_cancelled = get_stats_data(domain_cancelled)
     if data_cancelled[1] == 200:
@@ -841,7 +845,7 @@ def market_agreement_termination_reasons():
     # Expired
     domain_expired = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"Expired"%7D%5B6h%5D))&time={end}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"community.1"%2C%20reason%3D"Expired"%7D%5B6h%5D))&time={end}'
     )
     data_expired = get_stats_data(domain_expired)
     if data_expired[1] == 200:
@@ -852,7 +856,7 @@ def market_agreement_termination_reasons():
     # RequestorUnreachable
     domain_unreachable = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"RequestorUnreachable"%7D%5B6h%5D))&time={end}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"community.1"%2C%20reason%3D"RequestorUnreachable"%7D%5B6h%5D))&time={end}'
     )
     data_unreachable = get_stats_data(domain_unreachable)
     if data_unreachable[1] == 200:
@@ -864,7 +868,7 @@ def market_agreement_termination_reasons():
     # DebitNotesDeadline
     domain_debitdeadline = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/proxy/40/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bjob%3D"community.1"%2C%20reason%3D"DebitNotesDeadline"%7D%5B6h%5D))&time={end}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"community.1"%2C%20reason%3D"DebitNotesDeadline"%7D%5B6h%5D))&time={end}'
     )
     data_debitdeadline = get_stats_data(domain_debitdeadline)
     if data_debitdeadline[1] == 200:
@@ -888,12 +892,13 @@ def requestor_scraper():
         update_frequency = 3600  # Update to last 90 days in hourly increments
 
     time_to_check = (
-        ninetydaysago if checkcreated else round(time.time() - update_frequency)
+        ninetydaysago if checkcreated else round(
+            time.time() - update_frequency)
     )
 
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/proxy/40/api/v1/query?query=increase(market_agreements_requestor_approved%7Bjob%3D"community.1"%7D%5B{update_frequency}s%5D)&time={time_to_check}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=increase(market_agreements_requestor_approved%7Bexported_job%3D"community.1"%7D%5B{update_frequency}s%5D)&time={time_to_check}'
     )
     data = get_stats_data(domain)
 
@@ -902,7 +907,7 @@ def requestor_scraper():
         ninetydaysago += 3600
         domain = (
             os.environ.get("STATS_URL")
-            + f'api/datasources/proxy/40/api/v1/query?query=increase(market_agreements_requestor_approved%7Bjob%3D"community.1"%7D%5B3600s%5D)&time={ninetydaysago}'
+            + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=increase(market_agreements_requestor_approved%7Bexported_job%3D"community.1"%7D%5B3600s%5D)&time={ninetydaysago}'
         )
         data = get_stats_data(domain)
 
@@ -918,5 +923,6 @@ def process_scraper_data(data):
                 obj, _ = Requestors.objects.get_or_create(
                     node_id=node["metric"]["instance"]
                 )
-                obj.tasks_requested = (obj.tasks_requested or 0) + stats_tasks_requested
+                obj.tasks_requested = (
+                    obj.tasks_requested or 0) + stats_tasks_requested
                 obj.save()

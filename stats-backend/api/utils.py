@@ -5,17 +5,17 @@ import json
 
 
 def get_stats_data(url):
-    user = os.environ.get('STATS_USER')
-    password = os.environ.get('STATS_PASSWORD')
-    r = requests.get(url, auth=(user, password))
+    service_token = os.environ.get('GRAFANA_SERVICE_TOKEN')
+    headers = {'Authorization': f'Bearer {service_token}'}
+    r = requests.get(url, headers=headers)
     return [r.json(), r.status_code]
 
 
 async def get_yastats_data(url):
-    user = os.environ.get('STATS_USER')
-    password = os.environ.get('STATS_PASSWORD')
+    service_token = os.environ.get('GRAFANA_SERVICE_TOKEN')
+    headers = {'Authorization': f'Bearer {service_token}'}
     async with aiohttp.ClientSession() as session:
-        async with session.get(url, auth=aiohttp.BasicAuth(user, password)) as r:
+        async with session.get(url, headers=headers) as r:
             json_body = await r.json()
             f = json.dumps(json_body)
     return [json_body, r.status]
