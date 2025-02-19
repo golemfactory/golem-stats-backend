@@ -272,12 +272,12 @@ def setup_periodic_tasks(sender, **kwargs):
     #     options={"queue": "default", "routing_key": "default"},
     # )
 
-    # sender.add_periodic_task(
-    #     10.0,
-    #     requestor_scraper.s(),
-    #     queue="default",
-    #     options={"queue": "default", "routing_key": "default"},
-    # )
+    sender.add_periodic_task(
+        10.0,
+        requestor_scraper.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
     sender.add_periodic_task(
         60.0,
         get_current_glm_price.s(),
