@@ -1243,16 +1243,20 @@ from django.utils.timezone import utc
 
 @app.task
 def init_golem_tx_scraping():
+    print("Starting init_golem_tx_scraping task")
     index, _ = TransactionScraperIndex.objects.get_or_create(
         id=1, defaults={"indexed_before": False, "latest_timestamp_indexed": None}
     )
 
     current_time_epoch = int(datetime.utcnow().replace(tzinfo=utc).timestamp())
+    print(f"Current time epoch: {current_time_epoch}")
 
     start_epoch = 1553165313
+    print(f"Initial start epoch: {start_epoch}")
 
     end_epoch = start_epoch + 2592000
     final_epoch = 1900313287
+    print(f"End epoch: {end_epoch}, Final epoch: {final_epoch}")
 
     URL_TEMPLATE = "http://erc20-api/erc20/api/stats/transfers?chain=137&receiver=all&from={}&to={}"
 
@@ -1263,8 +1267,10 @@ def init_golem_tx_scraping():
             url = URL_TEMPLATE.format(
                 start_epoch, min(end_epoch, final_epoch, current_time_epoch)
             )
+            print(f"Making request to URL: {url}")
             response = requests.get(url)
             if response.status_code != 200:
+                print(f"Error response from API: {response.status_code}")
                 print(url)
                 raise Exception(
                     f"Failed to fetch data. Status code: {response.status_code}"
@@ -1272,13 +1278,16 @@ def init_golem_tx_scraping():
 
             data = response.json()
             transfers = data.get("transfers", [])
+            print(f"Retrieved {len(transfers)} transfers")
             if not transfers:
+                print("No transfers found, moving to next time period")
                 start_epoch = end_epoch + 1
                 end_epoch += 2592000
                 continue
 
             BATCH_SIZE = 5000
             from_addrs = {t["fromAddr"] for t in transfers}
+            print(f"Found {len(from_addrs)} unique sender addresses")
             known_senders = set(
                 Requestors.objects.filter(node_id__in=from_addrs).values_list(
                     "node_id", flat=True
@@ -1288,8 +1297,10 @@ def init_golem_tx_scraping():
                     "node_id", flat=True
                 )
             )
+            print(f"Found {len(known_senders)} known senders")
 
             for i in range(0, len(transfers), BATCH_SIZE):
+                print(f"Processing batch {i//BATCH_SIZE + 1} of {(len(transfers)-1)//BATCH_SIZE + 1}")
                 with transaction.atomic():
                     batch = transfers[i : i + BATCH_SIZE]
                     golem_transactions = []
@@ -1322,41 +1333,52 @@ def init_golem_tx_scraping():
                                 tx_from_golem=t["fromAddr"] in known_senders,
                             )
                         )
+                    print(f"Bulk creating {len(golem_transactions)} transactions")
                     GolemTransactions.objects.bulk_create(
                         golem_transactions, ignore_conflicts=True
                     )
 
             start_epoch = end_epoch + 1
             end_epoch += 2592000
+            print(f"Moving to next time period: {start_epoch} to {end_epoch}")
 
         if current_time_epoch >= final_epoch or start_epoch >= current_time_epoch:
+            print("Reached final epoch or current time, updating index")
             index.indexed_before = True
             if latest_timestamp > 0:
                 index.latest_timestamp_indexed = datetime.utcfromtimestamp(
                     latest_timestamp
                 ).replace(tzinfo=utc)
             index.save()
+            print(f"Index updated with latest timestamp: {latest_timestamp}")
     except Exception as e:
+        print(f"Error occurred: {str(e)}")
         raise e
 
 
 @app.task
 def fetch_latest_glm_tx():
+    print("Starting fetch_latest_glm_tx task")
     try:
         index = TransactionScraperIndex.objects.get(id=1)
         if not index.indexed_before or index.latest_timestamp_indexed is None:
+            print("Index not initialized, skipping fetch")
             return
         epoch_now = int(timezone.now().timestamp())
         latest_timestamp = int(index.latest_timestamp_indexed.timestamp())
+        print(f"Fetching transactions from {latest_timestamp} to {epoch_now}")
+        
         url = f"http://erc20-api/erc20/api/stats/transfers?chain=137&receiver=all&from={latest_timestamp}&to={epoch_now}"
+        print(f"Making request to URL: {url}")
         response = requests.get(url)
         if response.status_code != 200:
+            print(f"Error response from API: {response.status_code}")
             raise Exception(
                 f"Failed to fetch updates. Status code: {response.status_code}"
             )
 
         data = response.json()
-        print(data)
+        print("Response data:", data)
         transfers = data.get("transfers", [])
         if not transfers:
             print("No new transactions")
@@ -1365,11 +1387,13 @@ def fetch_latest_glm_tx():
         latest_block_timestamp = 0
         golem_transactions = []
         from_addrs = {t["fromAddr"] for t in transfers}
+        print(f"Found {len(from_addrs)} unique sender addresses")
         known_senders = set(
             Requestors.objects.filter(node_id__in=from_addrs).values_list(
                 "node_id", flat=True
             )
         )
+        print(f"Found {len(known_senders)} known senders")
 
         for t in transfers:
             timestamp = datetime.utcfromtimestamp(t["blockTimestamp"]).replace(
@@ -1395,6 +1419,7 @@ def fetch_latest_glm_tx():
                 )
             )
 
+        print(f"Bulk creating {len(golem_transactions)} transactions")
         GolemTransactions.objects.bulk_create(golem_transactions, ignore_conflicts=True)
         index.latest_timestamp_indexed = datetime.utcfromtimestamp(
             latest_block_timestamp + 1
@@ -1402,6 +1427,7 @@ def fetch_latest_glm_tx():
         index.save()
         print(f"New transactions added. Latest timestamp: {latest_block_timestamp}")
     except Exception as e:
+        print(f"Error occurred: {str(e)}")
         raise e
 
 
