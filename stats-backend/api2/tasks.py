@@ -816,7 +816,7 @@ def providers_who_received_tasks():
     if status_code == 200:
         data = content["data"]["result"]
         for obj in data:
-            instance_id = obj["metric"]["instance"]
+            instance_id = obj["metric"]["exported_instance"]
             node, _ = Node.objects.get_or_create(node_id=instance_id)
             try:
                 offer = Offer.objects.get(provider=node, runtime="vm")
@@ -1188,7 +1188,7 @@ def online_nodes_computing():
 
     if data[1] == 200 and data[0]["status"] == "success" and data[0]["data"]["result"]:
         computing_node_ids = [
-            node["metric"]["instance"]
+            node["metric"]["exported_instance"]
             for node in data[0]["data"]["result"]
             if node["values"][-1][1] == "1"
         ]

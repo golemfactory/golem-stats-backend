@@ -424,7 +424,7 @@ def network_node_versions():
 
     for obj in nodes_data:
         try:
-            node_id = obj["metric"]["instance"]
+            node_id = obj["metric"]["exported_instance"]
             version_val = int(obj["value"][1])
 
             if len(str(version_val)) == 2:  # Two-digit version
@@ -898,18 +898,24 @@ def requestor_scraper():
 
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=increase(market_agreements_requestor_approved%7Bexported_job%3D"community.1"%7D%5B{update_frequency}s%5D)&time={time_to_check}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query='
+        + urllib.parse.quote(f'increase(market_agreements_requestor_approved{{exported_job="community.1"}}[{update_frequency}s]) > 0')
+        + f'&time={time_to_check}'
     )
     data = get_stats_data(domain)
+    print(f"Data for {time_to_check} processed", data)
 
     while checkcreated and ninetydaysago < now:
         process_scraper_data(data)
         ninetydaysago += 3600
         domain = (
             os.environ.get("STATS_URL")
-            + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=increase(market_agreements_requestor_approved%7Bexported_job%3D"community.1"%7D%5B3600s%5D)&time={ninetydaysago}'
+            + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query='
+            + urllib.parse.quote(f'increase(market_agreements_requestor_approved{{exported_job="community.1"}}[3600s]) > 0')
+            + f'&time={ninetydaysago}'
         )
         data = get_stats_data(domain)
+        print(f"Data for {ninetydaysago} processed", data)
 
     if not checkcreated:
         process_scraper_data(data)
@@ -921,7 +927,7 @@ def process_scraper_data(data):
             stats_tasks_requested = float(node["value"][1])
             if stats_tasks_requested > 1:
                 obj, _ = Requestors.objects.get_or_create(
-                    node_id=node["metric"]["instance"]
+                    node_id=node["metric"]["exported_instance"]
                 )
                 obj.tasks_requested = (
                     obj.tasks_requested or 0) + stats_tasks_requested
