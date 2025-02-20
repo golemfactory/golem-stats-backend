@@ -104,6 +104,8 @@ class NetworkAveragePricingMax(models.Model):
 class Requestors(models.Model):
     node_id = models.CharField(max_length=42, unique=True)
     tasks_requested = models.FloatField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
 
 class requestor_scraper_check(models.Model):
