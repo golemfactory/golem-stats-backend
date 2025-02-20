@@ -1293,9 +1293,7 @@ def init_golem_tx_scraping():
                     batch = transfers[i: i + BATCH_SIZE]
                     golem_transactions = []
                     for t in batch:
-                        timestamp = datetime.utcfromtimestamp(
-                            t["blockTimestamp"]
-                        ).replace(tzinfo=utc)
+                        timestamp = datetime.fromtimestamp(t["blockTimestamp"], tz=utc)
                         latest_timestamp = max(
                             latest_timestamp, t["blockTimestamp"])
                         transaction_type = (
@@ -1336,9 +1334,7 @@ def init_golem_tx_scraping():
             print("Reached final epoch or current time, updating index")
             index.indexed_before = True
             if latest_timestamp > 0:
-                index.latest_timestamp_indexed = datetime.utcfromtimestamp(
-                    latest_timestamp
-                ).replace(tzinfo=utc)
+                index.latest_timestamp_indexed = datetime.fromtimestamp(latest_timestamp, tz=utc)
             index.save()
             print(f"Index updated with latest timestamp: {latest_timestamp}")
     except Exception as e:
@@ -1386,9 +1382,7 @@ def fetch_latest_glm_tx():
         print(f"Found {len(known_senders)} known senders")
 
         for t in transfers:
-            timestamp = datetime.utcfromtimestamp(t["blockTimestamp"]).replace(
-                tzinfo=timezone.utc
-            )
+            timestamp = datetime.fromtimestamp(t["blockTimestamp"], tz=timezone.utc)
             latest_block_timestamp = max(
                 latest_block_timestamp, t["blockTimestamp"])
             if t["toAddr"] == "0x0b220b82f3ea3b7f6d9a1d8ab58930c064a2b5bf":
@@ -1413,9 +1407,7 @@ def fetch_latest_glm_tx():
         print(f"Bulk creating {len(golem_transactions)} transactions")
         GolemTransactions.objects.bulk_create(
             golem_transactions, ignore_conflicts=True)
-        index.latest_timestamp_indexed = datetime.utcfromtimestamp(
-            latest_block_timestamp + 1
-        ).replace(tzinfo=timezone.utc)
+        index.latest_timestamp_indexed = datetime.fromtimestamp(latest_block_timestamp + 1, tz=timezone.utc)
         index.save()
         print(
             f"New transactions added. Latest timestamp: {latest_block_timestamp}")
