@@ -1214,18 +1214,47 @@ def fetch_and_store_relay_nodes():
             data = response.json()
 
             for node_id, sessions in data.items():
-                if sessions:
+                try:
+                    if not sessions:
+                        continue
+                        
                     node_id = node_id.strip().lower()
-                    ip_port = sessions[0]["peer"].split(":")
-                    ip, port = ip_port[0], int(ip_port[1])
+                    
+                    # Handle case where sessions[0] or peer key doesn't exist
+                    if not sessions[0] or "peer" not in sessions[0]:
+                        continue
+                        
+                    peer = sessions[0]["peer"]
+                    if not peer or ":" not in peer:
+                        continue
+                        
+                    ip_port = peer.split(":")
+                    if len(ip_port) != 2:
+                        continue
+                        
+                    try:
+                        ip, port = ip_port[0], int(ip_port[1])
+                    except (IndexError, ValueError):
+                        continue
 
                     obj, created = RelayNodes.objects.update_or_create(
                         node_id=node_id, defaults={
                             "ip_address": ip, "port": port}
                     )
 
+                except Exception as node_error:
+                    print(f"Error processing node {node_id}: {node_error}")
+                    continue
+
         except requests.RequestException as e:
             print(f"Error fetching data for prefix {prefix:02x}: {e}")
+            continue
+        except ValueError as e:
+            print(f"Error parsing JSON for prefix {prefix:02x}: {e}")
+            continue
+        except Exception as e:
+            print(f"Unexpected error for prefix {prefix:02x}: {e}")
+            continue
 
 
 @app.task
