@@ -1268,21 +1268,20 @@ def init_golem_tx_scraping():
     current_time_epoch = int(datetime.utcnow().replace(tzinfo=utc).timestamp())
     print(f"Current time epoch: {current_time_epoch}")
 
-    start_epoch = 1553165313
+    start_epoch = 1553165313  # March 21, 2019
     print(f"Initial start epoch: {start_epoch}")
 
-    end_epoch = start_epoch + 2592000
-    final_epoch = 1900313287
-    print(f"End epoch: {end_epoch}, Final epoch: {final_epoch}")
+    end_epoch = start_epoch + 2592000  # 30 days in seconds
+    print(f"End epoch: {end_epoch}")
 
     URL_TEMPLATE = "http://erc20-api/erc20/api/stats/transfers?chain=137&receiver=all&from={}&to={}"
 
     try:
         latest_timestamp = 0
-        while start_epoch < min(final_epoch, current_time_epoch):
+        while start_epoch < current_time_epoch:
             print(f"Fetching data from {start_epoch} to {end_epoch}")
             url = URL_TEMPLATE.format(
-                start_epoch, min(end_epoch, final_epoch, current_time_epoch)
+                start_epoch, min(end_epoch, current_time_epoch)
             )
             print(f"Making request to URL: {url}")
             response = requests.get(url)
@@ -1360,17 +1359,15 @@ def init_golem_tx_scraping():
             end_epoch += 2592000
             print(f"Moving to next time period: {start_epoch} to {end_epoch}")
 
-        if current_time_epoch >= final_epoch or start_epoch >= current_time_epoch:
-            print("Reached final epoch or current time, updating index")
-            index.indexed_before = True
-            if latest_timestamp > 0:
-                index.latest_timestamp_indexed = datetime.datetime.fromtimestamp(latest_timestamp, tz=utc)
-            index.save()
-            print(f"Index updated with latest timestamp: {latest_timestamp}")
+        print("Reached current time, updating index")
+        index.indexed_before = True
+        if latest_timestamp > 0:
+            index.latest_timestamp_indexed = datetime.datetime.fromtimestamp(latest_timestamp, tz=utc)
+        index.save()
+        print(f"Index updated with latest timestamp: {latest_timestamp}")
     except Exception as e:
         print(f"Error occurred: {str(e)}")
         raise e
-
 
 @app.task
 def fetch_latest_glm_tx():
