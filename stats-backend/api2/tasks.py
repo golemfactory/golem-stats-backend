@@ -1261,9 +1261,16 @@ def fetch_and_store_relay_nodes():
 @app.task
 def init_golem_tx_scraping():
     print("Starting init_golem_tx_scraping task")
+    
+    # Get or create the index
     index, _ = TransactionScraperIndex.objects.get_or_create(
         id=1, defaults={"indexed_before": False, "latest_timestamp_indexed": None}
     )
+
+    # Check if we've already done the initial indexing
+    if index.indexed_before:
+        print("Initial indexing has already been completed. Use fetch_latest_glm_tx for updates.")
+        return
 
     current_time_epoch = int(datetime.utcnow().replace(tzinfo=utc).timestamp())
     print(f"Current time epoch: {current_time_epoch}")
