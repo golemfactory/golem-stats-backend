@@ -14,7 +14,7 @@ import json
 import subprocess
 import os
 import statistics
-from api.utils import get_stats_data
+from api.utils import get_stats_data, get_stats_data_v2
 import time
 import redis
 from django.conf import settings
@@ -883,52 +883,62 @@ def market_agreement_termination_reasons():
 @app.task
 def requestor_scraper():
     checker, checkcreated = requestor_scraper_check.objects.get_or_create(id=1)
-    update_frequency = 10  # Default to last 10 seconds
+    update_frequency = 10
+
     if checkcreated:
         checker.indexed_before = True
         checker.save()
         now = round(time.time())
         ninetydaysago = now - 7776000
-        update_frequency = 3600  # Update to last 90 days in hourly increments
+        update_frequency = 3600
+        time_to_check = ninetydaysago
+    else:
+        time_to_check = round(time.time() - update_frequency)
 
-    time_to_check = (
-        ninetydaysago if checkcreated else round(
-            time.time() - update_frequency)
+    query = f'increase(market_agreements_requestor_approved{{exported_job="community.1"}}[{update_frequency}s]) > 0'
+
+    data = get_stats_data_v2(
+        query=query,
+        time_from=time_to_check,
+        time_to=time_to_check
     )
 
-    domain = (
-        os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query='
-        + urllib.parse.quote(f'increase(market_agreements_requestor_approved{{exported_job="community.1"}}[{update_frequency}s]) > 0')
-        + f'&time={time_to_check}'
-    )
-    data = get_stats_data(domain)
-    print(f"Data for {time_to_check} processed", data)
+    if data[1] == 200 and data[0].get('results', {}).get('A', {}).get('frames'):
+        frames = data[0]['results']['A']['frames']
 
-    while checkcreated and ninetydaysago < now:
-        process_scraper_data(data)
-        ninetydaysago += 3600
-        domain = (
-            os.environ.get("STATS_URL")
-            + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query='
-            + urllib.parse.quote(f'increase(market_agreements_requestor_approved{{exported_job="community.1"}}[3600s]) > 0')
-            + f'&time={ninetydaysago}'
-        )
-        data = get_stats_data(domain)
-        print(f"Data for {ninetydaysago} processed", data)
+        for frame in frames:
+            if 'data' not in frame or 'values' not in frame['data']:
+                continue
 
-    if not checkcreated:
-        process_scraper_data(data)
+            # Get the requestor address from the fields
+            requestor_address = None
+            for field in frame['schema']['fields']:
+                if field.get('type') == 'number':
+                    labels = field.get('labels', {})
+                    requestor_address = labels.get('exported_instance')
+                    if requestor_address:
+                        break
+
+            if not requestor_address:
+                continue
+
+            # Get the value from the data
+            values = frame['data']['values']
+            if len(values) >= 2 and len(values[1]) > 0:
+                tasks_count = float(values[1][0])
+
+                try:
+                    # Create or update the Requestors object
+                    obj, created = Requestors.objects.get_or_create(
+                        node_id=requestor_address,
+                        defaults={'tasks_requested': tasks_count}
+                    )
+                    
+                    if not created:
+                        obj.tasks_requested = (obj.tasks_requested or 0) + tasks_count
+                        obj.save()
+
+                except Exception as e:
+                    print(f"Error saving requestor data: {e}")
 
 
-def process_scraper_data(data):
-    if data[1] == 200 and data[0]["data"]["result"]:
-        for node in data[0]["data"]["result"]:
-            stats_tasks_requested = float(node["value"][1])
-            if stats_tasks_requested > 1:
-                obj, _ = Requestors.objects.get_or_create(
-                    node_id=node["metric"]["exported_instance"]
-                )
-                obj.tasks_requested = (
-                    obj.tasks_requested or 0) + stats_tasks_requested
-                obj.save()
