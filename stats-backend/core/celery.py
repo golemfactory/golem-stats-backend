@@ -134,7 +134,7 @@ def setup_periodic_tasks(sender, **kwargs):
         options={"queue": "default", "routing_key": "default"},
     )
     sender.add_periodic_task(
-        3600,
+        60,
         init_golem_tx_scraping.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
