@@ -1264,7 +1264,11 @@ def init_golem_tx_scraping():
     
     # Get or create the index
     index, _ = TransactionScraperIndex.objects.get_or_create(
-        id=1, defaults={"indexed_before": False, "latest_timestamp_indexed": None}
+        id=1, defaults={
+            "indexed_before": False,
+            "latest_timestamp_indexed": None,
+            "currently_indexing": False
+        }
     )
 
     # Check if we've already done the initial indexing
@@ -1272,108 +1276,130 @@ def init_golem_tx_scraping():
         print("Initial indexing has already been completed. Use fetch_latest_glm_tx for updates.")
         return
 
-    current_time_epoch = int(datetime.utcnow().replace(tzinfo=utc).timestamp())
-    print(f"Current time epoch: {current_time_epoch}")
-
-    start_epoch = 1553165313  # March 21, 2019
-    print(f"Initial start epoch: {start_epoch}")
-
-    end_epoch = start_epoch + 2592000  # 30 days in seconds
-    print(f"End epoch: {end_epoch}")
-
-    URL_TEMPLATE = "http://erc20-api/erc20/api/stats/transfers?chain=137&receiver=all&from={}&to={}"
+    # Check if indexing is already in progress
+    if index.currently_indexing:
+        print("Indexing is already in progress. Please wait for it to complete.")
+        return
 
     try:
-        latest_timestamp = 0
-        while start_epoch < current_time_epoch:
-            print(f"Fetching data from {start_epoch} to {end_epoch}")
-            url = URL_TEMPLATE.format(
-                start_epoch, min(end_epoch, current_time_epoch)
-            )
-            print(f"Making request to URL: {url}")
-            response = requests.get(url)
-            if response.status_code != 200:
-                print(f"Error response from API: {response.status_code}")
-                print(url)
-                raise Exception(
-                    f"Failed to fetch data. Status code: {response.status_code}"
+        # Set currently_indexing flag
+        index.currently_indexing = True
+        index.save()
+
+        current_time_epoch = int(datetime.datetime.utcnow().replace(tzinfo=utc).timestamp())
+        print(f"Current time epoch: {current_time_epoch}")
+
+        start_epoch = 1553165313  # March 21, 2019
+        print(f"Initial start epoch: {start_epoch}")
+
+        end_epoch = start_epoch + 2592000  # 30 days in seconds
+        print(f"End epoch: {end_epoch}")
+
+        URL_TEMPLATE = "http://erc20-api/erc20/api/stats/transfers?chain=137&receiver=all&from={}&to={}"
+
+        try:
+            latest_timestamp = 0
+            while start_epoch < current_time_epoch:
+                print(f"Fetching data from {start_epoch} to {end_epoch}")
+                url = URL_TEMPLATE.format(
+                    start_epoch, min(end_epoch, current_time_epoch)
                 )
-
-            data = response.json()
-            transfers = data.get("transfers", [])
-            print(f"Retrieved {len(transfers)} transfers")
-            if not transfers:
-                print("No transfers found, moving to next time period")
-                start_epoch = end_epoch + 1
-                end_epoch += 2592000
-                continue
-
-            BATCH_SIZE = 5000
-            from_addrs = {t["fromAddr"] for t in transfers}
-            print(f"Found {len(from_addrs)} unique sender addresses")
-            known_senders = set(
-                Requestors.objects.filter(node_id__in=from_addrs).values_list(
-                    "node_id", flat=True
-                )
-            ).union(
-                RelayNodes.objects.filter(node_id__in=from_addrs).values_list(
-                    "node_id", flat=True
-                )
-            )
-            print(f"Found {len(known_senders)} known senders")
-
-            for i in range(0, len(transfers), BATCH_SIZE):
-                print(
-                    f"Processing batch {i//BATCH_SIZE + 1} of {(len(transfers)-1)//BATCH_SIZE + 1}")
-                with transaction.atomic():
-                    batch = transfers[i: i + BATCH_SIZE]
-                    golem_transactions = []
-                    for t in batch:
-                        timestamp = datetime.datetime.fromtimestamp(t["blockTimestamp"], tz=utc)
-                        latest_timestamp = max(
-                            latest_timestamp, t["blockTimestamp"])
-                        transaction_type = (
-                            "batched"
-                            if t["toAddr"]
-                            == "0x50100d4faf5f3b09987dea36dc2eddd57a3e561b"
-                            else (
-                                "singleTransfer"
-                                if t["toAddr"]
-                                == "0x0b220b82f3ea3b7f6d9a1d8ab58930c064a2b5bf"
-                                else None
-                            )
-                        )
-
-                        golem_transactions.append(
-                            GolemTransactions(
-                                txhash=t["txHash"],
-                                scanner_id=t["id"],
-                                amount=int(t["tokenAmount"]) / 1e18,
-                                timestamp=timestamp,
-                                transaction_type=transaction_type,
-                                receiver=t["receiverAddr"],
-                                sender=t["fromAddr"],
-                                tx_from_golem=t["fromAddr"] in known_senders,
-                            )
-                        )
-                    print(
-                        f"Bulk creating {len(golem_transactions)} transactions")
-                    GolemTransactions.objects.bulk_create(
-                        golem_transactions, ignore_conflicts=True
+                print(f"Making request to URL: {url}")
+                response = requests.get(url)
+                if response.status_code != 200:
+                    print(f"Error response from API: {response.status_code}")
+                    print(url)
+                    raise Exception(
+                        f"Failed to fetch data. Status code: {response.status_code}"
                     )
 
-            start_epoch = end_epoch + 1
-            end_epoch += 2592000
-            print(f"Moving to next time period: {start_epoch} to {end_epoch}")
+                data = response.json()
+                transfers = data.get("transfers", [])
+                print(f"Retrieved {len(transfers)} transfers")
+                if not transfers:
+                    print("No transfers found, moving to next time period")
+                    start_epoch = end_epoch + 1
+                    end_epoch += 2592000
+                    continue
 
-        print("Reached current time, updating index")
-        index.indexed_before = True
-        if latest_timestamp > 0:
-            index.latest_timestamp_indexed = datetime.datetime.fromtimestamp(latest_timestamp, tz=utc)
-        index.save()
-        print(f"Index updated with latest timestamp: {latest_timestamp}")
+                BATCH_SIZE = 5000
+                from_addrs = {t["fromAddr"] for t in transfers}
+                print(f"Found {len(from_addrs)} unique sender addresses")
+                known_senders = set(
+                    Requestors.objects.filter(node_id__in=from_addrs).values_list(
+                        "node_id", flat=True
+                    )
+                ).union(
+                    RelayNodes.objects.filter(node_id__in=from_addrs).values_list(
+                        "node_id", flat=True
+                    )
+                )
+                print(f"Found {len(known_senders)} known senders")
+
+                for i in range(0, len(transfers), BATCH_SIZE):
+                    print(
+                        f"Processing batch {i//BATCH_SIZE + 1} of {(len(transfers)-1)//BATCH_SIZE + 1}")
+                    with transaction.atomic():
+                        batch = transfers[i: i + BATCH_SIZE]
+                        golem_transactions = []
+                        for t in batch:
+                            timestamp = datetime.datetime.fromtimestamp(t["blockTimestamp"], tz=utc)
+                            latest_timestamp = max(
+                                latest_timestamp, t["blockTimestamp"])
+                            transaction_type = (
+                                "batched"
+                                if t["toAddr"]
+                                == "0x50100d4faf5f3b09987dea36dc2eddd57a3e561b"
+                                else (
+                                    "singleTransfer"
+                                    if t["toAddr"]
+                                    == "0x0b220b82f3ea3b7f6d9a1d8ab58930c064a2b5bf"
+                                    else None
+                                )
+                            )
+
+                            golem_transactions.append(
+                                GolemTransactions(
+                                    txhash=t["txHash"],
+                                    scanner_id=t["id"],
+                                    amount=int(t["tokenAmount"]) / 1e18,
+                                    timestamp=timestamp,
+                                    transaction_type=transaction_type,
+                                    receiver=t["receiverAddr"],
+                                    sender=t["fromAddr"],
+                                    tx_from_golem=t["fromAddr"] in known_senders,
+                                )
+                            )
+                        print(
+                            f"Bulk creating {len(golem_transactions)} transactions")
+                        GolemTransactions.objects.bulk_create(
+                            golem_transactions, ignore_conflicts=True
+                        )
+
+                start_epoch = end_epoch + 1
+                end_epoch += 2592000
+                print(f"Moving to next time period: {start_epoch} to {end_epoch}")
+
+            print("Reached current time, updating index")
+            index.indexed_before = True
+            index.currently_indexing = False  # Reset the flag
+            if latest_timestamp > 0:
+                index.latest_timestamp_indexed = datetime.datetime.fromtimestamp(latest_timestamp, tz=utc)
+            index.save()
+            print(f"Index updated with latest timestamp: {latest_timestamp}")
+
+        except Exception as e:
+            # Make sure to reset the flag even if there's an error
+            index.currently_indexing = False
+            index.save()
+            print(f"Error occurred in data processing: {str(e)}")
+            raise e
+
     except Exception as e:
-        print(f"Error occurred: {str(e)}")
+        # Make sure to reset the flag even if there's an error in the outer try block
+        index.currently_indexing = False
+        index.save()
+        print(f"Error occurred in task setup: {str(e)}")
         raise e
 
 @app.task

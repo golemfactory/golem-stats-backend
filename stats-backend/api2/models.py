@@ -162,3 +162,4 @@ class GolemTransactions(models.Model):
 class TransactionScraperIndex(models.Model):
     indexed_before = models.BooleanField(default=False)
     latest_timestamp_indexed = models.DateTimeField(null=True, blank=True)
+    currently_indexing = models.BooleanField(default=False)
