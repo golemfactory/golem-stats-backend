@@ -179,9 +179,9 @@ async def activity_graph_provider(request, yagna_id):
     start = end - 86400  # 24 hours
 
     query = (
-        f'activity_provider_created{{hostname=~"{yagna_id}", job=~"community.1"}}'
+        f'activity_provider_created{{exported_instance="{yagna_id}", exported_job=~"community.1"}}'
         " - "
-        f'activity_provider_destroyed{{hostname=~"{yagna_id}", job=~"community.1"}}'
+        f'activity_provider_destroyed{{exported_instance="{yagna_id}", exported_job=~"community.1"}}'
     )
 
     encoded_query = urllib.parse.quote(query)
