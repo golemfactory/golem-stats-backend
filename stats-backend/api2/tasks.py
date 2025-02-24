@@ -985,7 +985,7 @@ def chart_pricing_data_for_frontend():
                 )
         return data
 
-    now = datetime.now()
+    now = timezone.now()
     seven_days_ago = now - timedelta(days=7)
     one_month_ago = now - timedelta(days=30)
     six_months_ago = now - timedelta(days=30 * 6)
