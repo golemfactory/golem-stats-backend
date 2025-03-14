@@ -400,7 +400,7 @@ def network_utilization_to_redis():
     start = end - 21600
     domain = (
         os.environ.get("STATS_URL")
-        + f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=sum(activity_provider_created%7Bexported_job%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bexported_job%3D~%22community.1%22%7D)&start={start}&end={end}&step=30"
+        + f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=sum(market_agreements_provider_approved%7Bexported_job%3D~%22community.1%22%7D%20-%market_agreements_provider_terminated%7Bexported_job%3D~%22community.1%22%7D)&start={start}&end={end}&step=30"
     )
     content = get_stats_data(domain)
     if content[1] == 200:
