@@ -5,7 +5,6 @@ import logging
 from celery.schedules import crontab
 
 
-
 logger = logging.getLogger("Celery")
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
@@ -75,8 +74,14 @@ def setup_periodic_tasks(sender, **kwargs):
         daily_volume_golem_vs_chain,
         computing_total_over_time,
         extract_wallets_and_ids,
+        golem_base_scraper_wrapper,
     )
-    v2_offer_scraper.apply_async(args=["ray-on-golem-heads"], queue="yagna", routing_key="yagna")
+    sender.add_periodic_task(
+        20.0,
+        golem_base_scraper_wrapper.s(),
+    )
+    v2_offer_scraper.apply_async(
+        args=["ray-on-golem-heads"], queue="yagna", routing_key="yagna")
     v2_offer_scraper.apply_async(queue="yagna", routing_key="yagna")
     sender.add_periodic_task(
         60,
