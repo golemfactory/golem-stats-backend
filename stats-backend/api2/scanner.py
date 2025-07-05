@@ -5,7 +5,6 @@ import json
 import redis
 import pathlib
 import sys
-import os
 import subprocess
 import requests
 from datetime import datetime, timedelta
@@ -309,11 +308,8 @@ def golem_base_offer_scraper():
     Fetches offers from the golem-base RPC endpoint, transforms them,
     and passes them to the update_providers_info task.
     """
-    url = 'https://rpc.private.kaolin.holesky.golem-base.io'
+    url = 'https://marketplace.holesky.golem-base.io/rpc'
     headers = {'Content-Type': 'application/json'}
-    username = os.environ.get("GOLEM_BASE_USERNAME")
-    password = os.environ.get("GOLEM_BASE_PASSWORD")
-    auth = (username, password) if username and password else None
     payload = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -322,7 +318,7 @@ def golem_base_offer_scraper():
     }
 
     try:
-        response = requests.post(url, headers=headers, json=payload, auth=auth)
+        response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status()
         offers = response.json().get('result', [])
         
@@ -378,7 +374,6 @@ async def monitor_nodes_status(subnet_tag: str = "public"):
         await asyncio.wait_for(
             list_offers(
                 Configuration(api_config=ApiConfig(
-                    yagna_api_url="https://rpc.private.kaolin.holesky.golem-base.io",
                     app_key="stats"
                 )),
                 subnet_tag=subnet_tag,
