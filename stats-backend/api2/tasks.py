@@ -686,17 +686,6 @@ def v2_offer_scraper(subnet_tag="public"):
         args=[subnet_tag], countdown=5, queue='yagna', routing_key='yagna')
 
 
-@app.task
-def golem_base_scraper_wrapper():
-    """
-    Wrapper task to avoid circular import issues.
-    This task is scheduled by Celery Beat and it triggers
-    the actual scraper task located in scanner.py.
-    """
-    from .scanner import golem_base_offer_scraper
-    golem_base_offer_scraper.delay()
-
-
 @app.task(queue="yagna")
 def healthcheck_provider(node_id, network, taskId):
     command = f"cd /stats-backend/healthcheck && npm i && node start.mjs {node_id} {network} {taskId}"
