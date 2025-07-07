@@ -686,6 +686,17 @@ def v2_offer_scraper(subnet_tag="public"):
         args=[subnet_tag], countdown=5, queue='yagna', routing_key='yagna')
 
 
+@app.task
+def golem_base_scraper_wrapper():
+    """
+    Wrapper task to avoid circular import issues.
+    This task is scheduled by Celery Beat and it triggers
+    the actual scraper task located in scanner.py.
+    """
+    from .scanner import golem_base_offer_scraper
+    golem_base_offer_scraper.delay()
+
+
 @app.task(queue="yagna")
 def healthcheck_provider(node_id, network, taskId):
     command = f"cd /stats-backend/healthcheck && npm i && node start.mjs {node_id} {network} {taskId}"
@@ -811,7 +822,7 @@ def providers_who_received_tasks():
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=increase(payment_invoices_provider_accepted%7Bexported_job%3D%22community.1%22%7D%5B10m%5D)%20%3E%200&start={now}&end={now}&step=5"
+        + f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=increase(payment_invoices_provider_accepted%7Bexported_job%3D%22{settings.GRAFANA_JOB_NAME}%22%7D%5B10m%5D)%20%3E%200&start={now}&end={now}&step=5"
     )
     content, status_code = get_stats_data(domain)
     if status_code == 200:
@@ -1183,7 +1194,7 @@ def count_cpu_architecture():
 def online_nodes_computing():
     end = round(time.time())
     start = end - 10
-    query = 'activity_provider_created{job="community.1"} - activity_provider_destroyed{job="community.1"}'
+    query = f'activity_provider_created{{job="{settings.GRAFANA_JOB_NAME}"}} - activity_provider_destroyed{{job="{settings.GRAFANA_JOB_NAME}"}}'
     url = f"{os.environ.get('STATS_URL')}api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query={urllib.parse.quote(query)}&start={start}&end={end}&step=1"
     data = get_stats_data(url)
 

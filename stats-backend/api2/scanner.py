@@ -136,8 +136,8 @@ def update_providers_info(node_props):
             continue
 
         vectors = {}
-        if data["golem.runtime.name"] in ("vm", "vm-nvidia"):
-            for key, value in enumerate(data["golem.com.usage.vector"]):
+        if data.get("golem.runtime.name") in ("vm", "vm-nvidia"):
+            for key, value in enumerate(data.get("golem.com.usage.vector", [])):
                 vectors[value] = key
             MAX_PRICE_CAP_VALUE = 9999999
             monthly_pricing = (
@@ -238,6 +238,101 @@ def update_providers_info(node_props):
             ['wallet', 'network', 'type', 'updated_at']
         )
     print(f"Done updating {len(provider_ids)} providers")
+
+import base64
+
+def flatten_properties(props, prefix=''):
+    """
+    Recursively flattens a nested dictionary, handling '@tag' patterns as used in golem-base offers.
+    If a dict contains '@tag', the value of '@tag' is assigned to the current key, and the rest of the dict
+    is flattened under a new prefix using the tag value as the next key.
+    """
+    flat_props = {}
+    for key, value in props.items():
+        new_key = f"{prefix}.{key}" if prefix else key
+        if isinstance(value, dict):
+            # Special handling for golem root
+            if key == 'golem':
+                flat_props.update(flatten_properties(value, 'golem'))
+            # Handle @tag pattern
+            elif '@tag' in value:
+                tag_value = value['@tag']
+                flat_props[new_key] = tag_value
+                # The tag's value becomes part of the prefix for the rest of the items
+                tag_content = value.get(tag_value, {})
+                if isinstance(tag_content, dict):
+                    flat_props.update(flatten_properties(tag_content, f"{new_key}.{tag_value}"))
+                else:
+                    # In case the structure is not as expected, avoid crashing
+                    print(f"Warning: @tag structure for {new_key} is not a dict.")
+            else:
+                flat_props.update(flatten_properties(value, new_key))
+        else:
+            flat_props[new_key] = value
+    return flat_props
+
+def transform_golem_base_offer(offer_data):
+    """
+    Transforms a single offer from golem-base format to the format expected by update_providers_info.
+    """
+    try:
+        # Decode the base64 'value' field
+        decoded_value_bytes = base64.b64decode(offer_data['value'])
+        decoded_value_str = decoded_value_bytes.decode('utf-8')
+        value_json = json.loads(decoded_value_str)
+
+        # Flatten the properties
+        properties = flatten_properties(value_json.get('properties', {}))
+        
+        # Add other top-level fields from the decoded value
+        properties['golem.com.cgroup.version'] = value_json.get('cgroupVersion', 'unknown')
+        properties['golem.com.expiration'] = value_json.get('expiration', 'unknown')
+
+        # Map providerId to node_id
+        properties['node_id'] = value_json.get('providerId')
+
+        # Identify wallet and network
+        wallet, network = identify_wallet_and_network(properties)
+        properties['wallet'] = wallet
+        properties['network'] = network
+
+        return properties
+    except (json.JSONDecodeError, KeyError, TypeError, base64.binascii.Error) as e:
+        print(f"Error transforming golem-base offer: {e}")
+        return None
+
+@app.task
+def golem_base_offer_scraper():
+    """
+    Fetches offers from the golem-base RPC endpoint, transforms them,
+    and passes them to the update_providers_info task.
+    """
+    url = 'https://marketplace.holesky.golem-base.io/rpc'
+    headers = {'Content-Type': 'application/json'}
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "golembase_queryEntities",
+        "params": ["golem_marketplace_type=\"Offer\""]
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        offers = response.json().get('result', [])
+        
+        transformed_offers = []
+        for offer in offers:
+            transformed = transform_golem_base_offer(offer)
+            if transformed:
+                transformed_offers.append(json.dumps(transformed))
+        
+        if transformed_offers:
+            print(f"Found {len(transformed_offers)} offers from golem-base. Sending to update_providers_info.")
+            update_providers_info.delay(transformed_offers)
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching offers from golem-base: {e}")
 
 
 examples_dir = pathlib.Path(__file__).resolve().parent.parent

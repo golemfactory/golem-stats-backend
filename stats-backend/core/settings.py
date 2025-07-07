@@ -42,6 +42,9 @@ GOLEM_MAINNET_KEYS = [
 ]
 
 
+GRAFANA_JOB_NAME = os.environ.get("GRAFANA_JOB_NAME", "community.1")
+
+
 TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)

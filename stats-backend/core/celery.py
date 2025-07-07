@@ -3,7 +3,7 @@ import os
 from celery import Celery
 import logging
 from celery.schedules import crontab
-
+from django.conf import settings
 
 
 logger = logging.getLogger("Celery")
@@ -75,9 +75,17 @@ def setup_periodic_tasks(sender, **kwargs):
         daily_volume_golem_vs_chain,
         computing_total_over_time,
         extract_wallets_and_ids,
+        golem_base_scraper_wrapper,
     )
-    v2_offer_scraper.apply_async(args=["ray-on-golem-heads"], queue="yagna", routing_key="yagna")
-    v2_offer_scraper.apply_async(queue="yagna", routing_key="yagna")
+    if settings.GRAFANA_JOB_NAME == "golembase":
+        sender.add_periodic_task(
+            20.0,
+            golem_base_scraper_wrapper.s(),
+        )
+    else:
+        v2_offer_scraper.apply_async(
+            args=["ray-on-golem-heads"], queue="yagna", routing_key="yagna")
+        v2_offer_scraper.apply_async(queue="yagna", routing_key="yagna")
     sender.add_periodic_task(
         60,
         computing_total_over_time.s(),

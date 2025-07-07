@@ -179,9 +179,9 @@ async def activity_graph_provider(request, yagna_id):
     start = end - 86400  # 24 hours
 
     query = (
-        f'activity_provider_created{{exported_instance="{yagna_id}", exported_job=~"community.1"}}'
+        f'activity_provider_created{{exported_instance="{yagna_id}", exported_job=~"{settings.GRAFANA_JOB_NAME}"}}'
         " - "
-        f'activity_provider_destroyed{{exported_instance="{yagna_id}", exported_job=~"community.1"}}'
+        f'activity_provider_destroyed{{exported_instance="{yagna_id}", exported_job=~"{settings.GRAFANA_JOB_NAME}"}}'
     )
 
     encoded_query = urllib.parse.quote(query)
@@ -200,7 +200,7 @@ async def payments_last_n_hours_provider(request, yagna_id, hours):
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_amount_received%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{hours}h%5D)%2F10%5E9)&time={now}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_amount_received%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"{settings.GRAFANA_JOB_NAME}"%7D%5B{hours}h%5D)%2F10%5E9)&time={now}'
     )
     data = await get_yastats_data(domain)
     if data[1] == 200:
@@ -238,7 +238,7 @@ async def payments_earnings_provider(request, yagna_id):
         "STATS_URL") + "api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query"
 
     for interval in time_intervals:
-        query_url = f'{base_url}?query=sum(increase(payment_amount_received%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%5B{interval}h%5D)%2F10%5E9)&time={now}'
+        query_url = f'{base_url}?query=sum(increase(payment_amount_received%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"{settings.GRAFANA_JOB_NAME}"%7D%5B{interval}h%5D)%2F10%5E9)&time={now}'
         data = await get_yastats_data(query_url)
 
         if data[1] == 200 and data[0]["data"]["result"]:
@@ -341,7 +341,7 @@ async def provider_computing(request, yagna_id):
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=activity_provider_created%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D%20-%20activity_provider_destroyed%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"community.1"%7D&time={now}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=activity_provider_created%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"{settings.GRAFANA_JOB_NAME}"%7D%20-%20activity_provider_destroyed%7Binstance%3D~"{yagna_id}"%2C%20job%3D~"{settings.GRAFANA_JOB_NAME}"%7D&time={now}'
     )
     data = await get_yastats_data(domain)
     if data[1] == 200:

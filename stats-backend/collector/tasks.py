@@ -400,7 +400,7 @@ def network_utilization_to_redis():
     start = end - 21600
     domain = (
         os.environ.get("STATS_URL")
-        + f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=sum(market_agreements_provider_approved%7Bexported_job%3D~%22community.1%22%7D%20-%20market_agreements_provider_terminated%7Bexported_job%3D~%22community.1%22%7D)&start={start}&end={end}&step=30"
+        + f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=sum(market_agreements_provider_approved%7Bexported_job%3D~%22{settings.GRAFANA_JOB_NAME}%22%7D%20-%20market_agreements_provider_terminated%7Bexported_job%3D~%22{settings.GRAFANA_JOB_NAME}%22%7D)&start={start}&end={end}&step=30"
     )
     content = get_stats_data(domain)
     if content[1] == 200:
@@ -415,7 +415,7 @@ def network_node_versions():
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=yagna_version_major%7Bexported_job%3D"community.1"%7D*100%2Byagna_version_minor%7Bexported_job%3D"community.1"%7D*10%2Byagna_version_patch%7Bexported_job%3D"community.1"%7D&time={now}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=yagna_version_major%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%7D*100%2Byagna_version_minor%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%7D*10%2Byagna_version_patch%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%7D&time={now}'
     )
     data = get_stats_data(domain)
     nodes_data = data[0]["data"]["result"]
@@ -453,7 +453,7 @@ def network_versions_to_redis():
     now = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=count_values("version"%2C%20yagna_version_major%7Bexported_job%3D"community.1"%7D*100%2Byagna_version_minor%7Bexported_job%3D"community.1"%7D*10%2Byagna_version_patch%7Bexported_job%3D"community.1"%7D)&start={now}&end={now}&step=5'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=count_values("version"%2C%20yagna_version_major%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%7D*100%2Byagna_version_minor%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%7D*10%2Byagna_version_patch%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%7D)&start={now}&end={now}&step=5'
     )
     content = get_stats_data(domain)
     print(content)
@@ -564,7 +564,7 @@ def get_earnings(platform, hours):
     domain = (
         os.environ.get("STATS_URL") +
         f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query="
-        f'sum(increase(payment_amount_received%7Bexported_job%3D~"community.1"%2C%20platform%3D"{platform}"%7D%5B{hours}%5D)%2F10%5E9)&time={end}'
+        f'sum(increase(payment_amount_received%7Bexported_job%3D~"{settings.GRAFANA_JOB_NAME}"%2C%20platform%3D"{platform}"%7D%5B{hours}%5D)%2F10%5E9)&time={end}'
     )
     data = get_stats_data(domain)
     if data[1] == 200 and data[0]["data"]["result"]:
@@ -622,7 +622,7 @@ def network_total_earnings():
     for network in network_types:
         domain = (
             os.environ.get("STATS_URL")
-            + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_amount_received%7Bexported_job%3D~"community.1"%2C%20platform%3D"{network}"%7D%5B2m%5D)%2F10%5E9)&time={end}'
+            + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_amount_received%7Bexported_job%3D~"{settings.GRAFANA_JOB_NAME}"%2C%20platform%3D"{network}"%7D%5B2m%5D)%2F10%5E9)&time={end}'
         )
         update_total_earnings(domain)
 
@@ -683,7 +683,7 @@ def computing_now_to_redis():
     start = round(time.time()) - int(10)
     domain = (
         os.environ.get("STATS_URL")
-        + f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=sum(activity_provider_created%7Bexported_job%3D~%22community.1%22%7D%20-%20activity_provider_destroyed%7Bexported_job%3D~%22community.1%22%7D)&start={start}&end={end}&step=1"
+        + f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=sum(activity_provider_created%7Bexported_job%3D~%22{settings.GRAFANA_JOB_NAME}%22%7D%20-%20activity_provider_destroyed%7Bexported_job%3D~%22{settings.GRAFANA_JOB_NAME}%22%7D)&start={start}&end={end}&step=1"
     )
     data = get_stats_data(domain)
     if data[1] == 200:
@@ -707,7 +707,7 @@ def providers_average_earnings_to_redis():
     for platform in platforms:
         domain = (
             os.environ.get("STATS_URL")
-            + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=avg(increase(payment_amount_received%7Bexported_job%3D~"community.1"%2C%20platform%3D"{platform}"%7D%5B24h%5D)%2F10%5E9)&time={end}'
+            + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=avg(increase(payment_amount_received%7Bexported_job%3D~"{settings.GRAFANA_JOB_NAME}"%2C%20platform%3D"{platform}"%7D%5B24h%5D)%2F10%5E9)&time={end}'
         )
         data = get_stats_data(domain)
         if data[1] == 200 and data[0]["data"]["result"]:
@@ -727,7 +727,7 @@ def paid_invoices_1h():
     end = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_invoices_provider_paid%7Bexported_job%3D~"community.1"%7D%5B1h%5D))%2Fsum(increase(payment_invoices_provider_sent%7Bexported_job%3D~"community.1"%7D%5B1h%5D))&time={end}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_invoices_provider_paid%7Bexported_job%3D~"{settings.GRAFANA_JOB_NAME}"%7D%5B1h%5D))%2Fsum(increase(payment_invoices_provider_sent%7Bexported_job%3D~"{settings.GRAFANA_JOB_NAME}"%7D%5B1h%5D))&time={end}'
     )
     data = get_stats_data(domain)
     if data[1] == 200:
@@ -744,7 +744,7 @@ def provider_accepted_invoices_1h():
     end = round(time.time())
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_invoices_provider_accepted%7Bexported_job%3D~"community.1"%7D%5B1h%5D))%2Fsum(increase(payment_invoices_provider_sent%7Bexported_job%3D~"community.1"%7D%5B1h%5D))&time={end}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_invoices_provider_accepted%7Bexported_job%3D~"{settings.GRAFANA_JOB_NAME}"%7D%5B1h%5D))%2Fsum(increase(payment_invoices_provider_sent%7Bexported_job%3D~"{settings.GRAFANA_JOB_NAME}"%7D%5B1h%5D))&time={end}'
     )
     data = get_stats_data(domain)
     if data[1] == 200:
@@ -823,7 +823,7 @@ def market_agreement_termination_reasons():
     content = {}
     domain_success = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"community.1"%2C%20reason%3D"Success"%7D%5B1h%5D))&time={end}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%2C%20reason%3D"Success"%7D%5B1h%5D))&time={end}'
     )
     data_success = get_stats_data(domain_success)
     if data_success[1] == 200:
@@ -834,7 +834,7 @@ def market_agreement_termination_reasons():
     # Failure
     domain_cancelled = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"community.1"%2C%20reason%3D"Cancelled"%7D%5B6h%5D))&time={end}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%2C%20reason%3D"Cancelled"%7D%5B6h%5D))&time={end}'
     )
     data_cancelled = get_stats_data(domain_cancelled)
     if data_cancelled[1] == 200:
@@ -845,7 +845,7 @@ def market_agreement_termination_reasons():
     # Expired
     domain_expired = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"community.1"%2C%20reason%3D"Expired"%7D%5B6h%5D))&time={end}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%2C%20reason%3D"Expired"%7D%5B6h%5D))&time={end}'
     )
     data_expired = get_stats_data(domain_expired)
     if data_expired[1] == 200:
@@ -856,7 +856,7 @@ def market_agreement_termination_reasons():
     # RequestorUnreachable
     domain_unreachable = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"community.1"%2C%20reason%3D"RequestorUnreachable"%7D%5B6h%5D))&time={end}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%2C%20reason%3D"RequestorUnreachable"%7D%5B6h%5D))&time={end}'
     )
     data_unreachable = get_stats_data(domain_unreachable)
     if data_unreachable[1] == 200:
@@ -868,7 +868,7 @@ def market_agreement_termination_reasons():
     # DebitNotesDeadline
     domain_debitdeadline = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"community.1"%2C%20reason%3D"DebitNotesDeadline"%7D%5B6h%5D))&time={end}'
+        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%2C%20reason%3D"DebitNotesDeadline"%7D%5B6h%5D))&time={end}'
     )
     data_debitdeadline = get_stats_data(domain_debitdeadline)
     if data_debitdeadline[1] == 200:
@@ -895,7 +895,7 @@ def requestor_scraper():
     else:
         time_to_check = round(time.time() - update_frequency)
 
-    query = f'increase(market_agreements_requestor_approved{{exported_job="community.1"}}[{update_frequency}s]) > 0'
+    query = f'increase(market_agreements_requestor_approved{{exported_job="{settings.GRAFANA_JOB_NAME}"}}[{update_frequency}s]) > 0'
 
     data = get_stats_data_v2(
         query=query,
