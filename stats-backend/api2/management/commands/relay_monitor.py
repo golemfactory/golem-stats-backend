@@ -35,7 +35,7 @@ class Command(BaseCommand):
         self.log_message("Starting initial relay nodes scan...")
         nodes_to_update = {}
 
-        if settings.GRAFANA_JOB_NAME == "golembase":
+        if settings.GRAFANA_JOB_NAME == "golembase-loadtest":
             nodes_to_update.update(self.scan_golembase_nodes())
         else:
             nodes_to_update.update(self.scan_yacn2_nodes())
@@ -102,7 +102,7 @@ class Command(BaseCommand):
 
     async def listen_for_relay_events(self):
         self.log_message('Listening for relay events...')
-        if settings.GRAFANA_JOB_NAME == "golembase":
+        if settings.GRAFANA_JOB_NAME == "golembase-loadtest":
             await self.listen_to_event_source(f"{self.golembase_base_url}/events")
         else:
             await self.listen_to_event_source(f"{self.yacn2_base_url}/events")

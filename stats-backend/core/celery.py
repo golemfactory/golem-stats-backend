@@ -77,7 +77,7 @@ def setup_periodic_tasks(sender, **kwargs):
         extract_wallets_and_ids,
         golem_base_scraper_wrapper,
     )
-    if settings.GRAFANA_JOB_NAME == "golembase":
+    if settings.GRAFANA_JOB_NAME == "golembase-loadtest":
         sender.add_periodic_task(
             20.0,
             golem_base_scraper_wrapper.s(),
