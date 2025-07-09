@@ -307,7 +307,7 @@ def golem_base_offer_scraper():
     Fetches offers from the golem-base RPC endpoint, transforms them,
     and passes them to the update_providers_info task.
     """
-    url = 'https://marketplace.holesky.golem-base.io/rpc'
+    url = 'http://marketplaceloadtests.holesky.golem-base.io/rpc'
     headers = {'Content-Type': 'application/json'}
     payload = {
         "jsonrpc": "2.0",
