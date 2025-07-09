@@ -14,7 +14,7 @@ class Command(BaseCommand):
     help = 'Monitors relay nodes and listens for events'
 
     yacn2_base_url = "http://yacn2.dev.golem.network:9000"
-    golembase_base_url = "http://ya-golembase.dev.golem.network:8000"
+    golembase_base_url = "http://57.129.31.131:8000"
 
     def log_message(self, message, is_error=False):
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
