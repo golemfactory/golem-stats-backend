@@ -111,7 +111,7 @@ class Command(BaseCommand):
         async with aiohttp.ClientSession() as session:
             while True:
                 try:
-                    async with session.get(url) as resp:
+                    async with session.get(url, timeout=None) as resp:
                         self.log_message(f"Connected to event stream at {url} with status {resp.status}")
                         async for line in resp.content:
                             if line:
