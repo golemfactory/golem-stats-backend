@@ -1,5 +1,6 @@
 from .models import NodeStatusHistory, Node
 from django.db.models import Case, When, Value, BooleanField
+from django.conf import settings
 from collector.models import ProvidersComputing
 from django.db.models.functions import TruncDay, Coalesce
 from django.db.models import IntegerField, ExpressionWrapper, Case, When, Avg
