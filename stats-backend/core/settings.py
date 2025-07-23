@@ -42,7 +42,30 @@ GOLEM_MAINNET_KEYS = [
 ]
 
 
+# Network configuration
+NETWORK_TYPE = os.environ.get("NETWORK_TYPE", "hybrid")  # 'hybrid' or 'central'
 GRAFANA_JOB_NAME = os.environ.get("GRAFANA_JOB_NAME", "community.1")
+RELAY_CONFIG = {
+    "hybrid": {
+        "url": os.environ.get("HYBRID_RELAY_URL", "http://yacn2.dev.golem.network:9000")
+    },
+    "central": {
+        "url": os.environ.get("CENTRAL_RELAY_URL", "http://57.129.31.131:8000")
+    }
+}
+
+# Offer Scraper Configuration
+OFFER_SCRAPER_TYPE = os.environ.get("OFFER_SCRAPER_TYPE", "yagna")  # 'yagna' or 'golembase'
+
+OFFER_SCRAPER_CONFIG = {
+    "golembase": {
+        "rpc_url": os.environ.get("GOLEMBASE_RPC_URL", "http://marketplace.holesky.golem-base.io/rpc"),
+        "auth": {
+            "user": os.environ.get("GOLEMBASE_RPC_USER"),
+            "password": os.environ.get("GOLEMBASE_RPC_PASSWORD"),
+        }
+    }
+}
 
 
 TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"

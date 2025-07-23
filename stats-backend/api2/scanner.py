@@ -26,6 +26,7 @@ from .utils import identify_network_by_offer, identify_wallet_and_network
 from django.db import transaction
 from django.db.models import OuterRef, Subquery
 from concurrent.futures import ThreadPoolExecutor
+from django.conf import settings
 
 pool = redis.ConnectionPool(host="redis", port=6379, db=0)
 r = redis.Redis(connection_pool=pool)
@@ -307,7 +308,12 @@ def golem_base_offer_scraper():
     Fetches offers from the golem-base RPC endpoint, transforms them,
     and passes them to the update_providers_info task.
     """
-    url = 'http://marketplaceloadtests.holesky.golem-base.io/rpc'
+    config = settings.OFFER_SCRAPER_CONFIG.get("golembase", {})
+    url = config.get("rpc_url")
+    if not url:
+        print("Golembase RPC URL not configured. Skipping scraper.")
+        return
+
     headers = {'Content-Type': 'application/json'}
     payload = {
         "jsonrpc": "2.0",
@@ -316,8 +322,13 @@ def golem_base_offer_scraper():
         "params": ["golem_marketplace_type=\"Offer\""]
     }
 
+    auth_config = config.get("auth", {})
+    auth = None
+    if auth_config.get("user") and auth_config.get("password"):
+        auth = (auth_config["user"], auth_config["password"])
+
     try:
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, headers=headers, json=payload, auth=auth)
         response.raise_for_status()
         offers = response.json().get('result', [])
         

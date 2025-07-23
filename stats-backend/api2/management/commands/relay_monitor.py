@@ -13,8 +13,6 @@ from django.conf import settings
 class Command(BaseCommand):
     help = 'Monitors relay nodes and listens for events'
 
-    yacn2_base_url = "http://yacn2.dev.golem.network:9000"
-    golembase_base_url = "http://57.129.31.131:8000"
 
     def log_message(self, message, is_error=False):
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -24,7 +22,8 @@ class Command(BaseCommand):
             self.stdout.write(f"[{timestamp}] {message}")
 
     def handle(self, *args, **options):
-        self.log_message('Starting relay monitor...')
+        self.relay_url = settings.RELAY_CONFIG[settings.NETWORK_TYPE]['url']
+        self.log_message(f'Starting relay monitor for {settings.NETWORK_TYPE} network ({self.relay_url})...')
         asyncio.run(self.main())
 
     async def main(self):
@@ -35,7 +34,7 @@ class Command(BaseCommand):
         self.log_message("Starting initial relay nodes scan...")
         nodes_to_update = {}
 
-        if settings.GRAFANA_JOB_NAME == "golembase-loadtest":
+        if settings.NETWORK_TYPE == "central":
             nodes_to_update.update(self.scan_golembase_nodes())
         else:
             nodes_to_update.update(self.scan_yacn2_nodes())
@@ -58,10 +57,10 @@ class Command(BaseCommand):
 
     def scan_yacn2_nodes(self):
         nodes = {}
-        self.log_message("Scanning yacn2 nodes...")
+        self.log_message("Scanning hybrid (yacn2) nodes...")
         for prefix in range(256):
             try:
-                response = requests.get(f"{self.yacn2_base_url}/nodes/{prefix:02x}", timeout=5)
+                response = requests.get(f"{self.relay_url}/nodes/{prefix:02x}", timeout=5)
                 response.raise_for_status()
                 data = response.json()
                 for node_id, sessions in data.items():
@@ -69,14 +68,14 @@ class Command(BaseCommand):
                     is_online = bool(sessions) and any('seen' in item for item in sessions if item)
                     nodes[node_id] = is_online
             except requests.RequestException as e:
-                self.log_message(f"Error fetching data for prefix {prefix:02x} from yacn2: {e}", is_error=True)
+                self.log_message(f"Error fetching data for prefix {prefix:02x} from hybrid relay: {e}", is_error=True)
         return nodes
 
     def scan_golembase_nodes(self):
         nodes = {}
-        self.log_message("Scanning golembase nodes...")
+        self.log_message("Scanning central (golembase) nodes...")
         try:
-            response = requests.get(f"{self.golembase_base_url}/nodes", timeout=10)
+            response = requests.get(f"{self.relay_url}/nodes", timeout=10)
             response.raise_for_status()
             data = response.json()
             for root_key, sessions in data.items():
@@ -97,15 +96,12 @@ class Command(BaseCommand):
                     for node_id in all_ids:
                         nodes[node_id] = True
         except requests.RequestException as e:
-            self.log_message(f"Error fetching data from golembase: {e}", is_error=True)
+            self.log_message(f"Error fetching data from central relay: {e}", is_error=True)
         return nodes
 
     async def listen_for_relay_events(self):
         self.log_message('Listening for relay events...')
-        if settings.GRAFANA_JOB_NAME == "golembase-loadtest":
-            await self.listen_to_event_source(f"{self.golembase_base_url}/events")
-        else:
-            await self.listen_to_event_source(f"{self.yacn2_base_url}/events")
+        await self.listen_to_event_source(f"{self.relay_url}/events")
 
     async def listen_to_event_source(self, url):
         async with aiohttp.ClientSession() as session:
