@@ -59,7 +59,7 @@ OFFER_SCRAPER_TYPE = os.environ.get("OFFER_SCRAPER_TYPE", "yagna")  # 'yagna' or
 
 OFFER_SCRAPER_CONFIG = {
     "golembase": {
-        "rpc_url": os.environ.get("GOLEMBASE_RPC_URL", "http://marketplace.holesky.golem-base.io/rpc"),
+        "rpc_url": os.environ.get("GOLEMBASE_RPC_URL", "https://marketplace.holesky.golem-base.io/rpc"),
         "auth": {
             "user": os.environ.get("GOLEMBASE_RPC_USER"),
             "password": os.environ.get("GOLEMBASE_RPC_PASSWORD"),
