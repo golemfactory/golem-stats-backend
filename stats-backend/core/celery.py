@@ -87,6 +87,12 @@ def setup_periodic_tasks(sender, **kwargs):
             args=["ray-on-golem-heads"], queue="yagna", routing_key="yagna")
         v2_offer_scraper.apply_async(queue="yagna", routing_key="yagna")
     sender.add_periodic_task(
+        20.0,
+        v2_offer_scraper.s(),
+        queue="salad",
+        options={"queue": "salad", "routing_key": "salad"},
+    )
+    sender.add_periodic_task(
         60,
         computing_total_over_time.s(),
         queue="default",
@@ -491,5 +497,6 @@ app.conf.result_backend = "redis://redis:6379/0"
 app.conf.task_routes = {
     "app.tasks.default": {"queue": "default"},
     "app.tasks.yagna": {"queue": "yagna"},
+    "app.tasks.salad": {"queue": "salad"},
 }
 app.conf.broker_connection_retry_on_startup = True
