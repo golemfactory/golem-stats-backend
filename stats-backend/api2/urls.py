@@ -1,6 +1,7 @@
 from django.urls import path
 from django.shortcuts import render
 from . import views
+from .ninja import api as ninja_api
 
 app_name = "api2"
 from .views import (
@@ -53,4 +54,5 @@ urlpatterns = [
     ),
     path("healthcheck/status", healthcheck_status, name="healthcheck_status"),
     path("search-list", views.wallets_and_ids, name="search_list"),
+    path("", ninja_api.urls),
 ]
