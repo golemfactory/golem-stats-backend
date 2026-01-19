@@ -379,7 +379,8 @@ def v2_cheapest_offer():
     recently = timezone.now() - timezone.timedelta(minutes=5)
     data = Offer.objects.filter(
         runtime="vm", updated_at__range=(recently, timezone.now())
-    ).order_by("-monthly_price_glm")
+    ).exclude(monthly_price_glm__isnull=True).order_by("-monthly_price_glm")
+
     serializer = OfferSerializer(data, many=True)
     sorted_data = json.dumps(serializer.data, default=str)
 
@@ -402,9 +403,10 @@ def v2_cheapest_provider():
     )
     data = req.json()
     price = data["market_data"]["current_price"]["usd"]
-    obj = Offer.objects.filter(runtime="vm", provider__online=True).order_by(
-        "monthly_price_glm"
-    )
+    obj = Offer.objects.filter(runtime="vm", provider__online=True) \
+        .exclude(monthly_price_glm__isnull=True) \
+        .order_by("monthly_price_glm")
+
     serializer = OfferSerializer(obj, many=True)
     mainnet_providers = []
     for index, provider in enumerate(serializer.data):

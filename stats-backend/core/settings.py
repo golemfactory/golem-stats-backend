@@ -18,27 +18,15 @@ import json
 
 
 GOLEM_MAINNET_PAYMENT_DRIVERS = [
-    "zksync-mainnet-glm",
-    "erc20-mainnet-glm",
-    "polygon-polygon-glm",
     "erc20-polygon-glm",
-    "erc20next-polygon-glm",
 ]
 GOLEM_TESTNET_KEYS = [
-    "golem.com.payment.platform.erc20-goerli-tglm.address",
-    "golem.com.payment.platform.erc20-amoy-tglm.address",
-    "golem.com.payment.platform.erc20-holesky-tglm.address",
-    "golem.com.payment.platform.erc20-mumbai-tglm.address",
-    "golem.com.payment.platform.erc20next-goerli-tglm.address",
-    "golem.com.payment.platform.erc20next-mumbai-tglm.address",
-    "golem.com.payment.platform.erc20next-holesky-tglm.address",
-    "golem.com.payment.platform.erc20-sepolia-tglm.address",
+    "golem.com.payment.platform.erc20-hoodi-tglm.address",
 ]
 
 GOLEM_MAINNET_KEYS = [
     "golem.com.payment.platform.erc20-mainnet-glm.address",
     "golem.com.payment.platform.erc20-polygon-glm.address",
-    
 ]
 
 
