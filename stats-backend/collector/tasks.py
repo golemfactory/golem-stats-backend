@@ -609,20 +609,19 @@ def network_earnings_overview_new():
 
     min_timestamp = datetime.fromtimestamp(1768937740, tz=timezone.utc)
 
-    all_time_earnings = (
+    all_time_earnings = float(
             GolemTransactions.objects.filter(tx_from_golem=True, timestamp__gte=min_timestamp).aggregate(Sum("amount"))[
                 "amount__sum"
             ]
             or 0.0
     )
 
+    if all_time_earnings > 0:
+        all_time_earnings += 264342.50 # manually added earnings before 2026-01-20
+
     response_data["network_total_earnings"] = {
         "total_earnings": float(all_time_earnings)
     }
-
-    if response_data["network_total_earnings"]:
-        response_data["network_total_earnings"] += 264342.50 # manually added earnings before 2026-01-20
-
 
     r.set("network_earnings_overview_new", json.dumps(response_data))
 
