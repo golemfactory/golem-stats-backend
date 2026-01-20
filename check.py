@@ -59,7 +59,7 @@ def download_and_unpack():
     # 20260120_183131
     print(f"Latest backup found: {filename} (timestamp: {datetime_part})")
 
-    dt_object = datetime.strptime(datetime_part, "%Y%m%d_%H%M%S")
+    dt_object = datetime.datetime.strptime(datetime_part, "%Y%m%d_%H%M%S")
 
     print(f"Parsed timestamp: {dt_object}")
 
