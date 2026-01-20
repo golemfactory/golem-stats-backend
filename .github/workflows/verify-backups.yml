@@ -18,6 +18,16 @@ jobs:
       - name: Verify backups
         run: |
           python -u check.py
-        
-    
+        env:
+          OUTPUT_SQL_PATH: "statsdb.sql"
+
+      - name: Start postgres
+        run: |
+          sudo systemctl start postgresql.service
+
+      - name: Restore database
+        run: |
+          sudo -u postgres psql -c "CREATE DATABASE statsdb;"
+          sudo -u postgres psql statsdb < statsdb.sql
+
 

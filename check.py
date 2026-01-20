@@ -80,6 +80,10 @@ def download_and_unpack():
     local_archive_path = os.path.join(DOWNLOAD_DIR, filename)
     output_sql_path = os.path.splitext(local_archive_path)[0]
 
+    if os.getenv("OUTPUT_SQL_PATH"):
+        output_sql_path = os.getenv("OUTPUT_SQL_PATH")
+        print(f"Using custom output SQL path from environment variable: {output_sql_path}")
+
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
     # 1. Download
