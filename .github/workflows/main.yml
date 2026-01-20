@@ -2,41 +2,41 @@
 
 name: Build and push containers to Dockerhub
 env:
-    DOCKER_USER: ${{ secrets.DOCKER_USER }}
-    DOCKER_PASS: ${{ secrets.DOCKER_PASS }}
+  DOCKER_USER: ${{ secrets.DOCKER_USER }}
+  DOCKER_PASS: ${{ secrets.DOCKER_PASS }}
 
 on:
-    push:
-        branches:
-            - master
-    workflow_dispatch:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
 
 jobs:
-    build:
-        runs-on: ubuntu-latest
-        steps:
-            - name: Git clone on our repo
-              uses: actions/checkout@v2
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git clone on our repo
+        uses: actions/checkout@v2
 
-            - name: Login to Dockerhub
-              run: make login
+      - name: Login to Dockerhub
+        run: make login
 
-            - name: Build Containers
-              run: make build-amd64
+      - name: Build Containers
+        run: make build-amd64
 
-            - name: Push Containers
-              run: make push-amd64
+      - name: Push Containers
+        run: make push-amd64
 
-            - name: SSH deploy
-              uses: appleboy/ssh-action@master
-              with:
-                  host: ${{ secrets.HOST }}
-                  username: ${{ secrets.USERNAME }}
-                  key: ${{ secrets.KEY }}
-                  port: ${{ secrets.PORT }}
-                  script: |
-                      docker service update --force --image ghcr.io/golemfactory/golem-stats-backend:${{ github.sha }} stats_webserver
-                      docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery:${{ github.sha }} stats_celery
-                      docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery-beat:${{ github.sha }} stats_celery_beat
-                      docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery-yagna:${{ github.sha }} stats_yagna_node
-                      docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery-yagna:${{ github.sha }} stats_yagna_node_salad
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1.2.4
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            docker service update --force --image ghcr.io/golemfactory/golem-stats-backend:${{ github.sha }} stats_webserver
+            docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery:${{ github.sha }} stats_celery
+            docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery-beat:${{ github.sha }} stats_celery_beat
+            docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery-yagna:${{ github.sha }} stats_yagna_node
+            docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery-yagna:${{ github.sha }} stats_yagna_node_salad
