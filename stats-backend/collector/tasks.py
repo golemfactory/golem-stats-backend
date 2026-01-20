@@ -559,36 +559,6 @@ def network_versions_to_redis():
         r.set("network_versions", serialized)
 
 
-def get_earnings(platform, hours):
-    end = round(time.time())
-    domain = (
-        os.environ.get("STATS_URL") +
-        f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query="
-        f'sum(increase(payment_amount_received%7Bexported_job%3D~"{settings.GRAFANA_JOB_NAME}"%2C%20platform%3D"{platform}"%7D%5B{hours}%5D)%2F10%5E9)&time={end}'
-    )
-    data = get_stats_data(domain)
-    if data[1] == 200 and data[0]["data"]["result"]:
-        return round(float(data[0]["data"]["result"][0]["value"][1]), 2)
-    return 0.0
-
-
-@app.task
-def network_earnings(hours):
-    # Platforms to check
-    platforms = settings.GOLEM_MAINNET_PAYMENT_DRIVERS
-
-    # Calculating earnings for each platform
-    total_earnings = sum(get_earnings(platform, hours)
-                         for platform in platforms)
-
-    content = {"total_earnings": round(total_earnings, 2)}
-    serialized = json.dumps(content)
-
-    # Assuming 'r' is a Redis connection
-    r = redis.Redis(host="redis", port=6379, db=0)
-    r.set(f"network_earnings_{hours}", serialized)
-
-
 @app.task
 def fetch_yagna_release():
     url = "https://api.github.com/repos/golemfactory/yagna/releases"
@@ -614,17 +584,6 @@ def fetch_yagna_release():
     r.set("yagna_releases", serialized)
 
 
-@app.task
-def network_total_earnings():
-    end = round(time.time())
-    network_types = settings.GOLEM_MAINNET_PAYMENT_DRIVERS
-
-    for network in network_types:
-        domain = (
-            os.environ.get("STATS_URL")
-            + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_amount_received%7Bexported_job%3D~"{settings.GRAFANA_JOB_NAME}"%2C%20platform%3D"{network}"%7D%5B2m%5D)%2F10%5E9)&time={end}'
-        )
-        update_total_earnings(domain)
 
 
 @app.task
@@ -646,16 +605,24 @@ def network_earnings_overview_new():
             "total_earnings": float(total_earnings)
         }
 
+    # @2026-01-20 - do not scan older transaction every time, it's static data
+
+    min_timestamp = datetime.fromtimestamp(1768937740, tz=timezone.utc)
+
     all_time_earnings = (
-        GolemTransactions.objects.filter(tx_from_golem=True).aggregate(Sum("amount"))[
-            "amount__sum"
-        ]
-        or 0.0
+            GolemTransactions.objects.filter(tx_from_golem=True, timestamp__gte=min_timestamp).aggregate(Sum("amount"))[
+                "amount__sum"
+            ]
+            or 0.0
     )
 
     response_data["network_total_earnings"] = {
         "total_earnings": float(all_time_earnings)
     }
+
+    if response_data["network_total_earnings"]:
+        response_data["network_total_earnings"] += 264342.50 # manually added earnings before 2026-01-20
+
 
     r.set("network_earnings_overview_new", json.dumps(response_data))
 
