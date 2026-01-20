@@ -65,7 +65,7 @@ def download_and_unpack():
 
     # 2. Calculate Difference
     # Note: Use total_seconds() to get the full duration including days
-    time_diff = datetime.now() - dt_object
+    time_diff = datetime.datetime.now() - dt_object
     age_in_hours = time_diff.total_seconds() / 3600
 
     print(f"Latest backup found: {filename}")
