@@ -30,4 +30,8 @@ jobs:
           sudo -u postgres psql -c "CREATE DATABASE statsdb;"
           sudo -u postgres psql statsdb < statsdb.sql
 
+      - name: Show tables and sizes
+        run: |
+          sudo -u postgres psql -d statsdb -c "\dt+"
+
 
