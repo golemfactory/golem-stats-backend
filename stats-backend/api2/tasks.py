@@ -1820,7 +1820,7 @@ def computing_total_over_time():
                 date__range=(start_date, end_date))
             .annotate(truncated_date=TruncDay("date"))
             .values("truncated_date")
-            .annotate(total=Sum("total"))
+            .annotate(total=Max("total"))
             .order_by("truncated_date")
         )
         formatted_data[period] = list(data)
