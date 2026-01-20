@@ -35,8 +35,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            docker service update --force --image ghcr.io/golemfactory/golem-stats-backend:${{ github.sha }} stats_webserver
+            docker service update --force --image ghcr.io/golemfactory/golem-stats-backend:${{ github.sha }} stats_backend
             docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery:${{ github.sha }} stats_celery
             docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery-beat:${{ github.sha }} stats_celery_beat
             docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery-yagna:${{ github.sha }} stats_yagna_node
-            docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery-yagna:${{ github.sha }} stats_yagna_node_salad
