@@ -21,7 +21,6 @@ def setup_periodic_tasks(sender, **kwargs):
         network_utilization_to_redis,
         computing_now_to_redis,
         providers_average_earnings_to_redis,
-        network_total_earnings,
         network_versions_to_redis,
         node_earnings_total,
         stats_snapshot_yesterday,
@@ -434,12 +433,6 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         10.0,
         providers_average_earnings_to_redis.s(),
-        queue="default",
-        options={"queue": "default", "routing_key": "default"},
-    )
-    sender.add_periodic_task(
-        110,
-        network_total_earnings.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
