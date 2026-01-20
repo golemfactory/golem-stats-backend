@@ -7,3 +7,4 @@ stats-backend/static/admin/*
 stats-backend/healthcheck/node_modules/*
 stats-backend/static/rest_framework/*
 celerybeat-schedule.db
+/.env
