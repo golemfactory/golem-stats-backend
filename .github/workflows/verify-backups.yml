@@ -1,0 +1,40 @@
+
+name: Verify backups from production
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+on:
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"  #
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Verify backups
+        run: |
+          python -u check.py
+        env:
+          OUTPUT_SQL_PATH: "statsdb.sql"
+
+      - name: Start postgres
+        run: |
+          sudo systemctl start postgresql.service
+
+      - name: Restore database
+        run: |
+          sudo -u postgres psql -c "CREATE DATABASE statsdb;"
+          sudo -u postgres psql statsdb < statsdb.sql
+
+      - name: Show tables and sizes
+        run: |
+          sudo -u postgres psql -d statsdb -c "\dt+"
+
+
