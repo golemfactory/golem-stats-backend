@@ -273,97 +273,51 @@ def network_historical_stats_to_redis_v2():
 
 @app.task
 def v2_network_online_to_redis():
-    # Fetch and process data from the new external domain
-    response = requests.get(
-        "https://reputation.golem.network/stats/providers/online"
-    )
-    if response.status_code == 200:
-        external_data = response.json()
+    # Fetch online nodes from database
+    data = Node.objects.filter(online=True)
+    serializer = NodeSerializer(data, many=True)
+    serialized_data = serializer.data
 
-        # Mapping of node_id to successRate and blacklist status
-        reputation_mapping = {
-            provider["node_id"]: {
-                "success_rate": provider["success_rate"],
-                "is_blacklisted_provider": provider["is_blacklisted_provider"],
-                "is_blacklisted_wallet": provider["is_blacklisted_wallet"],
-            }
-            for provider in external_data
+    # Set default reputation data for each node
+    for node in serialized_data:
+        node["reputation"] = {
+            "blacklisted": False,
+            "blacklistedReason": None,
+            "taskReputation": None,
         }
 
-        # Fetch your existing nodes
-        data = Node.objects.filter(online=True)
-        serializer = NodeSerializer(data, many=True)
-        serialized_data = serializer.data
-
-        # Attach successRate and blacklist status to each node
-        for node in serialized_data:
-            node_id = node["node_id"]
-
-            node["reputation"] = {}
-            node["reputation"]["blacklisted"] = False
-            node["reputation"]["blacklistedReason"] = None
-
-            if node_id in reputation_mapping:
-                node["reputation"]["blacklisted"] = (
-                    reputation_mapping[node_id]["is_blacklisted_provider"]
-                    or reputation_mapping[node_id]["is_blacklisted_wallet"]
-                )
-                if node["reputation"]["blacklisted"]:
-                    node["reputation"]["blacklistedReason"] = "Blacklisted by provider or wallet"
-                node["reputation"]["taskReputation"] = reputation_mapping[node_id]["success_rate"]
-
-        # Serialize and save to Redis
-        test = json.dumps(serialized_data, default=str)
-        r.set("v2_online", test)
-    else:
-        print(
-            "Failed to retrieve data from the reputation system!", response.status_code
-        )
-        pass
+    # Serialize and save to Redis
+    test = json.dumps(serialized_data, default=str)
+    r.set("v2_online", test)
 
 
 @app.task
 def v2_network_online_to_redis_new_stats_page(runtime=None):
-    try:
-        response = requests.get(
-            "https://reputation.golem.network/v1/providers/scores"
-        )
-        response.raise_for_status()
-        external_data = response.json()
-        success_rate_mapping = {
-            provider["providerId"]: provider["scores"]["successRate"]
-            for provider in external_data["providers"]
-        }
+    filters = {"online": True}
+    if runtime:
+        filters["offer__runtime"] = runtime
 
-        filters = {"online": True}
-        if runtime:
-            filters["offer__runtime"] = runtime
+    data = Node.objects.filter(**filters).order_by("node_id").distinct()
+    serializer = NodeSerializer(data, many=True)
+    serialized_data = serializer.data
+    size = 30
+    page_key_suffix = f"_{runtime}" if runtime else ""
 
-        data = Node.objects.filter(**filters).order_by("node_id").distinct()
-        serializer = NodeSerializer(data, many=True)
-        serialized_data = serializer.data
-        size = 30
-        page_key_suffix = f"_{runtime}" if runtime else ""
-
-        total_pages = (len(serialized_data) // size) + (
-            0 if len(serialized_data) % size == 0 else 1
-        )
-        for page in range(1, total_pages + 1):
-            paginated_data = serialized_data[(page - 1) * size: page * size]
-            for node in paginated_data:
-                node_id = node["node_id"]
-                node["taskReputation"] = success_rate_mapping.get(
-                    node_id, None)
-            r.set(
-                f"v2_online_{page}_{size}{page_key_suffix}",
-                json.dumps(paginated_data, default=str),
-            )
+    total_pages = (len(serialized_data) // size) + (
+        0 if len(serialized_data) % size == 0 else 1
+    )
+    for page in range(1, total_pages + 1):
+        paginated_data = serialized_data[(page - 1) * size: page * size]
+        for node in paginated_data:
+            node["taskReputation"] = None
         r.set(
-            f"v2_online_metadata{page_key_suffix}",
-            json.dumps({"total_pages": total_pages, "size": size}),
+            f"v2_online_{page}_{size}{page_key_suffix}",
+            json.dumps(paginated_data, default=str),
         )
-    except requests.HTTPError as e:
-        print(f"Failed to retrieve data: {e}")
+    r.set(
+        f"v2_online_metadata{page_key_suffix}",
+        json.dumps({"total_pages": total_pages, "size": size}),
+    )
 
 
 @app.task
