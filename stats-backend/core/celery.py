@@ -75,6 +75,8 @@ def setup_periodic_tasks(sender, **kwargs):
         extract_wallets_and_ids,
         golem_base_scraper_wrapper,
     )
+    from api2.salad.tasks import is_salad_enabled, fetch_salad_current_stats, fetch_salad_historical_stats
+
     if settings.OFFER_SCRAPER_TYPE == "golembase":
         sender.add_periodic_task(
             20.0,
@@ -448,6 +450,21 @@ def setup_periodic_tasks(sender, **kwargs):
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
+
+    # Salad partner integration - only register if configured
+    if is_salad_enabled():
+        sender.add_periodic_task(
+            60.0,
+            fetch_salad_current_stats.s(),
+            queue="default",
+            options={"queue": "default", "routing_key": "default"},
+        )
+        sender.add_periodic_task(
+            300.0,
+            fetch_salad_historical_stats.s(),
+            queue="default",
+            options={"queue": "default", "routing_key": "default"},
+        )
 
 
 app.conf.task_default_queue = "default"
