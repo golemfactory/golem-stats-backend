@@ -28,18 +28,18 @@ class SaladConfigError(Exception):
 
 def get_salad_api_config():
     """Get Salad API configuration from environment/settings.
-    
+
     Raises:
         SaladConfigError: If SALAD_API_URL or SALAD_API_TOKEN is not set.
     """
     base_url = os.environ.get("SALAD_API_URL")
     token = os.environ.get("SALAD_API_TOKEN")
-    
+
     if not base_url or not token:
         raise SaladConfigError(
             "Salad integration requires SALAD_API_URL and SALAD_API_TOKEN environment variables"
         )
-    
+
     return {
         "base_url": base_url.rstrip("/"),
         "token": token,
@@ -245,7 +245,16 @@ def _process_current_stats_derived_data(data: dict):
 
 
 def _process_historical_stats_derived_data(data: dict):
-    """Process historical stats into derived Redis keys."""
+    """Process historical stats into derived Redis keys.
+
+    The API returns:
+    - Daily stats (GMT midnight) for all days BEFORE today
+    - Hourly stats for the last 24 hours
+
+    Time bucket rules:
+    - 1d: All points from the last 24 hours (hourly granularity)
+    - 7d, 1m, 1y, All: One point per day, using MAX online count for that day
+    """
     try:
         network_stats = data.get("network_stats", {})
         utilization = data.get("utilization", [])
@@ -258,9 +267,11 @@ def _process_historical_stats_derived_data(data: dict):
         r.set("salad:network_utilization", json.dumps(formatted_utilization))
 
         # Historical network stats - filter into time buckets
+        # For 1d bucket: take ALL hourly points from last 24 hours
+        # For 7d, 1m, 1y, All: take MAX of each day
         now = datetime.utcnow().timestamp()
+        threshold_1d = now - 86400  # 1 day
         time_thresholds = {
-            "1d": now - 86400,  # 1 day
             "7d": now - 604800,  # 7 days
             "1m": now - 2592000,  # 30 days
             "1y": now - 31536000,  # 365 days
@@ -268,16 +279,15 @@ def _process_historical_stats_derived_data(data: dict):
 
         formatted_data = {}
         for runtime, points in network_stats.items():
-            formatted_data[runtime] = {
-                "1d": [],
-                "7d": [],
-                "1m": [],
-                "1y": [],
-                "All": [],
-            }
-            sorted_points = sorted(points, key=lambda x: x.get("date", 0))
-            for point in sorted_points:
+            # Step 1: Group all points by date (YYYY-MM-DD)
+            points_by_day = {}
+            hourly_points = []  # For 1d bucket
+
+            for point in points:
                 point_date = point.get("date", 0)
+                if not point_date:
+                    continue
+
                 formatted_point = {
                     "date": point_date,
                     "online": point.get("online", 0),
@@ -286,12 +296,40 @@ def _process_historical_stats_derived_data(data: dict):
                     "disk": point.get("disk_gib", 0),
                     "gpus": point.get("gpus", 0),
                 }
-                # Add to All bucket
-                formatted_data[runtime]["All"].append(formatted_point)
-                # Add to time-filtered buckets
+
+                # 1d bucket: collect all points from last 24 hours
+                if point_date >= threshold_1d:
+                    hourly_points.append(formatted_point)
+
+                # Group by day for daily aggregation
+                day_key = datetime.utcfromtimestamp(point_date).strftime("%Y-%m-%d")
+                if day_key not in points_by_day:
+                    points_by_day[day_key] = []
+                points_by_day[day_key].append(formatted_point)
+
+            # Step 2: For each day, pick the point with MAX online count
+            daily_max_points = {}
+            for day_key, day_points in points_by_day.items():
+                max_point = max(day_points, key=lambda p: p["online"])
+                daily_max_points[day_key] = max_point
+
+            # Step 3: Build buckets
+            formatted_data[runtime] = {
+                "1d": sorted(hourly_points, key=lambda p: p["date"]),
+                "7d": [],
+                "1m": [],
+                "1y": [],
+                "All": [],
+            }
+
+            sorted_days = sorted(daily_max_points.keys())
+            for day_key in sorted_days:
+                point = daily_max_points[day_key]
+                point_date = point["date"]
+                formatted_data[runtime]["All"].append(point)
                 for bucket, threshold in time_thresholds.items():
                     if point_date >= threshold:
-                        formatted_data[runtime][bucket].append(formatted_point)
+                        formatted_data[runtime][bucket].append(point)
 
         r.set("salad:network_historical_stats", json.dumps(formatted_data))
 
