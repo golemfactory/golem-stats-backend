@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import redis
 import requests
@@ -307,11 +307,42 @@ def _process_historical_stats_derived_data(data: dict):
                     points_by_day[day_key] = []
                 points_by_day[day_key].append(formatted_point)
 
-            # Step 2: For each day, pick the point with MAX online count
-            daily_max_points = {}
+            # Step 2: Build daily representative points
+            # - For days before today: use the midnight (00:00 UTC) point
+            # - For today: use MAX of hourly points and normalize to midnight
+            today_key = datetime.utcnow().strftime("%Y-%m-%d")
+            daily_representative_points = {}
+
             for day_key, day_points in points_by_day.items():
-                max_point = max(day_points, key=lambda p: p["online"])
-                daily_max_points[day_key] = max_point
+                if day_key == today_key:
+                    # Today: find MAX from hourly points and normalize to midnight
+                    today_midnight_ts = int(
+                        datetime.strptime(day_key, "%Y-%m-%d")
+                        .replace(
+                            hour=0,
+                            minute=0,
+                            second=0,
+                            microsecond=0,
+                            tzinfo=timezone.utc,
+                        )
+                        .timestamp()
+                    )
+                    # Filter to only points after midnight today (hourly stats)
+                    today_hourly = [
+                        p for p in day_points if p["date"] >= today_midnight_ts
+                    ]
+                    if today_hourly:
+                        max_point = max(today_hourly, key=lambda p: p["online"])
+                        normalized_point = max_point.copy()
+                        normalized_point["date"] = today_midnight_ts
+                        daily_representative_points[day_key] = normalized_point
+                else:
+                    # Past days: find and use the midnight point only
+                    for p in day_points:
+                        dt = datetime.utcfromtimestamp(p["date"])
+                        if dt.hour == 0 and dt.minute == 0:
+                            daily_representative_points[day_key] = p
+                            break
 
             # Step 3: Build buckets
             formatted_data[runtime] = {
@@ -322,9 +353,9 @@ def _process_historical_stats_derived_data(data: dict):
                 "All": [],
             }
 
-            sorted_days = sorted(daily_max_points.keys())
+            sorted_days = sorted(daily_representative_points.keys())
             for day_key in sorted_days:
-                point = daily_max_points[day_key]
+                point = daily_representative_points[day_key]
                 point_date = point["date"]
                 formatted_data[runtime]["All"].append(point)
                 for bucket, threshold in time_thresholds.items():
