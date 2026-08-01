@@ -1151,7 +1151,10 @@ def count_cpu_architecture():
 def online_nodes_computing():
     end = round(time.time())
     start = end - 10
-    query = f'activity_provider_created{{job="{settings.GRAFANA_JOB_NAME}"}} - activity_provider_destroyed{{job="{settings.GRAFANA_JOB_NAME}"}}'
+    # exported_job, not job — the job label on this datasource is
+    # "yagna_metrics"; matching job=<GRAFANA_JOB_NAME> returns zero series
+    # and silently left every node marked as not computing.
+    query = f'activity_provider_created{{exported_job=~"{settings.GRAFANA_JOB_NAME}"}} - activity_provider_destroyed{{exported_job=~"{settings.GRAFANA_JOB_NAME}"}}'
     url = f"{os.environ.get('STATS_URL')}api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query={urllib.parse.quote(query)}&start={start}&end={end}&step=1"
     data = get_stats_data(url)
 
@@ -1159,7 +1162,7 @@ def online_nodes_computing():
         computing_node_ids = [
             node["metric"]["exported_instance"]
             for node in data[0]["data"]["result"]
-            if node["values"][-1][1] == "1"
+            if float(node["values"][-1][1]) > 0
         ]
         Node.objects.filter(node_id__in=computing_node_ids).update(
             computing_now=True)

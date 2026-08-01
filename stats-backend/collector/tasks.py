@@ -144,12 +144,11 @@ def computing_snapshot_yesterday():
         .annotate(total=Max("total"))
     )
 
-    existing_dates = ProvidersComputingMax.objects.all().values_list("date", flat=True)
-
     for obj in computing:
-        if obj["day"] not in existing_dates:
-            ProvidersComputingMax.objects.create(
-                total=obj["total"], date=obj["day"])
+        # get_or_create keyed on the day — the old "not in existing_dates"
+        # check compared mismatched date/datetime values and wrote duplicates.
+        ProvidersComputingMax.objects.get_or_create(
+            date=obj["day"], defaults={"total": obj["total"]})
 
 
 @app.task
@@ -655,22 +654,14 @@ def update_total_earnings(domain):
 
 @app.task
 def computing_now_to_redis():
-    end = round(time.time())
-    start = round(time.time()) - int(10)
-    domain = (
-        os.environ.get("STATS_URL")
-        + f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=sum(activity_provider_created%7Bexported_job%3D~%22{settings.GRAFANA_JOB_NAME}%22%7D%20-%20activity_provider_destroyed%7Bexported_job%3D~%22{settings.GRAFANA_JOB_NAME}%22%7D)&start={start}&end={end}&step=1"
-    )
-    data = get_stats_data(domain)
-    if data[1] == 200:
-        if data[0]["data"]["result"]:
-            content = {"computing_now": data[0]
-                       ["data"]["result"][0]["values"][-1][1]}
-            ProvidersComputing.objects.create(
-                total=data[0]["data"]["result"][0]["values"][-1][1]
-            )
-            serialized = json.dumps(content)
-            r.set("computing_now", serialized)
+    # Count connected providers with per-node evidence of a running activity
+    # (Node.computing_now, maintained by online_nodes_computing). The old
+    # network-wide sum(created - destroyed) went negative whenever provider
+    # restarts reset the counters. No proof of computing -> not counted.
+    total = Nodev2.objects.filter(online=True, computing_now=True).count()
+    content = {"computing_now": total}
+    ProvidersComputing.objects.create(total=total)
+    r.set("computing_now", json.dumps(content))
 
 
 @app.task
