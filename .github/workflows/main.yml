@@ -27,15 +27,8 @@ jobs:
       - name: Push Containers
         run: make push-amd64
 
-      - name: SSH deploy
-        uses: appleboy/ssh-action@v1.2.4
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          script: |
-            docker service update --force --image ghcr.io/golemfactory/golem-stats-backend:${{ github.sha }} stats_backend
-            docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery:${{ github.sha }} stats_celery
-            docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery-beat:${{ github.sha }} stats_celery_beat
-            docker service update --force --image ghcr.io/golemfactory/golem-stats-backend-celery-yagna:${{ github.sha }} stats_yagna_node
+      # Deployment is intentionally NOT done from CI. Pushing SSH credentials
+      # for the production host into repo secrets lets anyone with repo write
+      # access (or a compromised action) control the host. Deploy manually on
+      # the host: ~/stats/golem-stats-deployment/update-backend.sh <sha>
+
