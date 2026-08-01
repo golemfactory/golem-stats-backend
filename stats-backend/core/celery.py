@@ -75,7 +75,6 @@ def setup_periodic_tasks(sender, **kwargs):
         extract_wallets_and_ids,
         golem_base_scraper_wrapper,
     )
-    from api2.salad.tasks import is_salad_enabled, fetch_salad_current_stats, fetch_salad_historical_stats
 
     if settings.OFFER_SCRAPER_TYPE == "golembase":
         sender.add_periodic_task(
@@ -86,12 +85,6 @@ def setup_periodic_tasks(sender, **kwargs):
         v2_offer_scraper.apply_async(
             args=["ray-on-golem-heads"], queue="yagna", routing_key="yagna")
         v2_offer_scraper.apply_async(queue="yagna", routing_key="yagna")
-    sender.add_periodic_task(
-        20.0,
-        v2_offer_scraper.s(),
-        queue="salad",
-        options={"queue": "salad", "routing_key": "salad"},
-    )
     sender.add_periodic_task(
         60,
         computing_total_over_time.s(),
@@ -451,21 +444,6 @@ def setup_periodic_tasks(sender, **kwargs):
         options={"queue": "default", "routing_key": "default"},
     )
 
-    # Salad partner integration - only register if configured
-    if is_salad_enabled():
-        sender.add_periodic_task(
-            60.0,
-            fetch_salad_current_stats.s(),
-            queue="default",
-            options={"queue": "default", "routing_key": "default"},
-        )
-        sender.add_periodic_task(
-            300.0,
-            fetch_salad_historical_stats.s(),
-            queue="default",
-            options={"queue": "default", "routing_key": "default"},
-        )
-
 
 app.conf.task_default_queue = "default"
 app.conf.broker_url = "redis://redis:6379/0"
@@ -473,6 +451,5 @@ app.conf.result_backend = "redis://redis:6379/0"
 app.conf.task_routes = {
     "app.tasks.default": {"queue": "default"},
     "app.tasks.yagna": {"queue": "yagna"},
-    "app.tasks.salad": {"queue": "salad"},
 }
 app.conf.broker_connection_retry_on_startup = True

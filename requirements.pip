@@ -73,7 +73,6 @@ eth-account
 eth-tester
 PyJWT
 djangorestframework-simplejwt
-django-ninja
 numpy
 celery-singleton
 setuptools<81

@@ -247,6 +247,3 @@ STATIC_ROOT = "./static/"
 MEDIA_ROOT = "./var/media/"
 MEDIA_URL = "/media/"
 STATIC_URL = "/staticfiles/"
-
-# Auth token for customer requestor submissions
-SALAD_REQUESTOR_TOKEN = os.environ.get("SALAD_REQUESTOR_TOKEN")

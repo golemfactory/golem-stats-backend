@@ -1,8 +1,6 @@
-from django.urls import path, include
+from django.urls import path
 from django.shortcuts import render
 from . import views
-from .ninja import api as ninja_api
-from .salad import views as salad_views
 
 app_name = "api2"
 from .views import (
@@ -59,8 +57,4 @@ urlpatterns = [
     ),
     path("healthcheck/status", healthcheck_status, name="healthcheck_status"),
     path("search-list", views.wallets_and_ids, name="search_list"),
-    # Partner integrations
-    path("partner/salad/", include("api2.salad.urls")),
-    path("network/partner/status", salad_views.partner_status, name="partner_status"),
-    path("", ninja_api.urls),
 ]
