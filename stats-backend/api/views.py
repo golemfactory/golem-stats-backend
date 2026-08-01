@@ -222,7 +222,7 @@ async def yagna_releases(request):
         )
         r = aioredis.Redis(connection_pool=pool)
         content = await r.get("yagna_releases")
-        data = json.loads(content)
+        data = json.loads(content) if content else []
         pool.disconnect()
         return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
     else:

@@ -476,6 +476,9 @@ def network_versions_to_redis():
             while url:
                 response = requests.get(url, headers=headers)
                 page_releases = response.json()
+                if not isinstance(page_releases, list):
+                    # error object from GitHub (bad token → 404 dict)
+                    break
                 if page_releases:
                     releases.extend(page_releases)
                     if "Link" in response.headers:
@@ -562,12 +565,19 @@ def network_versions_to_redis():
 @app.task
 def fetch_yagna_release():
     url = "https://api.github.com/repos/golemfactory/yagna/releases"
-    headers = {"Accept": "application/vnd.github.v3+json"}
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "Authorization": f"token {os.environ.get('GITHUB_AUTH_TOKEN_NON_PRIVILEDGED')}",
+    }
     releases_info = []
 
     while url:
         response = requests.get(url, headers=headers)
         releases = response.json()
+        if not isinstance(releases, list):
+            # GitHub returns an error object (e.g. 404 when the token cannot
+            # see the private repo) — don't overwrite the cache with garbage.
+            return
         for release in releases:
             if not release["prerelease"]:
                 release_data = {
