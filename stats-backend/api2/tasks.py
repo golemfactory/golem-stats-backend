@@ -1650,10 +1650,10 @@ def transaction_volume_over_time():
             .annotate(date=TruncDay("timestamp"))
             .values("date")
             .annotate(
-                on_golem=Count("amount", filter=Q(
-                    tx_from_golem=True), distinct=True),
-                not_golem=Count("amount", filter=Q(
-                    tx_from_golem=False), distinct=True),
+                # Count rows by PK — Count("amount", distinct=True) collapsed
+                # same-day transfers of identical value into one.
+                on_golem=Count("scanner_id", filter=Q(tx_from_golem=True)),
+                not_golem=Count("scanner_id", filter=Q(tx_from_golem=False)),
             )
             .order_by("date")
         )
