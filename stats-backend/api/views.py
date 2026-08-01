@@ -33,7 +33,7 @@ from django.conf import settings
 import asyncio
 import redis
 import json
-import aioredis
+from redis import asyncio as aioredis
 from asgiref.sync import sync_to_async
 from datetime import datetime
 import math

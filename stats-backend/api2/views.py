@@ -6,7 +6,7 @@ from .serializers import NodeSerializer, OfferSerializer
 import redis
 import json
 import gzip
-import aioredis
+from redis import asyncio as aioredis
 import requests
 from .utils import identify_network
 from django.http import JsonResponse, HttpResponse
@@ -826,7 +826,7 @@ async def computing_total_over_time(request):
 
 from django.http import JsonResponse, HttpResponse
 import json
-import aioredis
+from redis import asyncio as aioredis
 
 
 async def wallets_and_ids(request):

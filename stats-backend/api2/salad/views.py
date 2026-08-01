@@ -1,6 +1,6 @@
 import json
 
-import aioredis
+from redis import asyncio as aioredis
 from django.http import HttpResponse, JsonResponse
 
 from api2.salad.tasks import is_salad_enabled
