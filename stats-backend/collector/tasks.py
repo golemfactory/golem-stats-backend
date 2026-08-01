@@ -449,463 +449,90 @@ def network_node_versions():
 
 @app.task
 def network_versions_to_redis():
-    now = round(time.time())
-    domain = (
-        os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=count_values("version"%2C%20yagna_version_major%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%7D*100%2Byagna_version_minor%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%7D*10%2Byagna_version_patch%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%7D)&start={now}&end={now}&step=5'
+    # Version adoption over CONNECTED providers only. Each online node's
+    # version is maintained by network_node_versions; nodes with no version
+    # evidence are excluded rather than guessed. The old implementation
+    # counted raw Prometheus series, including providers offline for years.
+    from collections import Counter
+
+    version_counts = Counter(
+        v
+        for v in Nodev2.objects.filter(online=True).values_list(
+            "version", flat=True
+        )
+        if v
     )
-    content = get_stats_data(domain)
-    print(content)
-    if content[1] == 200:
-        versions_nonsorted = []
-        versions = []
-        data = content[0]["data"]["result"]
-        for obj in data:
-            versions_nonsorted.append(
-                {"version": int(obj["metric"]["version"]),
-                 "count": obj["values"][0][1]}
-            )
+    versions = []
 
-        versions_nonsorted.sort(key=lambda x: x["version"], reverse=False)
-
-        # Function to fetch all pages of releases
-        def fetch_all_releases(url, access_token):
-            headers = {"Authorization": f"token {access_token}"}
-            releases = []
-            while url:
-                response = requests.get(url, headers=headers)
-                page_releases = response.json()
-                if not isinstance(page_releases, list):
-                    # error object from GitHub (bad token → 404 dict)
-                    break
-                if page_releases:
-                    releases.extend(page_releases)
-                    if "Link" in response.headers:
-                        links = response.headers["Link"].split(", ")
-                        next_link = [
-                            link for link in links if 'rel="next"' in link]
-                        if next_link:
-                            url = next_link[0][
-                                next_link[0].find("<") + 1: next_link[0].find(">")
-                            ]
-                        else:
-                            url = None
+    # Function to fetch all pages of releases
+    def fetch_all_releases(url, access_token):
+        headers = {"Authorization": f"token {access_token}"}
+        releases = []
+        while url:
+            response = requests.get(url, headers=headers)
+            page_releases = response.json()
+            if not isinstance(page_releases, list):
+                # error object from GitHub (bad token → 404 dict)
+                break
+            if page_releases:
+                releases.extend(page_releases)
+                if "Link" in response.headers:
+                    links = response.headers["Link"].split(", ")
+                    next_link = [
+                        link for link in links if 'rel="next"' in link]
+                    if next_link:
+                        url = next_link[0][
+                            next_link[0].find("<") + 1: next_link[0].find(">")
+                        ]
                     else:
                         url = None
                 else:
-                    break
-            return releases
+                    url = None
+            else:
+                break
+        return releases
 
-        releases_data = fetch_all_releases(
-            "https://api.github.com/repos/golemfactory/yagna/releases",
-            os.environ.get("GITHUB_AUTH_TOKEN_NON_PRIVILEDGED"),
-        )
-
-        def find_release_by_tag(tag, releases_data):
-            # Check for an exact match first
-            for release in releases_data:
-                if release["tag_name"].lower() == tag.lower():
-                    return "official"
-
-            # If no exact match is found, check for partial matches where "prerelease": true
-            for release in releases_data:
-                if (
-                    tag.lower() in release["tag_name"].lower()
-                    and release["prerelease"] == True
-                ):
-                    return "rc"
-            return "rc"
-
-        versions_nonsorted.sort(key=lambda x: x["version"], reverse=False)
-
-        # Calculate the total count for all versions
-        total_count = sum(int(obj["count"]) for obj in versions_nonsorted)
-
-        # Function definitions for fetch_all_releases and find_release_by_tag remain the same...
-
-        for obj in versions_nonsorted:
-            version = str(obj["version"])
-            count = obj["count"]
-            if len(version) == 2:
-                concatinated = "0." + version[0] + "." + version[1]
-            elif len(version) == 3:
-                concatinated = "0." + version[0] + \
-                    version[1] + "." + version[2]
-
-            tag_to_search = "v" + concatinated
-            release_status = find_release_by_tag(tag_to_search, releases_data)
-
-            # Calculate the percentage of the total for this version
-            percentage_of_total = round((int(count) / total_count) * 100, 2)
-
-            if release_status == "official":
-                versions.append(
-                    {
-                        "version": concatinated,
-                        "count": count,
-                        "rc": False,
-                        "percentage": percentage_of_total,
-                    }
-                )
-            elif release_status == "rc":
-                versions.append(
-                    {
-                        "version": "RC-" + concatinated,
-                        "count": count,
-                        "rc": True,
-                        "percentage": percentage_of_total,
-                    }
-                )
-
-        serialized = json.dumps(versions)
-        r.set("network_versions", serialized)
-
-
-@app.task
-def fetch_yagna_release():
-    url = "https://api.github.com/repos/golemfactory/yagna/releases"
-    headers = {
-        "Accept": "application/vnd.github.v3+json",
-        "Authorization": f"token {os.environ.get('GITHUB_AUTH_TOKEN_NON_PRIVILEDGED')}",
-    }
-    releases_info = []
-
-    while url:
-        response = requests.get(url, headers=headers)
-        releases = response.json()
-        if not isinstance(releases, list):
-            # GitHub returns an error object (e.g. 404 when the token cannot
-            # see the private repo) — don't overwrite the cache with garbage.
-            return
-        for release in releases:
-            if not release["prerelease"]:
-                release_data = {
-                    "tag_name": release["tag_name"],
-                    "published_at": release["published_at"],
-                }
-                releases_info.append(release_data)
-        if "next" in response.links:
-            url = response.links["next"]["url"]
-        else:
-            url = None
-
-    serialized = json.dumps(releases_info)
-    r.set("yagna_releases", serialized)
-
-
-
-
-@app.task
-def network_earnings_overview_new():
-    time_frames = [6, 24, 168, 720, 2160]
-    response_data = {}
-
-    for frame in time_frames:
-        end_time = now()
-        start_time = end_time - timedelta(hours=frame)
-        total_earnings = (
-            GolemTransactions.objects.filter(
-                timestamp__range=[start_time, end_time], tx_from_golem=True
-            ).aggregate(Sum("amount"))["amount__sum"]
-            or 0.0
-        )
-
-        response_data[f"network_earnings_{frame}h"] = {
-            "total_earnings": float(total_earnings)
-        }
-
-    # @2026-01-20 - do not scan older transaction every time, it's static data
-
-    min_timestamp = datetime.fromtimestamp(1768937740, tz=timezone.utc)
-
-    all_time_earnings = float(
-            GolemTransactions.objects.filter(tx_from_golem=True, timestamp__gte=min_timestamp).aggregate(Sum("amount"))[
-                "amount__sum"
-            ]
-            or 0.0
+    releases_data = fetch_all_releases(
+        "https://api.github.com/repos/golemfactory/yagna/releases",
+        os.environ.get("GITHUB_AUTH_TOKEN_NON_PRIVILEDGED"),
     )
 
-    if all_time_earnings > 0:
-        all_time_earnings += 264342.50 # manually added earnings before 2026-01-20
+    def find_release_by_tag(tag, releases_data):
+        # Check for an exact match first
+        for release in releases_data:
+            if release["tag_name"].lower() == tag.lower():
+                return "official"
 
-    response_data["network_total_earnings"] = {
-        "total_earnings": float(all_time_earnings)
-    }
+        # If no exact match is found, check for partial matches where "prerelease": true
+        for release in releases_data:
+            if (
+                tag.lower() in release["tag_name"].lower()
+                and release["prerelease"] == True
+            ):
+                return "rc"
+        return "rc"
 
-    r.set("network_earnings_overview_new", json.dumps(response_data))
+    def sort_key(version):
+        try:
+            return tuple(int(part) for part in version.split("."))
+        except ValueError:
+            return (0,)
 
+    total_count = sum(version_counts.values())
 
-def update_total_earnings(domain):
-    data = get_stats_data(domain)
-    if data[1] == 200 and data[0]["data"]["result"]:
-        network_value = float(data[0]["data"]["result"][0]["value"][1])
-        if network_value > 0:
-            db, created = Network.objects.get_or_create(id=1)
-            db.total_earnings = (
-                network_value
-                if created or db.total_earnings is None
-                else db.total_earnings + network_value
-            )
-            db.save()
-            content = {"total_earnings": db.total_earnings}
-            serialized = json.dumps(content)
-            r.set("network_total_earnings", serialized)
+    for version in sorted(version_counts, key=sort_key):
+        count = version_counts[version]
+        release_status = find_release_by_tag("v" + version, releases_data)
+        percentage_of_total = round((count / total_count) * 100, 2)
 
-
-@app.task
-def computing_now_to_redis():
-    # Count connected providers with per-node evidence of a running activity
-    # (Node.computing_now, maintained by online_nodes_computing). The old
-    # network-wide sum(created - destroyed) went negative whenever provider
-    # restarts reset the counters. No proof of computing -> not counted.
-    total = Nodev2.objects.filter(online=True, computing_now=True).count()
-    content = {"computing_now": total}
-    ProvidersComputing.objects.create(total=total)
-    r.set("computing_now", json.dumps(content))
-
-
-@app.task
-def providers_average_earnings_to_redis():
-    platforms = settings.GOLEM_MAINNET_PAYMENT_DRIVERS
-
-    end = round(time.time())
-    total_average_earnings = 0.0
-
-    for platform in platforms:
-        domain = (
-            os.environ.get("STATS_URL")
-            + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=avg(increase(payment_amount_received%7Bexported_job%3D~"{settings.GRAFANA_JOB_NAME}"%2C%20platform%3D"{platform}"%7D%5B24h%5D)%2F10%5E9)&time={end}'
-        )
-        data = get_stats_data(domain)
-        if data[1] == 200 and data[0]["data"]["result"]:
-            platform_average = round(
-                float(data[0]["data"]["result"][0]["value"][1]), 4)
-        else:
-            platform_average = 0.0
-        total_average_earnings += platform_average
-
-    content = {"average_earnings": total_average_earnings}
-    serialized = json.dumps(content)
-    r.set("provider_average_earnings", serialized)
-
-
-@app.task
-def paid_invoices_1h():
-    end = round(time.time())
-    domain = (
-        os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_invoices_provider_paid%7Bexported_job%3D~"{settings.GRAFANA_JOB_NAME}"%7D%5B1h%5D))%2Fsum(increase(payment_invoices_provider_sent%7Bexported_job%3D~"{settings.GRAFANA_JOB_NAME}"%7D%5B1h%5D))&time={end}'
-    )
-    data = get_stats_data(domain)
-    if data[1] == 200:
-        if data[0]["data"]["result"]:
-            content = {
-                "percentage_paid": float(data[0]["data"]["result"][0]["value"][1]) * 100
+        versions.append(
+            {
+                "version": version if release_status == "official" else "RC-" + version,
+                "count": count,
+                "rc": release_status != "official",
+                "percentage": percentage_of_total,
             }
-            serialized = json.dumps(content)
-            r.set("paid_invoices_1h", serialized)
-
-
-@app.task
-def provider_accepted_invoices_1h():
-    end = round(time.time())
-    domain = (
-        os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_invoices_provider_accepted%7Bexported_job%3D~"{settings.GRAFANA_JOB_NAME}"%7D%5B1h%5D))%2Fsum(increase(payment_invoices_provider_sent%7Bexported_job%3D~"{settings.GRAFANA_JOB_NAME}"%7D%5B1h%5D))&time={end}'
-    )
-    data = get_stats_data(domain)
-    if data[1] == 200:
-        if data[0]["data"]["result"]:
-            content = {
-                "percentage_invoice_accepted": float(
-                    data[0]["data"]["result"][0]["value"][1]
-                )
-                * 100
-            }
-            serialized = json.dumps(content)
-            r.set("provider_accepted_invoice_percentage", serialized)
-
-
-def get_earnings_for_node_on_platform(user_node_id, platform):
-    now = round(time.time())
-    domain = (
-        os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(payment_amount_received%7Bhostname%3D~"{user_node_id}"%2C%20platform%3D"{platform}"%7D%5B10m%5D)%2F10%5E9)&time={now}'
-    )
-    data = get_stats_data(domain)
-    try:
-        if data[0]["data"]["result"]:
-            return round(float(data[0]["data"]["result"][0]["value"][1]), 2)
-        else:
-            return 0.0
-    except Exception as e:
-        print(f"Error getting data for {user_node_id} on {platform}", e)
-        return 0.0
-
-
-@app.task
-def node_earnings_total(node_version):
-    if node_version == "v1":
-        providers = Node.objects.filter(
-            online=True).only("node_id", "earnings_total")
-    elif node_version == "v2":
-        providers = Nodev2.objects.filter(
-            online=True).only("node_id", "earnings_total")
-
-    providers_updates = []
-    for provider in providers:
-        earnings_total = sum(
-            get_earnings_for_node_on_platform(provider.node_id, platform)
-            for platform in settings.GOLEM_MAINNET_PAYMENT_DRIVERS
-        )
-        updated_earnings_total = (
-            provider.earnings_total + earnings_total
-            if provider.earnings_total
-            else earnings_total
-        )
-        providers_updates.append((provider.pk, updated_earnings_total))
-
-    if node_version == "v1":
-        Node.objects.bulk_update(
-            [
-                Node(pk=pk, earnings_total=earnings)
-                for pk, earnings in providers_updates
-            ],
-            ["earnings_total"],
-        )
-    elif node_version == "v2":
-        Nodev2.objects.bulk_update(
-            [
-                Nodev2(pk=pk, earnings_total=earnings)
-                for pk, earnings in providers_updates
-            ],
-            ["earnings_total"],
         )
 
-
-@app.task
-def market_agreement_termination_reasons():
-    end = round(time.time())
-    start = round(time.time()) - int(10)
-    content = {}
-    domain_success = (
-        os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%2C%20reason%3D"Success"%7D%5B1h%5D))&time={end}'
-    )
-    data_success = get_stats_data(domain_success)
-    if data_success[1] == 200:
-        if data_success[0]["data"]["result"]:
-            content["market_agreements_success"] = round(
-                float(data_success[0]["data"]["result"][0]["value"][1])
-            )
-    # Failure
-    domain_cancelled = (
-        os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%2C%20reason%3D"Cancelled"%7D%5B6h%5D))&time={end}'
-    )
-    data_cancelled = get_stats_data(domain_cancelled)
-    if data_cancelled[1] == 200:
-        if data_cancelled[0]["data"]["result"]:
-            content["market_agreements_cancelled"] = round(
-                float(data_cancelled[0]["data"]["result"][0]["value"][1])
-            )
-    # Expired
-    domain_expired = (
-        os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%2C%20reason%3D"Expired"%7D%5B6h%5D))&time={end}'
-    )
-    data_expired = get_stats_data(domain_expired)
-    if data_expired[1] == 200:
-        if data_expired[0]["data"]["result"]:
-            content["market_agreements_expired"] = round(
-                float(data_expired[0]["data"]["result"][0]["value"][1])
-            )
-    # RequestorUnreachable
-    domain_unreachable = (
-        os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%2C%20reason%3D"RequestorUnreachable"%7D%5B6h%5D))&time={end}'
-    )
-    data_unreachable = get_stats_data(domain_unreachable)
-    if data_unreachable[1] == 200:
-        if data_unreachable[0]["data"]["result"]:
-            content["market_agreements_requestorUnreachable"] = round(
-                float(data_unreachable[0]["data"]["result"][0]["value"][1])
-            )
-
-    # DebitNotesDeadline
-    domain_debitdeadline = (
-        os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%2C%20reason%3D"DebitNotesDeadline"%7D%5B6h%5D))&time={end}'
-    )
-    data_debitdeadline = get_stats_data(domain_debitdeadline)
-    if data_debitdeadline[1] == 200:
-        if data_debitdeadline[0]["data"]["result"]:
-            content["market_agreements_debitnoteDeadline"] = round(
-                float(data_debitdeadline[0]["data"]["result"][0]["value"][1])
-            )
-    serialized = json.dumps(content)
-    r.set("market_agreement_termination_reasons", serialized)
-
-
-@app.task
-def requestor_scraper():
-    checker, checkcreated = requestor_scraper_check.objects.get_or_create(id=1)
-    update_frequency = 10
-
-    if checkcreated:
-        checker.indexed_before = True
-        checker.save()
-        now = round(time.time())
-        ninetydaysago = now - 7776000
-        update_frequency = 3600
-        time_to_check = ninetydaysago
-    else:
-        time_to_check = round(time.time() - update_frequency)
-
-    query = f'increase(market_agreements_requestor_approved{{exported_job="{settings.GRAFANA_JOB_NAME}"}}[{update_frequency}s]) > 0'
-
-    data = get_stats_data_v2(
-        query=query,
-        time_from=time_to_check,
-        time_to=time_to_check
-    )
-
-    if data[1] == 200 and data[0].get('results', {}).get('A', {}).get('frames'):
-        frames = data[0]['results']['A']['frames']
-
-        for frame in frames:
-            if 'data' not in frame or 'values' not in frame['data']:
-                continue
-
-            # Get the requestor address from the fields
-            requestor_address = None
-            for field in frame['schema']['fields']:
-                if field.get('type') == 'number':
-                    labels = field.get('labels', {})
-                    requestor_address = labels.get('exported_instance')
-                    if requestor_address:
-                        break
-
-            if not requestor_address:
-                continue
-
-            # Get the value from the data
-            values = frame['data']['values']
-            if len(values) >= 2 and len(values[1]) > 0:
-                tasks_count = float(values[1][0])
-
-                try:
-                    # Create or update the Requestors object
-                    obj, created = Requestors.objects.get_or_create(
-                        node_id=requestor_address,
-                        defaults={'tasks_requested': tasks_count}
-                    )
-                    
-                    if not created:
-                        obj.tasks_requested = (obj.tasks_requested or 0) + tasks_count
-                        obj.save()
-
-                except Exception as e:
-                    print(f"Error saving requestor data: {e}")
-
-
+    serialized = json.dumps(versions)
+    r.set("network_versions", serialized)
