@@ -270,6 +270,21 @@ def network_historical_stats_to_redis_v2():
 
     r.set("network_historical_stats_v2", json.dumps(formatted_data))
 
+    # Columnar copy for the compressed endpoint: per timeframe, one array per
+    # field instead of a list of row objects. Same values, ~6x smaller raw.
+    fields = ["date", "online", "cores", "memory", "disk", "gpus"]
+    columnar_data = {
+        runtime: {
+            key: {field: [row[field] for row in rows] for field in fields}
+            for key, rows in intervals.items()
+        }
+        for runtime, intervals in formatted_data.items()
+    }
+    r.set(
+        "network_historical_stats_v2_columnar",
+        json.dumps(columnar_data, separators=(",", ":")),
+    )
+
 
 @app.task
 def v2_network_online_to_redis():

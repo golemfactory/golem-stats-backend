@@ -5,6 +5,7 @@ from .models import Node, Offer, HealtcheckTask
 from .serializers import NodeSerializer, OfferSerializer
 import redis
 import json
+import gzip
 import aioredis
 import requests
 from .utils import identify_network
@@ -150,6 +151,31 @@ async def network_historical_stats(request):
         data = json.loads(content)
         pool.disconnect()
         return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
+
+
+async def network_historical_stats_compressed(request):
+    """
+    Same data as network_historical_stats but columnar — each timeframe is
+    {field: [values]} instead of a list of row objects — served as compact
+    JSON, gzip-encoded when the client accepts it.
+    """
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        redis_client = aioredis.Redis(connection_pool=pool)
+        content = await redis_client.get("network_historical_stats_v2_columnar")
+        pool.disconnect()
+        if content is None:
+            return HttpResponse(status=503)
+        response = HttpResponse(content, content_type="application/json")
+        if "gzip" in request.headers.get("Accept-Encoding", ""):
+            response.content = gzip.compress(response.content, compresslevel=6)
+            response["Content-Encoding"] = "gzip"
+        response["Vary"] = "Accept-Encoding"
+        return response
     else:
         return HttpResponse(status=400)
 

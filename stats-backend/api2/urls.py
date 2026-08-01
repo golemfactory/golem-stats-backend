@@ -32,6 +32,10 @@ urlpatterns = [
     path("website/globe_data", views.globe_data),
     path("website/index", views.golem_main_website_index),
     path("network/historical/stats", views.network_historical_stats),
+    path(
+        "network/historical/stats/compressed",
+        views.network_historical_stats_compressed,
+    ),
     path("network/comparison", views.list_ec2_instances_comparison),
     path("network/token/golemvschain", views.daily_volume_golem_vs_chain),
     path("network/transactions/volume", views.transaction_volume_over_time),
