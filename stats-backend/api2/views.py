@@ -189,7 +189,10 @@ def node_uptime(request, yagna_id):
             status=404,
         )
 
-    current_time = datetime.utcnow()
+    # NodeStatusHistory timestamps are naive local time (USE_TZ=False);
+    # utcnow() sat 2h behind them, pushing recent events "into the future"
+    # and showing online nodes as offline.
+    current_time = datetime.now()
     thirty_days_ago = current_time - timedelta(days=30)
 
     # Get the first status record for this node

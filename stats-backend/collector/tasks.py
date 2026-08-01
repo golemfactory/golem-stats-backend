@@ -767,64 +767,30 @@ def node_earnings_total(node_version):
 
 @app.task
 def market_agreement_termination_reasons():
+    # The chart is titled "(1h)" — every reason must use the SAME window.
+    # Previously Success used [1h] while the four failure reasons used [6h],
+    # inflating the failure slices ~6x relative to successes. Missing
+    # results default to 0 so the frontend never receives undefined slices.
     end = round(time.time())
-    start = round(time.time()) - int(10)
+    reasons = {
+        "Success": "market_agreements_success",
+        "Cancelled": "market_agreements_cancelled",
+        "Expired": "market_agreements_expired",
+        "RequestorUnreachable": "market_agreements_requestorUnreachable",
+        "DebitNotesDeadline": "market_agreements_debitnoteDeadline",
+    }
     content = {}
-    domain_success = (
-        os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%2C%20reason%3D"Success"%7D%5B1h%5D))&time={end}'
-    )
-    data_success = get_stats_data(domain_success)
-    if data_success[1] == 200:
-        if data_success[0]["data"]["result"]:
-            content["market_agreements_success"] = round(
-                float(data_success[0]["data"]["result"][0]["value"][1])
-            )
-    # Failure
-    domain_cancelled = (
-        os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%2C%20reason%3D"Cancelled"%7D%5B6h%5D))&time={end}'
-    )
-    data_cancelled = get_stats_data(domain_cancelled)
-    if data_cancelled[1] == 200:
-        if data_cancelled[0]["data"]["result"]:
-            content["market_agreements_cancelled"] = round(
-                float(data_cancelled[0]["data"]["result"][0]["value"][1])
-            )
-    # Expired
-    domain_expired = (
-        os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%2C%20reason%3D"Expired"%7D%5B6h%5D))&time={end}'
-    )
-    data_expired = get_stats_data(domain_expired)
-    if data_expired[1] == 200:
-        if data_expired[0]["data"]["result"]:
-            content["market_agreements_expired"] = round(
-                float(data_expired[0]["data"]["result"][0]["value"][1])
-            )
-    # RequestorUnreachable
-    domain_unreachable = (
-        os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%2C%20reason%3D"RequestorUnreachable"%7D%5B6h%5D))&time={end}'
-    )
-    data_unreachable = get_stats_data(domain_unreachable)
-    if data_unreachable[1] == 200:
-        if data_unreachable[0]["data"]["result"]:
-            content["market_agreements_requestorUnreachable"] = round(
-                float(data_unreachable[0]["data"]["result"][0]["value"][1])
-            )
-
-    # DebitNotesDeadline
-    domain_debitdeadline = (
-        os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=sum(increase(market_agreements_provider_terminated_reason%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%2C%20reason%3D"DebitNotesDeadline"%7D%5B6h%5D))&time={end}'
-    )
-    data_debitdeadline = get_stats_data(domain_debitdeadline)
-    if data_debitdeadline[1] == 200:
-        if data_debitdeadline[0]["data"]["result"]:
-            content["market_agreements_debitnoteDeadline"] = round(
-                float(data_debitdeadline[0]["data"]["result"][0]["value"][1])
-            )
+    for reason, key in reasons.items():
+        query = f'sum(increase(market_agreements_provider_terminated_reason{{exported_job="{settings.GRAFANA_JOB_NAME}", reason="{reason}"}}[1h]))'
+        domain = (
+            os.environ.get("STATS_URL")
+            + f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query={urllib.parse.quote(query)}&time={end}"
+        )
+        data = get_stats_data(domain)
+        content[key] = 0
+        if data[1] == 200 and data[0]["data"]["result"]:
+            content[key] = round(
+                float(data[0]["data"]["result"][0]["value"][1]))
     serialized = json.dumps(content)
     r.set("market_agreement_termination_reasons", serialized)
 
