@@ -14,6 +14,7 @@ pool = redis.ConnectionPool(host="redis", port=6379, db=0)
 r = redis.Redis(connection_pool=pool)
 
 from datetime import timedelta
+from datetime import timezone as dt_timezone
 from typing import List
 from .models import Node, NodeStatusHistory, Offer, EC2Instance
 from django.utils import timezone
@@ -61,7 +62,7 @@ def task_pricing(request):
         )
 
         if timeframe != "All":
-            start_date = datetime.now() - timedelta(days=int(timeframe[:-1]))
+            start_date = timezone.now() - timedelta(days=int(timeframe[:-1]))
             data = data.filter(created_at__gte=start_date)
 
         paginator = Paginator(data, per_page)
@@ -189,10 +190,7 @@ def node_uptime(request, yagna_id):
             status=404,
         )
 
-    # NodeStatusHistory timestamps are naive local time (USE_TZ=False);
-    # utcnow() sat 2h behind them, pushing recent events "into the future"
-    # and showing online nodes as offline.
-    current_time = datetime.now()
+    current_time = timezone.now()
     thirty_days_ago = current_time - timedelta(days=30)
 
     # Get the first status record for this node
@@ -217,7 +215,8 @@ def node_uptime(request, yagna_id):
 
     for day_offset in range(30):
         day = (current_time - timedelta(days=29-day_offset)).date()
-        day_start = datetime.combine(day, datetime.min.time())
+        day_start = datetime.combine(
+            day, datetime.min.time(), tzinfo=dt_timezone.utc)
         day_end = day_start + timedelta(days=1)
         
         # Check if the day is before the first status record

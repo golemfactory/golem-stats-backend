@@ -77,9 +77,11 @@ ALLOWED_HOSTS = json.loads(os.environ["ALLOWED_HOSTS"])
 
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
-USE_TZ = False
+USE_TZ = True
 
-TIME_ZONE = "Europe/Copenhagen"
+# All timestamp columns are timestamptz (stored as UTC instants); Django now
+# works in aware UTC end-to-end and the frontend localizes for display.
+TIME_ZONE = "UTC"
 
 
 # Application definition

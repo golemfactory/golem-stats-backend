@@ -384,7 +384,7 @@ def network_stats_to_redis():
 
 @app.task
 def networkstats_30m():
-    now = datetime.now()
+    now = timezone.now()
     before = now - timedelta(minutes=30)
     data = NetworkStats.objects.filter(
         date__range=(before, now), runtime="vm"
