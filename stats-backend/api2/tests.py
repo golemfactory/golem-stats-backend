@@ -7,11 +7,11 @@ from django.test import TestCase
 from collector.models import NetworkStats
 
 
-class NetworkHistoricalStatsCompressedTests(TestCase):
-    url = "/v2/network/historical/stats/compressed"
-    payload = json.dumps(
-        {"vm": {"1d": {"date": [1.0], "online": [5]}}}, separators=(",", ":")
-    )
+class CompressedRedisEndpointTestsMixin:
+    """Shared cases for endpoints serving compact redis JSON with gzip."""
+
+    url = None
+    payload = None
 
     def _mock_aioredis(self, aioredis_mock, content):
         aioredis_mock.Redis.return_value.get = AsyncMock(return_value=content)
@@ -39,6 +39,22 @@ class NetworkHistoricalStatsCompressedTests(TestCase):
         self._mock_aioredis(aioredis_mock, None)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 503)
+
+
+class NetworkHistoricalStatsCompressedTests(
+    CompressedRedisEndpointTestsMixin, TestCase
+):
+    url = "/v2/network/historical/stats/compressed"
+    payload = json.dumps(
+        {"vm": {"1d": {"date": [1.0], "online": [5]}}}, separators=(",", ":")
+    )
+
+
+class Ec2ComparisonCompressedTests(CompressedRedisEndpointTestsMixin, TestCase):
+    url = "/v2/network/comparison/compressed"
+    payload = json.dumps(
+        {"ec2_instance_name": ["t3.micro"], "ec2_vcpu": [2]}, separators=(",", ":")
+    )
 
 
 class NetworkHistoricalStatsColumnarTaskTests(TestCase):

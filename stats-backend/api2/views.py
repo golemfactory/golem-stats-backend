@@ -155,27 +155,47 @@ async def network_historical_stats(request):
         return HttpResponse(status=400)
 
 
+async def _compressed_json_from_redis(request, key):
+    """
+    Serve a pre-serialized compact JSON string from redis, gzip-encoded
+    when the client accepts it.
+    """
+    pool = aioredis.ConnectionPool.from_url(
+        "redis://redis:6379/0", decode_responses=True
+    )
+    redis_client = aioredis.Redis(connection_pool=pool)
+    content = await redis_client.get(key)
+    pool.disconnect()
+    if content is None:
+        return HttpResponse(status=503)
+    response = HttpResponse(content, content_type="application/json")
+    if "gzip" in request.headers.get("Accept-Encoding", ""):
+        response.content = gzip.compress(response.content, compresslevel=6)
+        response["Content-Encoding"] = "gzip"
+    response["Vary"] = "Accept-Encoding"
+    return response
+
+
 async def network_historical_stats_compressed(request):
     """
     Same data as network_historical_stats but columnar — each timeframe is
-    {field: [values]} instead of a list of row objects — served as compact
-    JSON, gzip-encoded when the client accepts it.
+    {field: [values]} instead of a list of row objects.
     """
     if request.method == "GET":
-        pool = aioredis.ConnectionPool.from_url(
-            "redis://redis:6379/0", decode_responses=True
+        return await _compressed_json_from_redis(
+            request, "network_historical_stats_v2_columnar"
         )
-        redis_client = aioredis.Redis(connection_pool=pool)
-        content = await redis_client.get("network_historical_stats_v2_columnar")
-        pool.disconnect()
-        if content is None:
-            return HttpResponse(status=503)
-        response = HttpResponse(content, content_type="application/json")
-        if "gzip" in request.headers.get("Accept-Encoding", ""):
-            response.content = gzip.compress(response.content, compresslevel=6)
-            response["Content-Encoding"] = "gzip"
-        response["Vary"] = "Accept-Encoding"
-        return response
+    else:
+        return HttpResponse(status=400)
+
+
+async def list_ec2_instances_comparison_compressed(request):
+    """
+    Same data as list_ec2_instances_comparison but columnar —
+    {field: [values]} instead of a list of row objects.
+    """
+    if request.method == "GET":
+        return await _compressed_json_from_redis(request, "ec2_comparison_columnar")
     else:
         return HttpResponse(status=400)
 

@@ -192,6 +192,20 @@ def compare_ec2_and_golem():
 
         r.set("ec2_comparison", json.dumps(
             comparison_results, cls=DecimalEncoder))
+
+        # Columnar copy for the compressed endpoint.
+        columnar = (
+            {
+                field: [row[field] for row in comparison_results]
+                for field in comparison_results[0]
+            }
+            if comparison_results
+            else {}
+        )
+        r.set(
+            "ec2_comparison_columnar",
+            json.dumps(columnar, cls=DecimalEncoder, separators=(",", ":")),
+        )
     except Exception as e:
         print(f"Error: {e}")
 
