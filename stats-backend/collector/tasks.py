@@ -395,16 +395,22 @@ def networkstats_30m():
 
 @app.task
 def network_utilization_to_redis():
-    end = round(time.time())
-    start = end - 21600
-    domain = (
-        os.environ.get("STATS_URL")
-        + f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query=sum(market_agreements_provider_approved%7Bexported_job%3D~%22{settings.GRAFANA_JOB_NAME}%22%7D%20-%20market_agreements_provider_terminated%7Bexported_job%3D~%22{settings.GRAFANA_JOB_NAME}%22%7D)&start={start}&end={end}&step=30"
-    )
-    content = get_stats_data(domain)
-    if content[1] == 200:
-        serialized = json.dumps(content[0])
-        r.set("network_utilization", serialized)
+    # The old agreements-counter sum (approved - terminated) leaked badly:
+    # in the current network setup a provider can hold only ONE agreement at
+    # a time, yet single providers showed 25+ open agreements, and offline
+    # providers kept contributing forever. Serve the count of online
+    # providers with a proven running activity instead (ProvidersComputing,
+    # sampled every 10s by computing_now_to_redis), in the Prometheus matrix
+    # shape the frontend already parses.
+    start_time = timezone.now() - timedelta(hours=6)
+    rows = ProvidersComputing.objects.filter(
+        date__gte=start_time, total__gte=0
+    ).order_by("date")
+    values = [
+        [int(row.date.timestamp()), str(row.total)] for row in rows[::3]
+    ]
+    serialized = json.dumps({"data": {"result": [{"values": values}]}})
+    r.set("network_utilization", serialized)
 
 
 @app.task
