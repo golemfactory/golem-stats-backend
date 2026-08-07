@@ -1818,6 +1818,49 @@ def computing_total_over_time():
 
 
 @app.task
+def computing_over_time_hourly():
+    # Last 7 days of raw ProvidersComputing samples (~10s cadence) rolled up
+    # into hourly maxima. Feeds the combined computing chart's "7d" tab.
+    now = timezone.now()
+    data = (
+        ProvidersComputing.objects.filter(date__gte=now - timedelta(days=7))
+        .annotate(truncated_date=TruncHour("date"))
+        .values("truncated_date")
+        .annotate(total=Max("total"))
+        .order_by("truncated_date")
+    )
+    r.set(
+        "computing_over_time_hourly",
+        json.dumps(list(data), cls=DjangoJSONEncoder),
+    )
+
+
+@app.task
+def computing_over_time_5min():
+    # Last 24h of raw samples bucketed into 5-minute maxima. Cheap enough
+    # (~8.6k rows) to recompute every minute; feeds the "24h" tab.
+    now = timezone.now()
+    buckets = {}
+    samples = ProvidersComputing.objects.filter(
+        date__gte=now - timedelta(days=1)
+    ).values_list("date", "total")
+    for date, total in samples:
+        bucket = date.replace(
+            minute=date.minute - date.minute % 5, second=0, microsecond=0
+        )
+        if total > buckets.get(bucket, -1):
+            buckets[bucket] = total
+    data = [
+        {"truncated_date": bucket, "total": total}
+        for bucket, total in sorted(buckets.items())
+    ]
+    r.set(
+        "computing_over_time_5min",
+        json.dumps(data, cls=DjangoJSONEncoder),
+    )
+
+
+@app.task
 def extract_wallets_and_ids():
     from itertools import chain
     from collections import defaultdict

@@ -72,6 +72,8 @@ def setup_periodic_tasks(sender, **kwargs):
         average_transaction_value_over_time,
         daily_volume_golem_vs_chain,
         computing_total_over_time,
+        computing_over_time_hourly,
+        computing_over_time_5min,
         extract_wallets_and_ids,
         golem_base_scraper_wrapper,
     )
@@ -88,6 +90,22 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         60,
         computing_total_over_time.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    # Populate the hourly cache immediately on startup; afterwards it only
+    # refreshes once per hour via the crontab schedule below.
+    computing_over_time_hourly.apply_async(
+        queue="default", routing_key="default")
+    sender.add_periodic_task(
+        crontab(minute=0),
+        computing_over_time_hourly.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        60,
+        computing_over_time_5min.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )

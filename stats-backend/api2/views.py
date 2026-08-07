@@ -830,6 +830,24 @@ async def average_transaction_value_over_time(request):
         return HttpResponse(status=400)
 
 
+async def computing_over_time_combined(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        hourly = await r.get("computing_over_time_hourly")
+        five_min = await r.get("computing_over_time_5min")
+        pool.disconnect()
+        data = {
+            "7d": json.loads(hourly) if hourly else [],
+            "24h": json.loads(five_min) if five_min else [],
+        }
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
+
+
 async def computing_total_over_time(request):
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(
