@@ -1986,6 +1986,109 @@ def pricing_combined_5min():
     r.set("pricing_data_combined", json.dumps(combined))
 
 
+def _prometheus_query_range(query, start, end, step):
+    url = (
+        f"{os.environ.get('STATS_URL')}"
+        "api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range"
+    )
+    headers = {
+        "Authorization": f"Bearer {os.environ.get('GRAFANA_SERVICE_TOKEN')}"}
+    response = requests.post(
+        url,
+        headers=headers,
+        data={"query": query, "start": start, "end": end, "step": step},
+    )
+    payload = response.json()
+    if payload.get("status") != "success":
+        return []
+    return payload["data"]["result"]
+
+
+def _version_share_series(start, end, step):
+    # Version adoption as percentage share per timestamp, from the yagna
+    # telemetry metrics in Prometheus. Counts cover telemetry-reporting nodes
+    # (a superset of what we consider online), hence shares, not counts.
+    job = settings.GRAFANA_JOB_NAME
+    query = (
+        f'count_values("ver", yagna_version_major{{exported_job="{job}"}}*10000'
+        f' + yagna_version_minor{{exported_job="{job}"}}*100'
+        f' + yagna_version_patch{{exported_job="{job}"}})'
+    )
+    by_ts = defaultdict(dict)
+    for series in _prometheus_query_range(query, start, end, step):
+        ver = float(series["metric"]["ver"])
+        version = f"{int(ver // 10000)}.{int(ver % 10000 // 100)}.{int(ver % 100)}"
+        for ts, value in series["values"]:
+            by_ts[int(ts)][version] = by_ts[int(ts)].get(
+                version, 0) + float(value)
+    points = []
+    for ts in sorted(by_ts):
+        counts = by_ts[ts]
+        total = sum(counts.values())
+        if not total:
+            continue
+        points.append(
+            {"date": ts, **{v: round(c / total * 100, 2)
+                            for v, c in counts.items()}}
+        )
+    return points
+
+
+def _fold_versions(points, keep):
+    # Keep the given versions as their own series, sum the rest into "Other".
+    folded = []
+    for point in points:
+        row = {"date": point["date"]}
+        other = 0.0
+        for key, value in point.items():
+            if key == "date":
+                continue
+            if key in keep:
+                row[key] = value
+            else:
+                other += value
+        for key in keep:
+            row.setdefault(key, 0)
+        row["Other"] = round(other, 2)
+        folded.append(row)
+    return folded
+
+
+@app.task
+def network_versions_combined_hourly():
+    now = timezone.now()
+    end = int(now.replace(minute=0, second=0, microsecond=0).timestamp())
+    r.set(
+        "network_versions_combined_hourly",
+        json.dumps(_version_share_series(end - 7 * 24 * 3600, end, 3600)),
+    )
+
+
+@app.task
+def network_versions_combined_5min():
+    now = timezone.now()
+    end = int(now.replace(second=0, microsecond=0).timestamp())
+    end -= end % 300
+    day_points = _version_share_series(end - 24 * 3600, end, 300)
+    if not day_points:
+        return
+    hourly = json.loads(r.get("network_versions_combined_hourly") or "[]")
+    # Top 6 by current share, then ordered newest-version-first so each
+    # version keeps a stable series slot (and color) as adoption shifts.
+    latest = day_points[-1]
+    top = sorted((k for k in latest if k != "date"),
+                 key=lambda k: -latest[k])[:6]
+    keep = sorted(
+        top, key=lambda v: [int(part) for part in v.split(".")], reverse=True
+    )
+    combined = {
+        "versions": keep + ["Other"],
+        "24h": _fold_versions(day_points, set(keep)),
+        "7d": _fold_versions(hourly, set(keep)),
+    }
+    r.set("network_versions_combined", json.dumps(combined))
+
+
 @app.task
 def computing_over_time_hourly():
     # Last 7 days of raw ProvidersComputing samples (~10s cadence) rolled up

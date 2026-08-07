@@ -23,6 +23,7 @@ urlpatterns = [
     path("network/pricing/1h", views.pricing_past_hour),
     path("network/pricing/historical", views.historical_pricing_data),
     path("network/pricing/historical/combined", views.pricing_historical_combined),
+    path("network/versions/combined", views.network_versions_combined),
     path("network/pricing/dump", views.task_pricing),
     path("provider/wallet/<wallet>", views.node_wallet),
     path("provider/node/<yagna_id>", views.node),

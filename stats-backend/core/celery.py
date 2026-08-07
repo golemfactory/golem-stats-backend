@@ -78,6 +78,8 @@ def setup_periodic_tasks(sender, **kwargs):
         network_stats_combined_5min,
         pricing_combined_hourly,
         pricing_combined_5min,
+        network_versions_combined_hourly,
+        network_versions_combined_5min,
         extract_wallets_and_ids,
         golem_base_scraper_wrapper,
     )
@@ -103,6 +105,7 @@ def setup_periodic_tasks(sender, **kwargs):
         computing_over_time_hourly,
         network_stats_combined_hourly,
         pricing_combined_hourly,
+        network_versions_combined_hourly,
     ):
         hourly_task.apply_async(queue="default", routing_key="default")
         sender.add_periodic_task(
@@ -115,6 +118,7 @@ def setup_periodic_tasks(sender, **kwargs):
         computing_over_time_5min,
         network_stats_combined_5min,
         pricing_combined_5min,
+        network_versions_combined_5min,
     ):
         sender.add_periodic_task(
             60,

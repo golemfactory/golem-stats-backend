@@ -200,6 +200,24 @@ async def list_ec2_instances_comparison_compressed(request):
         return HttpResponse(status=400)
 
 
+async def network_versions_combined(request):
+    """
+    Version adoption over time as percentage share of telemetry-reporting
+    nodes: {"versions": [...], "24h": 5-min points, "7d": hourly points}.
+    """
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("network_versions_combined")
+        pool.disconnect()
+        data = json.loads(content) if content else {}
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
+
+
 async def network_historical_stats_combined(request):
     """
     Combined columnar stats series: {runtime: {"24h": 5-min points,
