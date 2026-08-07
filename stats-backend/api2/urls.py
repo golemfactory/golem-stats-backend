@@ -22,6 +22,7 @@ urlpatterns = [
     path("network/offers/cheapest/cores", views.cheapest_by_cores),
     path("network/pricing/1h", views.pricing_past_hour),
     path("network/pricing/historical", views.historical_pricing_data),
+    path("network/pricing/historical/combined", views.pricing_historical_combined),
     path("network/pricing/dump", views.task_pricing),
     path("provider/wallet/<wallet>", views.node_wallet),
     path("provider/node/<yagna_id>", views.node),
@@ -30,6 +31,10 @@ urlpatterns = [
     path("website/globe_data", views.globe_data),
     path("website/index", views.golem_main_website_index),
     path("network/historical/stats", views.network_historical_stats),
+    path(
+        "network/historical/stats/combined",
+        views.network_historical_stats_combined,
+    ),
     path(
         "network/historical/stats/compressed",
         views.network_historical_stats_compressed,

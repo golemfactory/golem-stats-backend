@@ -1817,6 +1817,175 @@ def computing_total_over_time():
     )
 
 
+def _format_network_stats_entry(timestamp, entry):
+    # Same field formatting as network_historical_stats_to_redis_v2:
+    # epoch seconds, memory/disk converted GiB -> TB.
+    return {
+        "date": timestamp.timestamp(),
+        "online": round(entry.get("online") or 0),
+        "cores": round(entry.get("cores") or 0),
+        "memory": round((entry.get("memory") or 0) / 1024, 2),
+        "disk": round((entry.get("disk") or 0) / 1024, 2),
+        "gpus": round(entry.get("gpus") or 0),
+    }
+
+
+@app.task
+def network_stats_combined_hourly():
+    # Last 7 days of raw NetworkStats samples (~10s cadence per runtime)
+    # averaged into hourly points. Intermediate series consumed by
+    # network_stats_combined_5min when it composes the combined payload.
+    # Runtimes with no samples in the window are omitted entirely so retired
+    # ones don't show up as empty charts.
+    now = timezone.now()
+    runtime_names = NetworkStats.objects.filter(
+        date__gte=now - timedelta(days=7)
+    ).values_list("runtime", flat=True).distinct()
+    data = {}
+    for runtime_name in runtime_names:
+        stats = (
+            NetworkStats.objects.filter(
+                runtime=runtime_name, date__gte=now - timedelta(days=7)
+            )
+            .annotate(timestamp=TruncHour("date"))
+            .values("timestamp")
+            .annotate(
+                online=Avg("online"),
+                cores=Avg("cores"),
+                memory=Avg("memory"),
+                disk=Avg("disk"),
+                gpus=Avg("gpus"),
+            )
+            .order_by("timestamp")
+        )
+        data[runtime_name] = [
+            _format_network_stats_entry(entry["timestamp"], entry) for entry in stats
+        ]
+    r.set("network_stats_combined_hourly", json.dumps(data))
+
+
+@app.task
+def network_stats_combined_5min():
+    # Last 24h of raw NetworkStats samples averaged into 5-minute buckets,
+    # merged with the cached hourly 7d series into the combined columnar
+    # payload served by /v2/network/historical/stats/combined.
+    now = timezone.now()
+    runtime_names = NetworkStats.objects.filter(
+        date__gte=now - timedelta(days=7)
+    ).values_list("runtime", flat=True).distinct()
+    hourly = json.loads(r.get("network_stats_combined_hourly") or "{}")
+    combined = {}
+    for runtime_name in runtime_names:
+        buckets = {}
+        rows = NetworkStats.objects.filter(
+            runtime=runtime_name, date__gte=now - timedelta(days=1)
+        ).values_list("date", "online", "cores", "memory", "disk", "gpus")
+        for date, online, cores, memory, disk, gpus in rows:
+            bucket = date.replace(
+                minute=date.minute - date.minute % 5, second=0, microsecond=0
+            )
+            acc = buckets.setdefault(bucket, [0, 0.0, 0.0, 0.0, 0.0, 0.0])
+            acc[0] += 1
+            acc[1] += online or 0
+            acc[2] += cores or 0
+            acc[3] += memory or 0
+            acc[4] += disk or 0
+            acc[5] += gpus or 0
+        series = [
+            _format_network_stats_entry(
+                bucket,
+                {
+                    "online": online / n,
+                    "cores": cores / n,
+                    "memory": memory / n,
+                    "disk": disk / n,
+                    "gpus": gpus / n,
+                },
+            )
+            for bucket, (n, online, cores, memory, disk, gpus) in sorted(
+                buckets.items()
+            )
+        ]
+        combined[runtime_name] = {
+            "24h": series, "7d": hourly.get(runtime_name, [])}
+    fields = ["date", "online", "cores", "memory", "disk", "gpus"]
+    columnar = {
+        runtime: {
+            frame: {field: [row[field] for row in rows] for field in fields}
+            for frame, rows in frames.items()
+        }
+        for runtime, frames in combined.items()
+    }
+    r.set(
+        "network_historical_stats_combined",
+        json.dumps(columnar, separators=(",", ":")),
+    )
+
+
+def _pricing_windowed_series(network, points):
+    # Each point is the avg/median over the trailing 24h of ProviderWithTask
+    # rows — the same statistic as the daily PricingSnapshot, evaluated
+    # rolling. Task density (~20/h) is too sparse for per-bucket stats.
+    from bisect import bisect_left, bisect_right
+
+    earliest = min(points) - timedelta(days=1)
+    rows = list(
+        ProviderWithTask.objects.filter(
+            network=network, created_at__gte=earliest)
+        .order_by("created_at")
+        .values_list("created_at", "cpu_per_hour", "env_per_hour", "start_price")
+    )
+    times = [row[0] for row in rows]
+    series = []
+    for point in points:
+        window = rows[
+            bisect_left(times, point - timedelta(days=1)): bisect_right(times, point)
+        ]
+        entry = {"date": point.timestamp()}
+        for key, values in (
+            ("cpu", [row[1] for row in window if row[1] is not None]),
+            ("env", [row[2] for row in window if row[2] is not None]),
+            ("start", [row[3] for row in window if row[3] is not None]),
+        ):
+            entry[f"average_{key}"] = sum(values) / \
+                len(values) if values else 0
+            entry[f"median_{key}"] = float(median(values)) if values else 0
+        series.append(entry)
+    return series
+
+
+@app.task
+def pricing_combined_hourly():
+    # 7 days of hourly points for the combined pricing chart.
+    now = timezone.now()
+    end = now.replace(minute=0, second=0, microsecond=0)
+    points = [end - timedelta(hours=h) for h in range(7 * 24, -1, -1)]
+    data = {
+        network: _pricing_windowed_series(network, points)
+        for network in ["mainnet", "testnet"]
+    }
+    r.set("pricing_combined_hourly", json.dumps(data))
+
+
+@app.task
+def pricing_combined_5min():
+    # 24h of 5-minute points, merged with the cached hourly 7d series into
+    # the payload served by /v2/network/pricing/historical/combined.
+    now = timezone.now()
+    end = now.replace(minute=now.minute - now.minute %
+                      5, second=0, microsecond=0)
+    points = [end - timedelta(minutes=5 * i) for i in range(288, -1, -1)]
+    hourly = json.loads(r.get("pricing_combined_hourly") or "{}")
+    combined = {
+        network: {
+            "24h": _pricing_windowed_series(network, points),
+            "7d": hourly.get(network, []),
+        }
+        for network in ["mainnet", "testnet"]
+    }
+    r.set("pricing_data_combined", json.dumps(combined))
+
+
 @app.task
 def computing_over_time_hourly():
     # Last 7 days of raw ProvidersComputing samples (~10s cadence) rolled up

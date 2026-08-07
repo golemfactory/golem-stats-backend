@@ -200,6 +200,33 @@ async def list_ec2_instances_comparison_compressed(request):
         return HttpResponse(status=400)
 
 
+async def network_historical_stats_combined(request):
+    """
+    Combined columnar stats series: {runtime: {"24h": 5-min points,
+    "7d": hourly points}}. Same field layout as the compressed endpoint.
+    """
+    if request.method == "GET":
+        return await _compressed_json_from_redis(
+            request, "network_historical_stats_combined"
+        )
+    else:
+        return HttpResponse(status=400)
+
+
+async def pricing_historical_combined(request):
+    if request.method == "GET":
+        pool = aioredis.ConnectionPool.from_url(
+            "redis://redis:6379/0", decode_responses=True
+        )
+        r = aioredis.Redis(connection_pool=pool)
+        content = await r.get("pricing_data_combined")
+        pool.disconnect()
+        data = json.loads(content) if content else {}
+        return JsonResponse(data, safe=False, json_dumps_params={"indent": 4})
+    else:
+        return HttpResponse(status=400)
+
+
 async def historical_pricing_data(request):
     if request.method == "GET":
         pool = aioredis.ConnectionPool.from_url(

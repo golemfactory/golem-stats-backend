@@ -74,6 +74,10 @@ def setup_periodic_tasks(sender, **kwargs):
         computing_total_over_time,
         computing_over_time_hourly,
         computing_over_time_5min,
+        network_stats_combined_hourly,
+        network_stats_combined_5min,
+        pricing_combined_hourly,
+        pricing_combined_5min,
         extract_wallets_and_ids,
         golem_base_scraper_wrapper,
     )
@@ -93,22 +97,31 @@ def setup_periodic_tasks(sender, **kwargs):
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )
-    # Populate the hourly cache immediately on startup; afterwards it only
-    # refreshes once per hour via the crontab schedule below.
-    computing_over_time_hourly.apply_async(
-        queue="default", routing_key="default")
-    sender.add_periodic_task(
-        crontab(minute=0),
-        computing_over_time_hourly.s(),
-        queue="default",
-        options={"queue": "default", "routing_key": "default"},
-    )
-    sender.add_periodic_task(
-        60,
-        computing_over_time_5min.s(),
-        queue="default",
-        options={"queue": "default", "routing_key": "default"},
-    )
+    # Populate the hourly caches immediately on startup; afterwards they only
+    # refresh once per hour via the crontab schedules below.
+    for hourly_task in (
+        computing_over_time_hourly,
+        network_stats_combined_hourly,
+        pricing_combined_hourly,
+    ):
+        hourly_task.apply_async(queue="default", routing_key="default")
+        sender.add_periodic_task(
+            crontab(minute=0),
+            hourly_task.s(),
+            queue="default",
+            options={"queue": "default", "routing_key": "default"},
+        )
+    for minutely_task in (
+        computing_over_time_5min,
+        network_stats_combined_5min,
+        pricing_combined_5min,
+    ):
+        sender.add_periodic_task(
+            60,
+            minutely_task.s(),
+            queue="default",
+            options={"queue": "default", "routing_key": "default"},
+        )
     sender.add_periodic_task(
         60,
         transaction_volume_over_time.s(),
