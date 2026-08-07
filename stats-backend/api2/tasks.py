@@ -2004,10 +2004,15 @@ def _prometheus_query_range(query, start, end, step):
     return payload["data"]["result"]
 
 
-def _version_share_series(start, end, step):
-    # Version adoption as percentage share per timestamp, from the yagna
-    # telemetry metrics in Prometheus. Counts cover telemetry-reporting nodes
-    # (a superset of what we consider online), hence shares, not counts.
+# Versions below this are not allowed on the network anymore and are
+# excluded from the adoption chart entirely.
+MIN_SUPPORTED_YAGNA_VERSION = (0, 17, 7)
+
+
+def _version_count_series(start, end, step):
+    # Node count per supported yagna version per timestamp, from the yagna
+    # telemetry metrics in Prometheus. Counts cover telemetry-reporting
+    # nodes (a superset of what we consider online).
     job = settings.GRAFANA_JOB_NAME
     query = (
         f'count_values("ver", yagna_version_major{{exported_job="{job}"}}*10000'
@@ -2017,41 +2022,22 @@ def _version_share_series(start, end, step):
     by_ts = defaultdict(dict)
     for series in _prometheus_query_range(query, start, end, step):
         ver = float(series["metric"]["ver"])
-        version = f"{int(ver // 10000)}.{int(ver % 10000 // 100)}.{int(ver % 100)}"
+        parts = (int(ver // 10000), int(ver % 10000 // 100), int(ver % 100))
+        if parts < MIN_SUPPORTED_YAGNA_VERSION:
+            continue
+        version = ".".join(str(part) for part in parts)
         for ts, value in series["values"]:
             by_ts[int(ts)][version] = by_ts[int(ts)].get(
-                version, 0) + float(value)
-    points = []
-    for ts in sorted(by_ts):
-        counts = by_ts[ts]
-        total = sum(counts.values())
-        if not total:
-            continue
-        points.append(
-            {"date": ts, **{v: round(c / total * 100, 2)
-                            for v, c in counts.items()}}
-        )
-    return points
+                version, 0) + int(float(value))
+    return [{"date": ts, **by_ts[ts]} for ts in sorted(by_ts)]
 
 
-def _fold_versions(points, keep):
-    # Keep the given versions as their own series, sum the rest into "Other".
-    folded = []
-    for point in points:
-        row = {"date": point["date"]}
-        other = 0.0
-        for key, value in point.items():
-            if key == "date":
-                continue
-            if key in keep:
-                row[key] = value
-            else:
-                other += value
-        for key in keep:
-            row.setdefault(key, 0)
-        row["Other"] = round(other, 2)
-        folded.append(row)
-    return folded
+def _fill_versions(points, versions):
+    # Every point carries every version key so chart series stay aligned.
+    return [
+        {"date": point["date"], **{v: point.get(v, 0) for v in versions}}
+        for point in points
+    ]
 
 
 @app.task
@@ -2060,7 +2046,7 @@ def network_versions_combined_hourly():
     end = int(now.replace(minute=0, second=0, microsecond=0).timestamp())
     r.set(
         "network_versions_combined_hourly",
-        json.dumps(_version_share_series(end - 7 * 24 * 3600, end, 3600)),
+        json.dumps(_version_count_series(end - 7 * 24 * 3600, end, 3600)),
     )
 
 
@@ -2069,22 +2055,22 @@ def network_versions_combined_5min():
     now = timezone.now()
     end = int(now.replace(second=0, microsecond=0).timestamp())
     end -= end % 300
-    day_points = _version_share_series(end - 24 * 3600, end, 300)
+    day_points = _version_count_series(end - 24 * 3600, end, 300)
     if not day_points:
         return
     hourly = json.loads(r.get("network_versions_combined_hourly") or "[]")
-    # Top 6 by current share, then ordered newest-version-first so each
+    # Every supported version seen in either window, newest first so each
     # version keeps a stable series slot (and color) as adoption shifts.
-    latest = day_points[-1]
-    top = sorted((k for k in latest if k != "date"),
-                 key=lambda k: -latest[k])[:6]
-    keep = sorted(
-        top, key=lambda v: [int(part) for part in v.split(".")], reverse=True
+    seen = set()
+    for point in day_points + hourly:
+        seen.update(key for key in point if key != "date")
+    versions = sorted(
+        seen, key=lambda v: [int(part) for part in v.split(".")], reverse=True
     )
     combined = {
-        "versions": keep + ["Other"],
-        "24h": _fold_versions(day_points, set(keep)),
-        "7d": _fold_versions(hourly, set(keep)),
+        "versions": versions,
+        "24h": _fill_versions(day_points, versions),
+        "7d": _fill_versions(hourly, versions),
     }
     r.set("network_versions_combined", json.dumps(combined))
 
