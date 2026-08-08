@@ -178,10 +178,22 @@ async def activity_graph_provider(request, yagna_id):
     end = round(time.time())
     start = end - 86400  # 24 hours
 
+    # Mirror the computing_now logic: a node counts as computing when it has an
+    # open activity OR an open agreement. Some workloads (e.g. vanity-market
+    # hashing) hold a rolling multi-hour agreement while their activities live
+    # only seconds, so the activity gauge alone plots them as idle.
+    labels = f'exported_instance="{yagna_id}", exported_job=~"{settings.GRAFANA_JOB_NAME}"'
+    open_activities = (
+        f"clamp_min(activity_provider_created{{{labels}}}"
+        f" - activity_provider_destroyed{{{labels}}}, 0)"
+    )
+    open_agreements = (
+        f"clamp_min(market_agreements_provider_approved{{{labels}}}"
+        f" - market_agreements_provider_terminated{{{labels}}}, 0)"
+    )
     query = (
-        f'activity_provider_created{{exported_instance="{yagna_id}", exported_job=~"{settings.GRAFANA_JOB_NAME}"}}'
-        " - "
-        f'activity_provider_destroyed{{exported_instance="{yagna_id}", exported_job=~"{settings.GRAFANA_JOB_NAME}"}}'
+        f"(({open_activities}) + ({open_agreements}))"
+        f" or ({open_activities}) or ({open_agreements})"
     )
 
     encoded_query = urllib.parse.quote(query)
