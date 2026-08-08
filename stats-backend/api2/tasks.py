@@ -1183,7 +1183,16 @@ def online_nodes_computing():
     # exported_job, not job — the job label on this datasource is
     # "yagna_metrics"; matching job=<GRAFANA_JOB_NAME> returns zero series
     # and silently left every node marked as not computing.
-    query = f'activity_provider_created{{exported_job=~"{settings.GRAFANA_JOB_NAME}"}} - activity_provider_destroyed{{exported_job=~"{settings.GRAFANA_JOB_NAME}"}}'
+    # A node counts as computing when it has an open activity OR an open
+    # agreement. Some workloads (e.g. vanity-market hashing) hold a rolling
+    # multi-hour agreement while their activities live only seconds, so the
+    # activity gauge alone never catches them. clamp_min guards against
+    # transient negative diffs after counter resets; the `or` fallbacks keep
+    # nodes that report only one of the two metric pairs.
+    j = f'exported_job=~"{settings.GRAFANA_JOB_NAME}"'
+    open_activities = f'clamp_min(activity_provider_created{{{j}}} - activity_provider_destroyed{{{j}}}, 0)'
+    open_agreements = f'clamp_min(market_agreements_provider_approved{{{j}}} - market_agreements_provider_terminated{{{j}}}, 0)'
+    query = f'(({open_activities}) + ({open_agreements})) or ({open_activities}) or ({open_agreements})'
     url = f"{os.environ.get('STATS_URL')}api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query_range?query={urllib.parse.quote(query)}&start={start}&end={end}&step=1"
     data = get_stats_data(url)
 
