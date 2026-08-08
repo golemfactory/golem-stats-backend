@@ -32,6 +32,9 @@ GOLEM_MAINNET_KEYS = [
 
 # Network configuration
 NETWORK_TYPE = os.environ.get("NETWORK_TYPE", "hybrid")  # 'hybrid' or 'central'
+# Private base URL of the external reputation portal API. Never expose this
+# value (or any URL derived from it) in API responses or frontend code.
+REPUTATION_PORTAL_URL = os.environ.get("REPUTATION_PORTAL_URL")
 GRAFANA_JOB_NAME = os.environ.get("GRAFANA_JOB_NAME", "community.1")
 RELAY_CONFIG = {
     "hybrid": {

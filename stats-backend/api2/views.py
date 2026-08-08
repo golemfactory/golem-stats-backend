@@ -447,6 +447,39 @@ async def golem_main_website_index(request):
         return HttpResponse(status=400)
 
 
+def get_portal_reputation(node_id):
+    # Reputation data cached in Redis by api2.tasks.fetch_portal_reputation.
+    # Exposes only the portal's payload fields — never where they came from.
+    raw = r.get(f"portal_reputation_v1:{node_id}")
+    if not raw:
+        return {
+            "softbanned": False,
+            "softbannedReason": None,
+            "taskReputation": None,
+        }
+    data = json.loads(raw)
+    status = data.get("status") or {}
+    category = data.get("category")
+    if category == "blacklisted":
+        category = "softbanned"
+    softbanned = bool(status.get("banned")) or category in (
+        "softbanned",
+        "banned",
+    )
+    return {
+        "softbanned": softbanned,
+        "softbannedReason": status.get("lastBanReason") if softbanned else None,
+        "taskReputation": data.get("score"),
+        "category": category,
+        "bansLast24h": status.get("bansLast24h"),
+        "activeAgreements": status.get("activeAgreements"),
+        "targets": data.get("targets"),
+        "performance": data.get("performance"),
+        "hints": data.get("hints"),
+        "updatedAt": data.get("timestamp"),
+    }
+
+
 def node_wallet(request, wallet):
     if request.method != "GET":
         return HttpResponse(status=400)
@@ -458,13 +491,8 @@ def node_wallet(request, wallet):
     serializer = NodeSerializer(data, many=True)
     serialized_data = serializer.data
 
-    # Set default reputation data for each node
     for node in serialized_data:
-        node["reputation"] = {
-            "blacklisted": False,
-            "blacklistedReason": None,
-            "taskReputation": None,
-        }
+        node["reputation"] = get_portal_reputation(node["node_id"])
 
     return JsonResponse(serialized_data, safe=False, json_dumps_params={"indent": 4})
 
@@ -475,8 +503,12 @@ def node(request, yagna_id):
             data = Node.objects.filter(node_id=yagna_id)
             if data:
                 serializer = NodeSerializer(data, many=True)
+                serialized_data = serializer.data
+                for node_obj in serialized_data:
+                    node_obj["reputation"] = get_portal_reputation(
+                        node_obj["node_id"])
                 return JsonResponse(
-                    serializer.data, safe=False, json_dumps_params={"indent": 4}
+                    serialized_data, safe=False, json_dumps_params={"indent": 4}
                 )
             else:
                 return HttpResponse(status=404)

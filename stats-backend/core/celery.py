@@ -62,6 +62,7 @@ def setup_periodic_tasks(sender, **kwargs):
         count_cpu_vendors,
         count_cpu_architecture,
         online_nodes_computing,
+        fetch_portal_reputation,
         fetch_and_store_relay_nodes,
         init_golem_tx_scraping,
         fetch_latest_glm_tx,
@@ -220,6 +221,12 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(
         120,
         online_nodes_computing.s(),
+        queue="default",
+        options={"queue": "default", "routing_key": "default"},
+    )
+    sender.add_periodic_task(
+        300,
+        fetch_portal_reputation.s(),
         queue="default",
         options={"queue": "default", "routing_key": "default"},
     )

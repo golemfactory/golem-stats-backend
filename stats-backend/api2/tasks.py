@@ -2214,3 +2214,43 @@ def bulk_update_node_statuses(nodes_data):
 
         # Bulk create status history ONLY for changed/new statuses
         NodeStatusHistory.objects.bulk_create(status_history_to_create)
+
+
+PORTAL_REPUTATION_REDIS_PREFIX = "portal_reputation_v1:"
+
+
+@app.task
+def fetch_portal_reputation():
+    # Pulls per-provider reputation from the external reputation portal and
+    # caches it in Redis for the provider detail endpoints. The portal base
+    # URL (settings.REPUTATION_PORTAL_URL) is private infrastructure config —
+    # it must never end up in anything stored here or served to clients.
+    base_url = settings.REPUTATION_PORTAL_URL
+    if not base_url:
+        return
+
+    node_ids = Node.objects.filter(online=True, type="provider").values_list(
+        "node_id", flat=True
+    )
+    session = requests.Session()
+    fetched = 0
+    for node_id in node_ids:
+        try:
+            response = session.get(
+                f"{base_url.rstrip('/')}/portal/providers/{node_id}", timeout=10
+            )
+            if response.status_code != 200:
+                continue
+            data = response.json()
+        except (requests.RequestException, ValueError):
+            continue
+        # statsGolemUrl just points back at our own site; drop it so the
+        # cached payload contains no URLs at all.
+        data.pop("statsGolemUrl", None)
+        r.set(
+            f"{PORTAL_REPUTATION_REDIS_PREFIX}{node_id}",
+            json.dumps(data),
+            ex=1800,
+        )
+        fetched += 1
+    print(f"fetch_portal_reputation: cached {fetched} providers")
