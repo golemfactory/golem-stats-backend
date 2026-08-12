@@ -58,6 +58,12 @@ OFFER_SCRAPER_CONFIG = {
     }
 }
 
+# How long an offer stays usable after the last scan that saw it. Past this the
+# stored values are history: they stay in the database but are reported as
+# unknown instead of being presented as the provider's current state. Each
+# scraper loop takes ~60s per subnet, so this allows a few missed rounds.
+OFFER_FRESHNESS_SECONDS = int(os.environ.get("OFFER_FRESHNESS_SECONDS", 300))
+
 
 TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
 

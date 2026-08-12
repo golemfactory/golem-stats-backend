@@ -142,7 +142,7 @@ def compare_ec2_and_golem():
 
         for ec2 in ec2_instances:
             cheapest_offer = (
-                Offer.objects.annotate(
+                Offer.objects.fresh().annotate(
                     vcpu=Cast("properties__golem.inf.cpu.threads",
                               FloatField()),
                     memory=Cast("properties__golem.inf.mem.gib", FloatField()),
@@ -359,9 +359,10 @@ def v2_network_online_to_redis_flatmap():
 
 @app.task
 def v2_cheapest_offer():
-    recently = timezone.now() - timezone.timedelta(minutes=5)
-    data = Offer.objects.filter(
-        runtime="vm", updated_at__range=(recently, timezone.now())
+    # This used to key off updated_at, which only moves when an offer's contents
+    # change, so the window was almost always empty.
+    data = Offer.objects.fresh().filter(
+        runtime="vm"
     ).exclude(monthly_price_glm__isnull=True).order_by("-monthly_price_glm")
 
     serializer = OfferSerializer(data, many=True)
@@ -386,7 +387,7 @@ def v2_cheapest_provider():
     )
     data = req.json()
     price = data["market_data"]["current_price"]["usd"]
-    obj = Offer.objects.filter(runtime="vm", provider__online=True) \
+    obj = Offer.objects.fresh().filter(runtime="vm", provider__online=True) \
         .exclude(monthly_price_glm__isnull=True) \
         .order_by("monthly_price_glm")
 
@@ -739,7 +740,7 @@ def v2_network_stats_to_redis():
 
     stats_by_runtime = {}
 
-    vm_offers_query = Offer.objects.filter(provider__online=True)
+    vm_offers_query = Offer.objects.fresh().filter(provider__online=True)
 
     for offer in vm_offers_query:
         properties = offer.properties
@@ -1018,7 +1019,9 @@ def sum_highest_runtime_resources():
     total_gpus = 0
 
     for node in online_nodes:
-        offers = Offer.objects.filter(provider=node)
+        # Only offers a scan has just seen: a runtime the provider stopped
+        # advertising must not keep contributing its old core count here.
+        offers = Offer.objects.fresh().filter(provider=node)
         max_resources = offers.annotate(
             cores=Cast(
                 KeyTextTransform("golem.inf.cpu.threads", "properties"),
@@ -1115,7 +1118,7 @@ def get_online_counts():
 def count_cpu_vendors():
     # Ensure the correct output field is set to CharField to avoid mixed types error.
     online_nodes_offers = (
-        Offer.objects.filter(
+        Offer.objects.fresh().filter(
             provider__online=True, properties__has_key="golem.inf.cpu.vendor"
         )
         .annotate(
@@ -1147,7 +1150,7 @@ def count_cpu_vendors():
 def count_cpu_architecture():
     # Ensure the correct output field is set to CharField to avoid mixed types error.
     online_nodes_offers = (
-        Offer.objects.filter(
+        Offer.objects.fresh().filter(
             provider__online=True, properties__has_key="golem.inf.cpu.architecture"
         )
         .annotate(
@@ -2148,7 +2151,7 @@ def extract_wallets_and_ids():
         .values_list("node_id", flat=True)
     )
 
-    offers = Offer.objects.filter(provider__node_id__in=online_providers)
+    offers = Offer.objects.fresh().filter(provider__node_id__in=online_providers)
     wallets_dict = defaultdict(set)
     providers_dict = defaultdict(list)
 

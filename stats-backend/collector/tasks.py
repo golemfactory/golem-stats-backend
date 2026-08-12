@@ -341,7 +341,7 @@ def network_stats_to_redis():
     disk = []
 
     # Filter Offers with runtime 'vm' and related online Nodes
-    vm_offers_query = Offer.objects.filter(
+    vm_offers_query = Offer.objects.fresh().filter(
         runtime="vm",
         provider__online=True,  # Accessing related Node instances that are online
     )

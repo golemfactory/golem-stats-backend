@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import asyncio
 import csv
+import hashlib
 import json
 import redis
 import pathlib
@@ -9,7 +10,7 @@ import subprocess
 import requests
 from datetime import datetime, timedelta
 from django.utils import timezone
-from .models import Node, NodeStatusHistory, GLM, EC2Instance, Offer
+from .models import Node, NodeStatusHistory, GLM, EC2Instance, Offer, OfferVariantSighting
 from asgiref.sync import sync_to_async
 from yapapi import props as yp
 from yapapi.config import ApiConfig
@@ -32,13 +33,80 @@ pool = redis.ConnectionPool(host="redis", port=6379, db=0)
 r = redis.Redis(connection_pool=pool)
 
 
+def _normalize_value(value):
+    if isinstance(value, float):
+        # Providers re-serialize their offers on the way to us and floats pick
+        # up ulp noise (2.75e-06 arrives as 2.7500000000000004e-06). Rounding
+        # keeps numerically-equal offers equal.
+        return round(value, 12)
+    if isinstance(value, list):
+        return sorted((_normalize_value(v) for v in value), key=repr)
+    if isinstance(value, dict):
+        return {k: _normalize_value(v) for k, v in sorted(value.items())}
+    return value
+
+
 def normalize_properties(data):
     """Normalize the properties dictionary for consistent comparison."""
-    # Sort lists within the dictionary
-    for key, value in data.items():
-        if isinstance(value, list):
-            data[key] = sorted(value)
-    return dict(sorted(data.items()))  # Return sorted dictionary
+    return {key: _normalize_value(value) for key, value in sorted(data.items())}
+
+
+def offer_content_hash(data):
+    """Stable identity of an offer's contents, ignoring float noise."""
+    canonical = json.dumps(normalize_properties(data), sort_keys=True, default=str)
+    return hashlib.md5(canonical.encode()).hexdigest()
+
+
+def select_current_variants(variants_by_key, now):
+    """Pick one offer per (provider, runtime) from this scan's proposals.
+
+    ``variants_by_key`` maps (provider_id, runtime) to {content_hash: data} —
+    every distinct version of the offer that arrived in this scan. Providers
+    frequently deliver two: the pre-change offer next to the post-change one.
+    The winner is the variant that appeared on the market most recently
+    (largest first_seen_at in OfferVariantSighting), so an operator's edit wins
+    immediately and keeps winning, instead of alternating with the stale copy
+    by arrival order. Ties (e.g. both variants first recorded in the same
+    scan) break on the hash, which is arbitrary but stable — no oscillation.
+    """
+    all_hashes = {h for variants in variants_by_key.values() for h in variants}
+    sightings = {
+        (s.provider_node_id, s.runtime, s.content_hash): s
+        for s in OfferVariantSighting.objects.filter(content_hash__in=all_hashes)
+    }
+
+    to_create, to_touch = [], []
+    winners = {}
+    for (provider_id, runtime), variants in variants_by_key.items():
+        candidates = []
+        for content_hash, data in variants.items():
+            sighting = sightings.get((provider_id, runtime, content_hash))
+            if sighting:
+                sighting.last_seen_at = now
+                to_touch.append(sighting)
+            else:
+                sighting = OfferVariantSighting(
+                    provider_node_id=provider_id,
+                    runtime=runtime,
+                    content_hash=content_hash,
+                    first_seen_at=now,
+                    last_seen_at=now,
+                )
+                to_create.append(sighting)
+            candidates.append((sighting.first_seen_at, content_hash, data))
+
+        candidates.sort(key=lambda c: (c[0], c[1]))
+        winners[(provider_id, runtime)] = candidates[-1][2]
+
+    if to_create:
+        OfferVariantSighting.objects.bulk_create(to_create, ignore_conflicts=True)
+    if to_touch:
+        OfferVariantSighting.objects.bulk_update(to_touch, ["last_seen_at"])
+    # Variants no provider has advertised for a day are gone for good; without
+    # pruning the table would grow with every price change ever made.
+    OfferVariantSighting.objects.filter(
+        last_seen_at__lt=now - timedelta(days=1)).delete()
+    return winners
 
 
 @app.task
@@ -82,14 +150,19 @@ def update_providers_info(node_props):
     for node in updated_nodes:
         existing_nodes_dict[node.node_id] = node
 
-    # Now process offers
-    offer_keys = []
-    offer_data = {}  # key: (provider_id, runtime), value: data
+    # Now process offers. One scan routinely delivers several proposals for
+    # the same (provider, runtime) — commonly a pre-change offer alongside the
+    # post-change one — so collect every distinct variant and let recorded
+    # first-appearance recency decide which one represents the provider,
+    # rather than whichever proposal happened to arrive last.
+    variants_by_key = {}  # (provider_id, runtime) -> {content_hash: data}
     for provider_id, data in provider_data_list:
         runtime = data["golem.runtime.name"]
         offer_key = (provider_id, runtime)
-        offer_keys.append(offer_key)
-        offer_data[offer_key] = data
+        variants_by_key.setdefault(offer_key, {})[offer_content_hash(data)] = data
+
+    offer_data = select_current_variants(variants_by_key, now)
+    offer_keys = list(offer_data)
 
     # Get existing Offers
     existing_offers = Offer.objects.filter(
@@ -114,7 +187,8 @@ def update_providers_info(node_props):
             provider=provider,
             runtime=runtime,
             defaults={
-                'properties': offer_data[offer_key]
+                'properties': offer_data[offer_key],
+                'last_seen_at': now,
             }
         )
         if created:
@@ -128,14 +202,17 @@ def update_providers_info(node_props):
         {(offer.provider.node_id, offer.runtime): offer for offer in updated_offers})
 
     # Now process and update offers
-    offers_to_update = []  # list of offers to bulk update
-    for offer_key in offer_keys:
+    offers_to_update = []  # offers whose contents changed
+    offers_seen_only = []  # unchanged, but observed again in this scan
+    # offer_data is keyed by (provider, runtime), so each offer is handled once
+    # even when the same provider sends several proposals for one runtime.
+    for offer_key, data in offer_data.items():
         provider_id, runtime = offer_key
-        data = offer_data[offer_key]
         offer = existing_offers_dict.get(offer_key)
         if not offer:
             continue
 
+        changed = False
         vectors = {}
         if data.get("golem.runtime.name") in ("vm", "vm-nvidia"):
             for key, value in enumerate(data.get("golem.com.usage.vector", [])):
@@ -156,7 +233,10 @@ def update_providers_info(node_props):
             new_hourly_price_usd = min(
                 new_monthly_price_usd / hours_in_current_month, MAX_PRICE_CAP_VALUE)
 
-            # Check if any price values have changed
+            # Prices depend on the GLM/USD rate and the length of the current
+            # month as well as on the offer itself, so they can move while the
+            # properties stay identical. Mark the offer dirty whenever they do,
+            # otherwise the recomputed values would be dropped on the floor.
             if (offer.monthly_price_glm != new_monthly_price_glm or
                 offer.monthly_price_usd != new_monthly_price_usd or
                 offer.hourly_price_glm != new_hourly_price_glm or
@@ -166,6 +246,7 @@ def update_providers_info(node_props):
                 offer.monthly_price_usd = new_monthly_price_usd
                 offer.hourly_price_glm = new_hourly_price_glm
                 offer.hourly_price_usd = new_hourly_price_usd
+                changed = True
 
             vcpu_needed = data.get("golem.inf.cpu.threads", 0)
             memory_needed = data.get("golem.inf.mem.gib", 0.0)
@@ -183,27 +264,42 @@ def update_providers_info(node_props):
                 if ec2_monthly_price != 0:
                     offer_is_more_expensive = offer_price_usd > ec2_monthly_price
                     offer_is_cheaper = offer_price_usd < ec2_monthly_price
-                    offer.is_overpriced = offer_is_more_expensive
-                    offer.overpriced_compared_to = closest_ec2 if offer_is_more_expensive else None
-                    offer.times_more_expensive = offer_price_usd / \
-                        float(ec2_monthly_price) if offer_is_more_expensive else None
-                    offer.suggest_env_per_hour_price = float(
-                        closest_ec2.price_usd) / glm_usd_value.current_price
-                    offer.cheaper_than = closest_ec2 if offer_is_cheaper else None
-                    offer.times_cheaper = float(
-                        ec2_monthly_price) / offer_price_usd if offer_is_cheaper else None
+                    comparison = {
+                        'is_overpriced': offer_is_more_expensive,
+                        'overpriced_compared_to': closest_ec2 if offer_is_more_expensive else None,
+                        'times_more_expensive': offer_price_usd / float(ec2_monthly_price) if offer_is_more_expensive else None,
+                        'suggest_env_per_hour_price': float(closest_ec2.price_usd) / glm_usd_value.current_price,
+                        'cheaper_than': closest_ec2 if offer_is_cheaper else None,
+                        'times_cheaper': float(ec2_monthly_price) / offer_price_usd if offer_is_cheaper else None,
+                    }
+                    for field, value in comparison.items():
+                        if getattr(offer, field) != value:
+                            setattr(offer, field, value)
+                            changed = True
                 else:
                     print("EC2 monthly price is zero, cannot compare offer prices.")
 
         # Always update the offer if any properties have changed
         # Compare existing properties with new data
-        normalized_existing = normalize_properties(offer.properties.copy())
+        normalized_existing = normalize_properties((offer.properties or {}).copy())
         normalized_new = normalize_properties(data.copy())
 
         if normalized_existing != normalized_new:
             print(f"DETECTED CHANGE Updating offer {offer.id}")
             offer.properties = data
+            changed = True
+
+        # Record that this scan saw the offer, whether or not it changed. This
+        # is what separates "the provider still advertises this" from "this is
+        # the last thing we ever heard from them".
+        offer.last_seen_at = now
+        if changed:
+            # bulk_update() does not run auto_now, so updated_at has to be set
+            # by hand or it stays frozen at the row's creation time.
+            offer.updated_at = now
             offers_to_update.append(offer)
+        else:
+            offers_seen_only.append(offer)
 
     # Bulk update offers if any
     if offers_to_update:
@@ -213,9 +309,12 @@ def update_providers_info(node_props):
                 'monthly_price_glm', 'monthly_price_usd', 'hourly_price_glm', 'hourly_price_usd',
                 'is_overpriced', 'overpriced_compared_to', 'times_more_expensive',
                 'suggest_env_per_hour_price', 'cheaper_than', 'times_cheaper',
-                'properties', 'updated_at'
+                'properties', 'updated_at', 'last_seen_at'
             ]
         )
+
+    if offers_seen_only:
+        Offer.objects.bulk_update(offers_seen_only, ['last_seen_at'])
 
     # Update Nodes
     nodes_to_update = []

@@ -676,7 +676,7 @@ def cheapest_by_cores(request):
     )
     data = req.json()
     price = data["market_data"]["current_price"]["usd"]
-    obj = Offer.objects.filter(
+    obj = Offer.objects.fresh().filter(
         provider__online=True, runtime="vm", provider__computing_now=False
     ).order_by("monthly_price_glm")
     serializer = OfferSerializer(obj, many=True)

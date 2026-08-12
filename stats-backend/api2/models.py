@@ -1,7 +1,15 @@
+from datetime import timedelta
+
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from django.db.models.functions import Extract, Coalesce, Lag
 from metamask.models import UserProfile
+
+
+def offer_freshness_cutoff():
+    """Offers not re-observed by a scan since this moment count as unknown."""
+    return timezone.now() - timedelta(seconds=settings.OFFER_FRESHNESS_SECONDS)
 
 # Create your models here.
 
@@ -43,12 +51,27 @@ class EC2Instance(models.Model):
         return self.name
 
 
+class OfferQuerySet(models.QuerySet):
+    def fresh(self):
+        """Only offers a scan actually saw recently.
+
+        Rows are never deleted, so the table still holds the last known state of
+        every provider we have ever seen. Anything outside this window is
+        history, not a current fact about the network, and must not be served as
+        one.
+        """
+        return self.filter(last_seen_at__gte=offer_freshness_cutoff())
+
+
 class Offer(models.Model):
     properties = models.JSONField(null=True)
     runtime = models.CharField(max_length=42)
     provider = models.ForeignKey(Node, on_delete=models.CASCADE)
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # Last scan that observed this offer on the market, as opposed to
+    # updated_at, which only moves when the offer's contents change.
+    last_seen_at = models.DateTimeField(null=True, blank=True, db_index=True)
     monthly_price_glm = models.FloatField(null=True, blank=True)
     monthly_price_usd = models.FloatField(null=True, blank=True)
     hourly_price_glm = models.FloatField(null=True, blank=True)
@@ -64,6 +87,12 @@ class Offer(models.Model):
     )
     times_cheaper = models.FloatField(null=True)
 
+    objects = OfferQuerySet.as_manager()
+
+    @property
+    def is_fresh(self):
+        return self.last_seen_at is not None and self.last_seen_at >= offer_freshness_cutoff()
+
     class Meta:
         unique_together = ("runtime", "provider")
         indexes = [
@@ -71,6 +100,26 @@ class Offer(models.Model):
             models.Index(fields=["is_overpriced", "overpriced_compared_to"]),
             models.Index(fields=["cheaper_than"]),
         ]
+
+
+class OfferVariantSighting(models.Model):
+    """First/last time a scan saw a particular version of a provider's offer.
+
+    Providers can keep several live market subscriptions for the same runtime —
+    typically the pre-change offer next to the post-change one — and a single
+    scan then delivers both. This table remembers when each distinct content
+    variant first appeared, so the scanner can prefer the newest variant
+    instead of whichever proposal happened to arrive last.
+    """
+
+    provider_node_id = models.CharField(max_length=42, db_index=True)
+    runtime = models.CharField(max_length=42)
+    content_hash = models.CharField(max_length=32)
+    first_seen_at = models.DateTimeField(db_index=True)
+    last_seen_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        unique_together = ("provider_node_id", "runtime", "content_hash")
 
 
 class HealtcheckTask(models.Model):
