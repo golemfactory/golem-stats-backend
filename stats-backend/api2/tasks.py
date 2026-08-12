@@ -667,10 +667,11 @@ def get_current_glm_price():
 
 @app.task
 def v2_offer_scraper(subnet_tag="public"):
-    # Run the asyncio function using asyncio.run()
+    """One market scan. Kept for manual runs; deliberately does NOT re-queue
+    itself — the old self-requeuing chain is retired in favour of the
+    one-shot offer_scanner containers (manage.py one_shot_offer_scan), and a
+    leftover chain message must not be able to resurrect it."""
     asyncio.run(monitor_nodes_status(subnet_tag))
-    v2_offer_scraper.apply_async(
-        args=[subnet_tag], countdown=5, queue='yagna', routing_key='yagna')
 
 
 @app.task

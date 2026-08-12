@@ -90,10 +90,12 @@ def setup_periodic_tasks(sender, **kwargs):
             20.0,
             golem_base_scraper_wrapper.s(),
         )
-    elif settings.OFFER_SCRAPER_TYPE == "yagna":
-        v2_offer_scraper.apply_async(
-            args=["ray-on-golem-heads"], queue="yagna", routing_key="yagna")
-        v2_offer_scraper.apply_async(queue="yagna", routing_key="yagna")
+    # OFFER_SCRAPER_TYPE == "yagna" needs no beat involvement: scanning is
+    # driven by the one-shot offer_scanner containers (see docker-compose in
+    # golem-stats-deployment), each running `manage.py one_shot_offer_scan`
+    # and exiting. The old self-requeuing v2_offer_scraper chain is retired —
+    # it silently died whenever a worker was killed mid-scan, because the
+    # task only re-queued itself after finishing.
     sender.add_periodic_task(
         60,
         computing_total_over_time.s(),
