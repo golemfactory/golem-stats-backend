@@ -291,3 +291,32 @@ class OfferVariantSelectionTests(TestCase):
             remaining,
             {offer_content_hash(json.loads(self._payload([2e-06, 2e-06, 0.0])))},
         )
+
+    def test_recently_seen_newer_variant_wins_even_when_absent_from_batch(self):
+        """Scans interleave and a batch may carry only the stale variant; a
+        newer variant seen moments ago by another scan must still hold."""
+        from api2.models import Offer
+        from api2.scanner import update_providers_info
+
+        old = self._payload([1e-06, 1e-06, 0.0])
+        update_providers_info([old])
+
+        new = self._payload([2e-06, 2e-06, 0.0])
+        update_providers_info([old, new])
+        offer = Offer.objects.get(provider=self.node, runtime="vm")
+        self.assertEqual(
+            offer.properties["golem.com.pricing.model.linear.coeffs"],
+            [2e-06, 2e-06, 0.0],
+        )
+        seen_before = offer.last_seen_at
+
+        # The next batch only carries the stale copy — it must not win.
+        update_providers_info([old])
+        offer.refresh_from_db()
+        self.assertEqual(
+            offer.properties["golem.com.pricing.model.linear.coeffs"],
+            [2e-06, 2e-06, 0.0],
+        )
+        # But the offer still counts as observed by that scan.
+        self.assertGreaterEqual(offer.last_seen_at, seen_before)
+        self.assertTrue(offer.is_fresh)

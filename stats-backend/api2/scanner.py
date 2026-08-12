@@ -69,18 +69,20 @@ def select_current_variants(variants_by_key, now):
     by arrival order. Ties (e.g. both variants first recorded in the same
     scan) break on the hash, which is arbitrary but stable — no oscillation.
     """
-    all_hashes = {h for variants in variants_by_key.values() for h in variants}
-    sightings = {
-        (s.provider_node_id, s.runtime, s.content_hash): s
-        for s in OfferVariantSighting.objects.filter(content_hash__in=all_hashes)
-    }
+    known = {}  # (provider, runtime) -> {content_hash: sighting}
+    for s in OfferVariantSighting.objects.filter(
+        provider_node_id__in={key[0] for key in variants_by_key}
+    ):
+        known.setdefault((s.provider_node_id, s.runtime), {})[s.content_hash] = s
 
+    recent_cutoff = now - timedelta(seconds=settings.OFFER_FRESHNESS_SECONDS)
     to_create, to_touch = [], []
     winners = {}
     for (provider_id, runtime), variants in variants_by_key.items():
+        key_sightings = known.setdefault((provider_id, runtime), {})
         candidates = []
         for content_hash, data in variants.items():
-            sighting = sightings.get((provider_id, runtime, content_hash))
+            sighting = key_sightings.get(content_hash)
             if sighting:
                 sighting.last_seen_at = now
                 to_touch.append(sighting)
@@ -93,9 +95,21 @@ def select_current_variants(variants_by_key, now):
                     last_seen_at=now,
                 )
                 to_create.append(sighting)
+                key_sightings[content_hash] = sighting
             candidates.append((sighting.first_seen_at, content_hash, data))
 
+        # A scan batch does not always carry every live variant: the provider
+        # rebroadcasts on its own schedule and three daemons scan
+        # independently. A variant another scan saw moments ago still
+        # competes, otherwise a batch holding only the stale variant would win
+        # it by default and the flip-flop returns through the back door.
+        for content_hash, sighting in key_sightings.items():
+            if content_hash not in variants and sighting.last_seen_at >= recent_cutoff:
+                candidates.append((sighting.first_seen_at, content_hash, None))
+
         candidates.sort(key=lambda c: (c[0], c[1]))
+        # A None winner means the current best variant was absent from this
+        # batch; keep the stored contents and only mark the offer as seen.
         winners[(provider_id, runtime)] = candidates[-1][2]
 
     if to_create:
@@ -210,6 +224,14 @@ def update_providers_info(node_props):
         provider_id, runtime = offer_key
         offer = existing_offers_dict.get(offer_key)
         if not offer:
+            continue
+
+        if data is None:
+            # The winning variant was not in this batch (another scan saw it
+            # moments ago). Leave the stored contents alone; just record that
+            # the offer is still on the market.
+            offer.last_seen_at = now
+            offers_seen_only.append(offer)
             continue
 
         changed = False
