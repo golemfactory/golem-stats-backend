@@ -75,7 +75,8 @@ def select_current_variants(variants_by_key, now):
     ):
         known.setdefault((s.provider_node_id, s.runtime), {})[s.content_hash] = s
 
-    recent_cutoff = now - timedelta(seconds=settings.OFFER_FRESHNESS_SECONDS)
+    recent_cutoff = now - timedelta(
+        seconds=settings.OFFER_VARIANT_RECENT_SECONDS)
     to_create, to_touch = [], []
     winners = {}
     for (provider_id, runtime), variants in variants_by_key.items():

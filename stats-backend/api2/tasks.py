@@ -361,8 +361,11 @@ def v2_network_online_to_redis_flatmap():
 def v2_cheapest_offer():
     # This used to key off updated_at, which only moves when an offer's contents
     # change, so the window was almost always empty.
+    # provider__online matters now that the freshness window is a day wide: a
+    # provider that dropped off the relay hours ago still has a "fresh" offer
+    # row, and must not be advertised as a current price.
     data = Offer.objects.fresh().filter(
-        runtime="vm"
+        runtime="vm", provider__online=True
     ).exclude(monthly_price_glm__isnull=True).order_by("-monthly_price_glm")
 
     serializer = OfferSerializer(data, many=True)

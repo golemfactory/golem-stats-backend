@@ -61,8 +61,19 @@ OFFER_SCRAPER_CONFIG = {
 # How long an offer stays usable after the last scan that saw it. Past this the
 # stored values are history: they stay in the database but are reported as
 # unknown instead of being presented as the provider's current state. Each
-# scraper loop takes ~60s per subnet, so this allows a few missed rounds.
+# scanner replica only listens for ~60s per restart cycle, so a provider that
+# rebroadcasts on its own schedule is regularly missed for several rounds in a
+# row; the window has to be generous or those providers vanish from the stats.
 OFFER_FRESHNESS_SECONDS = int(os.environ.get("OFFER_FRESHNESS_SECONDS", 300))
+
+# How long a variant another scan saw still competes for its (provider,
+# runtime) slot when the current batch does not carry it. This is deliberately
+# NOT the freshness window: it only has to cover the skew between the
+# concurrent scanner replicas. Widening it to the freshness window would let a
+# variant the provider stopped advertising keep winning for that whole period,
+# which is exactly the flip-flop this tiebreak exists to prevent.
+OFFER_VARIANT_RECENT_SECONDS = int(
+    os.environ.get("OFFER_VARIANT_RECENT_SECONDS", 300))
 
 
 TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
