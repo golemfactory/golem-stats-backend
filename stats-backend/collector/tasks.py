@@ -418,9 +418,18 @@ def network_node_versions():
     from django.db import transaction
 
     now = round(time.time())
+    job = settings.GRAFANA_JOB_NAME
+    # major*10000 + minor*100 + patch: the same encoding _version_count_series
+    # uses. A tighter packing (*100/*10) collides once a component reaches its
+    # base, e.g. 0.17.10 -> 180 -> "0.18.0".
+    query = urllib.parse.quote(
+        f'yagna_version_major{{exported_job="{job}"}}*10000'
+        f' + yagna_version_minor{{exported_job="{job}"}}*100'
+        f' + yagna_version_patch{{exported_job="{job}"}}'
+    )
     domain = (
         os.environ.get("STATS_URL")
-        + f'api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query=yagna_version_major%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%7D*100%2Byagna_version_minor%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%7D*10%2Byagna_version_patch%7Bexported_job%3D"{settings.GRAFANA_JOB_NAME}"%7D&time={now}'
+        + f"api/datasources/uid/dec5owmc8gt8ge/resources/api/v1/query?query={query}&time={now}"
     )
     data = get_stats_data(domain)
     nodes_data = data[0]["data"]["result"]
@@ -430,18 +439,11 @@ def network_node_versions():
     for obj in nodes_data:
         try:
             node_id = obj["metric"]["exported_instance"]
-            version_val = int(obj["value"][1])
+            version_val = int(float(obj["value"][1]))
 
-            if len(str(version_val)) == 2:  # Two-digit version
-                major = 0
-                minor = version_val // 10
-                patch = version_val % 10
-            elif len(str(version_val)) == 3:  # Three-digit version
-                major = 0
-                minor = version_val // 10
-                patch = version_val % 10
-            else:
-                continue  # Skip if not two or three digits
+            major = version_val // 10000
+            minor = version_val % 10000 // 100
+            patch = version_val % 100
 
             version_formatted = f"{major}.{minor}.{patch}"
             node_updates.append((node_id, version_formatted))
