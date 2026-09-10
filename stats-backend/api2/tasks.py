@@ -1848,20 +1848,20 @@ def _format_network_stats_entry(timestamp, entry):
 
 @app.task
 def network_stats_combined_hourly():
-    # Last 7 days of raw NetworkStats samples (~10s cadence per runtime)
+    # Last 30 days of raw NetworkStats samples (~10s cadence per runtime)
     # averaged into hourly points. Intermediate series consumed by
     # network_stats_combined_5min when it composes the combined payload.
     # Runtimes with no samples in the window are omitted entirely so retired
     # ones don't show up as empty charts.
     now = timezone.now()
     runtime_names = NetworkStats.objects.filter(
-        date__gte=now - timedelta(days=7)
+        date__gte=now - timedelta(days=30)
     ).values_list("runtime", flat=True).distinct()
     data = {}
     for runtime_name in runtime_names:
         stats = (
             NetworkStats.objects.filter(
-                runtime=runtime_name, date__gte=now - timedelta(days=7)
+                runtime=runtime_name, date__gte=now - timedelta(days=30)
             )
             .annotate(timestamp=TruncHour("date"))
             .values("timestamp")
@@ -1877,7 +1877,11 @@ def network_stats_combined_hourly():
         data[runtime_name] = [
             _format_network_stats_entry(entry["timestamp"], entry) for entry in stats
         ]
-    r.set("network_stats_combined_hourly", json.dumps(data))
+    r.set("network_stats_combined_30d", json.dumps(data))
+    cutoff = (now - timedelta(days=7)).timestamp()
+    weekly = {runtime: [point for point in points if point["date"] >= cutoff]
+              for runtime, points in data.items()}
+    r.set("network_stats_combined_hourly", json.dumps(weekly))
 
 
 @app.task
@@ -1890,8 +1894,9 @@ def network_stats_combined_5min():
         date__gte=now - timedelta(days=7)
     ).values_list("runtime", flat=True).distinct()
     hourly = json.loads(r.get("network_stats_combined_hourly") or "{}")
+    monthly = json.loads(r.get("network_stats_combined_30d") or "{}")
     combined = {}
-    for runtime_name in runtime_names:
+    for runtime_name in sorted(set(runtime_names) | set(monthly)):
         buckets = {}
         rows = NetworkStats.objects.filter(
             runtime=runtime_name, date__gte=now - timedelta(days=1)
@@ -1923,7 +1928,8 @@ def network_stats_combined_5min():
             )
         ]
         combined[runtime_name] = {
-            "24h": series, "7d": hourly.get(runtime_name, [])}
+            "24h": series, "7d": hourly.get(runtime_name, []),
+            "30d": monthly.get(runtime_name, [])}
     fields = ["date", "online", "cores", "memory", "disk", "gpus"]
     columnar = {
         runtime: {
@@ -1972,15 +1978,19 @@ def _pricing_windowed_series(network, points):
 
 @app.task
 def pricing_combined_hourly():
-    # 7 days of hourly points for the combined pricing chart.
+    # 30 days of hourly points for the combined pricing chart.
     now = timezone.now()
     end = now.replace(minute=0, second=0, microsecond=0)
-    points = [end - timedelta(hours=h) for h in range(7 * 24, -1, -1)]
+    points = [end - timedelta(hours=h) for h in range(30 * 24, -1, -1)]
     data = {
         network: _pricing_windowed_series(network, points)
         for network in ["mainnet", "testnet"]
     }
-    r.set("pricing_combined_hourly", json.dumps(data))
+    r.set("pricing_combined_30d", json.dumps(data))
+    cutoff = (now - timedelta(days=7)).timestamp()
+    weekly = {network: [point for point in points if point["date"] >= cutoff]
+              for network, points in data.items()}
+    r.set("pricing_combined_hourly", json.dumps(weekly))
 
 
 @app.task
@@ -1992,10 +2002,12 @@ def pricing_combined_5min():
                       5, second=0, microsecond=0)
     points = [end - timedelta(minutes=5 * i) for i in range(288, -1, -1)]
     hourly = json.loads(r.get("pricing_combined_hourly") or "{}")
+    monthly = json.loads(r.get("pricing_combined_30d") or "{}")
     combined = {
         network: {
             "24h": _pricing_windowed_series(network, points),
             "7d": hourly.get(network, []),
+            "30d": monthly.get(network, []),
         }
         for network in ["mainnet", "testnet"]
     }
@@ -2060,10 +2072,10 @@ def _fill_versions(points, versions):
 def network_versions_combined_hourly():
     now = timezone.now()
     end = int(now.replace(minute=0, second=0, microsecond=0).timestamp())
-    r.set(
-        "network_versions_combined_hourly",
-        json.dumps(_version_count_series(end - 7 * 24 * 3600, end, 3600)),
-    )
+    monthly = _version_count_series(end - 30 * 24 * 3600, end, 3600)
+    r.set("network_versions_combined_30d", json.dumps(monthly))
+    weekly = [point for point in monthly if point["date"] >= end - 7 * 24 * 3600]
+    r.set("network_versions_combined_hourly", json.dumps(weekly))
 
 
 @app.task
@@ -2075,10 +2087,11 @@ def network_versions_combined_5min():
     if not day_points:
         return
     hourly = json.loads(r.get("network_versions_combined_hourly") or "[]")
+    monthly = json.loads(r.get("network_versions_combined_30d") or "[]")
     # Every supported version seen in either window, newest first so each
     # version keeps a stable series slot (and color) as adoption shifts.
     seen = set()
-    for point in day_points + hourly:
+    for point in day_points + hourly + monthly:
         seen.update(key for key in point if key != "date")
     versions = sorted(
         seen, key=lambda v: [int(part) for part in v.split(".")], reverse=True
@@ -2087,6 +2100,7 @@ def network_versions_combined_5min():
         "versions": versions,
         "24h": _fill_versions(day_points, versions),
         "7d": _fill_versions(hourly, versions),
+        "30d": _fill_versions(monthly, versions),
     }
     r.set("network_versions_combined", json.dumps(combined))
 
